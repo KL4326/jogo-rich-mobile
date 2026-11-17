@@ -627,9 +627,9 @@ function vInicio() {
 function eventCard() {
   const e = C.s.event;
   if (!e) return '';
-  return `<div class="event"><div class="evhead"><span class="evi">${e.icon}</span><div class="grow"><small>OPORTUNIDADE</small><b>${e.title}</b></div><span class="timer sm" data-live="evtime"></span></div>
-    <p>${e.text}</p>${e.cost ? `<p class="evcost">Custa <b>${money(e.cost)}</b></p>` : ''}
-    <div class="btns">${e.no ? `<button class="btn ghost" data-act="event" data-yes="0">${e.no}</button>` : ''}<button class="btn" data-act="event" data-yes="1" ${e.cost ? `data-cost="${e.cost}"` : ''}>${e.yes}</button></div></div>`;
+  return `<div class="event"><div class="evhead"><span class="evi">${e.icon}</span><div class="grow"><small>${e.gain ? 'BOA NOTÍCIA' : e.pay ? 'IMPREVISTO' : 'OPORTUNIDADE'}</small><b>${e.title}</b></div><span class="timer sm" data-live="evtime"></span></div>
+    <p>${e.text}</p>${e.cost || e.pay ? `<p class="evcost">${e.pay && !e.no ? 'Despesa obrigatória' : 'Custa'}: <b>${money(e.cost || e.pay)}</b></p>` : ''}${e.gain ? `<p class="evgain">Você recebe <b>${money(e.gain)}</b> 🎉</p>` : ''}
+    <div class="btns">${e.no ? `<button class="btn ghost" data-act="event" data-yes="0">${e.no}</button>` : ''}<button class="btn ${e.pay && !e.no ? 'red' : ''}" data-act="event" data-yes="1" ${e.cost ? `data-cost="${e.cost}"` : ''}>${e.yes}</button></div></div>`;
 }
 function buffsLine() {
   const now = Date.now();

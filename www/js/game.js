@@ -399,71 +399,146 @@ export function checkAchievements(s) {
   return got;
 }
 
-// ---------- Oportunidades e imprevistos ----------
+// ---------- Oportunidades e imprevistos (acontecimentos da vida) ----------
+// Cada acontecimento vira um objeto simples (salvo no save) com os efeitos de aceitar (yes) e recusar/ignorar (no).
+// Efeitos: cash (+ganho), pay (custo obrigatório), buff {id, mult, mins}, pending {amt, mins, p, label}, aff, xp, good, rest, chance {p, win, lose}, msg
 const MIN = 60_000;
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
-function ownedBiz(s) { return BUSINESSES.filter((b) => s.biz[b.id]); }
+const ownedBiz = (s) => BUSINESSES.filter((b) => s.biz[b.id]);
+const hasVeh = (s) => [...GOODS.veiculos].some((g) => s.goods[g.id] && g.id !== 'bike' && g.id !== 'patinete');
+const R = (x) => Math.max(1, Math.round(x));
 
-// Gera um evento aleatório adequado ao momento do jogador
-export function makeEvent(s, mk) {
-  const now = Date.now();
-  const net = Math.max(50, incomeBreakdown(s, mk).net);
+function eventPool(s, mk) {
+  const ib = incomeBreakdown(s, mk);
+  const net = Math.max(60, ib.net);
+  const day = net;               // "um dia" de renda
   const cash = Math.max(0, s.cash);
   const owned = ownedBiz(s);
-  const opts = [];
-  if (owned.length) {
-    const b = pick(owned);
-    const p = bizProfit(s, b, mk);
-    opts.push({ k: 'influ', icon: '🤳', title: 'Influenciador famoso', text: `Um influenciador quer divulgar sua <b>${b.name}</b>. O lucro dela dobra por 30 min.`, cost: Math.round(p * 15), biz: b.id, yes: 'Fechar parceria', no: 'Dispensar' });
-    opts.push({ k: 'reparo', icon: '🔧', title: 'Problema na operação', text: `A <b>${b.name}</b> quebrou um equipamento! Se não consertar, o lucro dela cai pela metade por 1 hora.`, cost: Math.round(p * 8), biz: b.id, yes: 'Consertar', no: 'Deixar quebrado' });
-    if (owned.length >= 2) opts.push({ k: 'feira', icon: '🎪', title: 'Feira de negócios', text: 'Montar um estande na feira da cidade aumenta o lucro de TODOS os seus negócios em 25% por 40 min.', cost: Math.round(incomeBreakdown(s, mk).biz * 12), biz: '*', yes: 'Montar estande', no: 'Não ir' });
+  const b = owned.length ? pick(owned) : null;
+  const bp = b ? bizProfit(s, b, mk) : 0;
+  const L = s.love;
+  const job = JOBS.find((j) => j.id === s.job);
+  const E = [];
+  const add = (w, ev) => E.push({ w, ev });
+
+  // ===== Boas notícias (só receber) =====
+  add(3, { k: 'heranca', icon: '🎁', title: 'Herança inesperada', text: 'Um tio-avô distante deixou uma herança para você!', gain: R(day * 25), yes: 'Receber', fx: { cash: R(day * 25) } });
+  add(4, { k: 'rua', icon: '💵', title: 'Achou dinheiro na rua', text: 'Você encontrou umas notas dobradas na calçada. Ninguém por perto…', gain: R(day * 2), yes: 'Guardar', fx: { cash: R(day * 2) } });
+  add(3, { k: 'restituicao', icon: '🧾', title: 'Restituição do imposto', text: 'A Receita liberou sua restituição do imposto de renda!', gain: R(day * 8), yes: 'Receber', fx: { cash: R(day * 8) } });
+  add(3, { k: 'bonus', icon: '🏅', title: 'Bônus no trabalho', text: `Seu chefe gostou do seu trabalho como ${job.name} e liberou um bônus!`, gain: R(salary(s) * 10), yes: 'Uhuu!', fx: { cash: R(salary(s) * 10), xp: 10 } });
+  add(2, { k: 'bolao', icon: '🎱', title: 'Bolão do trabalho', text: 'O bolão da firma acertou a quina! Sua parte chegou.', gain: R(day * 15), yes: 'Receber', fx: { cash: R(day * 15) } });
+  add(3, { k: 'brecho', icon: '📦', title: 'Desapego', text: 'Você vendeu umas coisas velhas que estavam encostadas.', gain: R(day * 3), yes: 'Vender tudo', fx: { cash: R(day * 3) } });
+  add(2, { k: 'concurso', icon: '🍰', title: 'Campeão de culinária', text: 'Seu bolo ganhou o concurso do bairro!', gain: R(day * 4), yes: 'Pegar o prêmio', fx: { cash: R(day * 4), xp: 15 } });
+  add(2, { k: 'sorteio', icon: '🛒', title: 'Sorteio do mercado', text: 'Sua nota fiscal foi sorteada na promoção do supermercado!', gain: R(day * 6), yes: 'Receber', fx: { cash: R(day * 6) } });
+  add(2, { k: 'indenizacao', icon: '⚖️', title: 'Ganhou o processo', text: 'Aquela empresa que te cobrou errado perdeu na justiça e vai te indenizar.', gain: R(day * 12), yes: 'Receber', fx: { cash: R(day * 12) } });
+  if (owned.length) add(3, { k: 'viral', icon: '📲', title: 'Viralizou!', text: 'Um vídeo sobre seus negócios viralizou! Todos lucram +50% por 30 min.', yes: 'Aproveitar', fx: { buff: { id: '*', mult: 1.5, mins: 30 } } });
+  if (b) add(2, { k: 'vip', icon: '🤵', title: 'Cliente VIP', text: `Um cliente milionário fez uma encomenda enorme na sua ${b.name}.`, gain: R(bp * 40), yes: 'Atender', fx: { cash: R(bp * 40), xp: 10 } });
+
+  // ===== Imprevistos (pagar) =====
+  add(3, { k: 'dentista', icon: '🦷', title: 'Dor de dente', text: 'Acordou com dor de dente. Não tem jeito: dentista!', pay: R(day * 3), yes: 'Pagar', fx: {} });
+  add(3, { k: 'celular', icon: '📱', title: 'Celular quebrou', text: 'O celular caiu de cara no chão. Tela trincada!', pay: R(day * 4), yes: 'Consertar', fx: {} });
+  add(2, { k: 'geladeira', icon: '🧊', title: 'Geladeira pifou', text: 'A geladeira parou de gelar bem no calor.', pay: R(day * 6), yes: 'Comprar outra', fx: {} });
+  add(2, { k: 'aniversario', icon: '🎂', title: 'Aniversário de amigo', text: 'É aniversário do seu melhor amigo. Vai dar presente, né?', pay: R(day * 2), yes: 'Dar presente', no: 'Esquecer…', fx: { xp: 5 }, nofx: { msg: '😅 Seu amigo ficou chateado…' } });
+  add(2, { k: 'casamentoamigo', icon: '💒', title: 'Casamento de amigo', text: 'Você foi convidado(a) para ser padrinho/madrinha! Terno, presente e festa…', pay: R(day * 8), yes: 'Ir ao casamento', no: 'Dar uma desculpa', fx: { xp: 15, rest: 60 }, nofx: { msg: '😬 Pegou mal faltar…' } });
+  if (hasVeh(s)) {
+    add(3, { k: 'multa', icon: '🚓', title: 'Multa de trânsito', text: 'Chegou uma multa por excesso de velocidade. Pagar com desconto agora?', pay: R(day * 3), yes: 'Pagar com desconto', no: 'Pagar depois', fx: {}, nofx: { pay: R(day * 5), msg: '🚓 Pagou a multa cheia.' } });
+    add(2, { k: 'pneu', icon: '🛞', title: 'Pneu furado', text: 'Furou o pneu no meio do caminho. Guincho e borracharia!', pay: R(day * 2), yes: 'Pagar', fx: {} });
+    add(2, { k: 'granizo', icon: '🌨️', title: 'Chuva de granizo', text: 'Uma chuva de granizo amassou seu carro todo.', pay: R(day * 7), yes: 'Funilaria', fx: {} });
+  }
+  if (homeOf(s)) {
+    add(3, { k: 'vazamento', icon: '🚿', title: 'Vazamento em casa', text: 'Um cano estourou e alagou a cozinha!', pay: R(day * 5), yes: 'Chamar encanador', fx: {} });
+    add(2, { k: 'iptu', icon: '🏛️', title: 'IPTU chegou', text: 'Chegou o carnê do IPTU da sua casa.', pay: R(day * 6), yes: 'Pagar', fx: {} });
+  } else {
+    add(2, { k: 'reajuste', icon: '📈', title: 'Aluguel reajustado', text: 'O dono do quarto que você aluga cobrou um reajuste atrasado.', pay: R(day * 3), yes: 'Pagar', fx: {} });
+  }
+
+  // ===== Escolhas de risco =====
+  if (b) {
+    add(3, { k: 'influ', icon: '🤳', title: 'Influenciador famoso', text: `Um influenciador quer divulgar sua ${b.name}. O lucro dela dobra por 30 min.`, cost: R(bp * 15), yes: 'Fechar parceria', no: 'Dispensar', fx: { buff: { id: b.id, mult: 2, mins: 30 }, xp: 10 } });
+    add(3, { k: 'reparo', icon: '🔧', title: 'Equipamento quebrado', text: `A ${b.name} quebrou um equipamento! Sem conserto, o lucro dela cai pela metade por 1 hora.`, cost: R(bp * 8), yes: 'Consertar', no: 'Deixar quebrado', fx: { msg: '🔧 Consertado!' }, nofx: { buff: { id: b.id, mult: 0.5, mins: 60 }, msg: '😬 Lucro do negócio pela metade por 1h.' } });
+    add(2, { k: 'fiscal', icon: '🕵️‍♂️', title: 'Fiscalização surpresa', text: `A vigilância apareceu na ${b.name}. Pagar a taxa de regularização agora ou arriscar a interdição (50% de chance de fechar por 40 min)?`, cost: R(bp * 6), yes: 'Regularizar', no: 'Arriscar', fx: {}, nofx: { chance: { p: 0.5, win: { msg: '😅 Ufa, passou na fiscalização!' }, lose: { buff: { id: b.id, mult: 0, mins: 40 }, msg: '🚫 Negócio interditado por 40 min!' } } } });
+    add(2, { k: 'greve', icon: '🪧', title: 'Funcionários insatisfeitos', text: `Os funcionários da ${b.name} pedem aumento. Sem acordo, a produção cai 40% por 1h.`, cost: R(bp * 10), yes: 'Dar aumento', no: 'Negar', fx: { buff: { id: b.id, mult: 1.15, mins: 60 }, msg: '🤝 Equipe motivada: +15% por 1h!' }, nofx: { buff: { id: b.id, mult: 0.6, mins: 60 }, msg: '🪧 Greve! Produção -40% por 1h.' } });
+    add(2, { k: 'apagao', icon: '🔌', title: 'Apagão na cidade', text: 'Um apagão vai derrubar o movimento dos seus negócios por 30 min. Alugar um gerador?', cost: R(ib.biz * 5), yes: 'Alugar gerador', no: 'Esperar a luz voltar', fx: { msg: '🔌 Gerador ligado, tudo funcionando!' }, nofx: { buff: { id: '*', mult: 0.6, mins: 30 }, msg: '🕯️ Negócios a 60% por 30 min.' } });
+    if (owned.length >= 2) add(2, { k: 'feira', icon: '🎪', title: 'Feira de negócios', text: 'Montar um estande na feira da cidade aumenta o lucro de TODOS os seus negócios em 25% por 40 min.', cost: R(ib.biz * 12), yes: 'Montar estande', no: 'Não ir', fx: { buff: { id: '*', mult: 1.25, mins: 40 } } });
   }
   if (cash > 2000) {
-    opts.push({ k: 'estoque', icon: '📦', title: 'Queima de estoque', text: 'Um atacadista em apuros vende mercadoria baixíssimo. Você revende e recebe <b>+40%</b> em 20 minutos. Garantido!', cost: Math.round(cash * 0.08), yes: 'Comprar lote', no: 'Passar' });
-    opts.push({ k: 'amigo', icon: '🙋', title: 'Amigo pedindo ajuda', text: 'Um amigo pede um empréstimo e promete devolver <b>o dobro</b> em 1 hora. Ele é meio enrolado… (65% de chance de pagar).', cost: Math.round(cash * 0.1), yes: 'Emprestar', no: 'Recusar' });
+    add(3, { k: 'estoque', icon: '📦', title: 'Queima de estoque', text: 'Um atacadista em apuros vende mercadoria baratíssima. Revendendo, você recebe <b>+40%</b> em 20 minutos. Garantido!', cost: R(cash * 0.08), yes: 'Comprar lote', no: 'Passar', fx: { pending: { mult: 1.4, mins: 20, p: 1, label: 'Venda do estoque' } } });
+    add(2, { k: 'amigo', icon: '🙋', title: 'Amigo pedindo ajuda', text: 'Um amigo pede um empréstimo e promete devolver <b>o dobro</b> em 1 hora. Ele é meio enrolado… (65% de chance).', cost: R(cash * 0.1), yes: 'Emprestar', no: 'Recusar', fx: { pending: { mult: 2, mins: 60, p: 0.65, label: 'Seu amigo' } } });
+    add(2, { k: 'startup', icon: '🦄', title: 'Startup de um conhecido', text: 'Um conhecido quer investidores para um app. 25% de chance de virar <b>6x</b> em 1 hora — ou perder tudo.', cost: R(cash * 0.06), yes: 'Investir', no: 'Não confio', fx: { pending: { mult: 6, mins: 60, p: 0.25, label: 'A startup' } } });
+    add(2, { k: 'terreno', icon: '🌾', title: 'Terreno barato', text: 'Um terreno na beira da estrada está à venda por um preço ótimo. Em 1h ele deve valorizar <b>60%</b> (80% de chance).', cost: R(cash * 0.12), yes: 'Comprar terreno', no: 'Deixar pra lá', fx: { pending: { mult: 1.6, mins: 60, p: 0.8, label: 'A venda do terreno' } } });
+    add(2, { k: 'leilao', icon: '🔨', title: 'Leilão da Receita', text: 'Lotes de mercadoria apreendida estão sendo leiloados. 50% de chance de revender por <b>2,2x</b> em 30 min.', cost: R(cash * 0.05), yes: 'Dar lance', no: 'Ignorar', fx: { pending: { mult: 2.2, mins: 30, p: 0.5, label: 'O lote do leilão' } } });
+    add(1, { k: 'golpe', icon: '📞', title: 'Ligação suspeita', text: '"Parabéns, você ganhou um carro! Só precisa pagar a taxa de liberação…"', cost: R(cash * 0.04), yes: 'Pagar a taxa', no: 'Desligar na cara', fx: { msg: '🤦 Era golpe! O dinheiro sumiu.' }, nofx: { xp: 15, msg: '😎 Esperto! Era golpe.' } });
+    add(2, { k: 'loteria', icon: '🎟️', title: 'Bilhete de rifa', text: 'Um vendedor de rua oferece um bilhete de rifa. 10% de chance de ganhar <b>8x</b> o valor.', cost: R(Math.max(100, cash * 0.02)), yes: 'Comprar bilhete', no: 'Ignorar', fx: { chance: { p: 0.1, win: { cashMult: 8, msg: '🎉 Ganhou a rifa: 8x!' }, lose: { msg: '🎟️ Não foi dessa vez…' } } } });
+    add(1, { k: 'caridade', icon: '🤲', title: 'Campanha de caridade', text: 'Um hospital infantil está arrecadando doações. Ajudar faz bem: +XP e +10% de renda por 1h (de tão feliz).', cost: R(cash * 0.03), yes: 'Doar', no: 'Agora não', fx: { xp: 40, rest: 60, msg: '💛 Que gesto bonito!' } });
+    add(1, { k: 'cursorapido', icon: '🧠', title: 'Palestra de sucesso', text: 'Uma palestra famosa sobre negócios na cidade. Dá bastante experiência!', cost: R(day * 4), yes: 'Ir à palestra', no: 'Ficar em casa', fx: { xp: 80 } });
   }
   if (level(s) >= UNLOCKS.bolsa && cash > 5000) {
     const si = Math.floor(Math.random() * (SECTORS.length - 1));
     const nextB = Math.floor(mk.t / BLOCK) + 1;
     let r = regime(si, nextB);
     if (Math.random() > 0.9) r = pick([-1, 0, 1].filter((x) => x !== r));
-    if (r !== 0) opts.push({ k: 'dica', icon: '🕵️', title: 'Dica quente', text: 'Um analista misterioso vende uma dica sobre a <b>próxima hora</b> da bolsa. Ele quase nunca erra…', cost: Math.round(cash * 0.03), tip: `${SECTORS[si].icon} ${SECTORS[si].name} vai entrar em ${r > 0 ? '🔥 ALTA' : '❄️ QUEDA'} na próxima hora!`, yes: 'Comprar dica', no: 'Não, obrigado' });
+    if (r !== 0) add(3, { k: 'dica', icon: '🕵️', title: 'Dica quente', text: 'Um analista misterioso vende uma dica sobre a <b>próxima hora</b> da bolsa. Ele quase nunca erra…', cost: R(cash * 0.03), tip: `${SECTORS[si].icon} ${SECTORS[si].name} vai entrar em ${r > 0 ? '🔥 ALTA' : '❄️ QUEDA'} na próxima hora!`, yes: 'Comprar dica', no: 'Não, obrigado', fx: { tip: true } });
   }
-  if (Math.random() < 0.15) opts.push({ k: 'heranca', icon: '🎁', title: 'Herança inesperada', text: 'Um tio distante deixou uma herança para você!', gain: Math.round(net * 25), yes: 'Receber', no: null });
-  if (Math.random() < 0.12) opts.push({ k: 'loteria', icon: '🎟️', title: 'Bilhete premiado?', text: 'Um vendedor de rua oferece um bilhete de rifa. 10% de chance de ganhar <b>8x</b> o valor.', cost: Math.round(Math.max(100, cash * 0.02)), yes: 'Comprar bilhete', no: 'Ignorar' });
-  if (!opts.length) return null;
-  const e = pick(opts);
-  e.exp = now + 12 * MIN;
-  return e;
+
+  // ===== Vida amorosa =====
+  if (L) {
+    add(2, { k: 'aniv_par', icon: '🎉', title: `Aniversário de ${L.partner.name}`, text: `Hoje é aniversário de ${L.partner.name}! Uma festa surpresa ia fazer sucesso…`, cost: R(day * 5), yes: 'Fazer festa surpresa', no: 'Só dar parabéns', fx: { aff: 25, msg: '🥳 Amou a surpresa!' }, nofx: { aff: -15, msg: '😒 Esperava mais…' } });
+    add(2, { k: 'briga', icon: '😤', title: 'Briguinha de casal', text: `Vocês discutiram por uma bobagem. Um jantar para fazer as pazes?`, cost: R(day * 2), yes: 'Pedir desculpas com jantar', no: 'Deixar esfriar', fx: { aff: 8, msg: '🥰 Fizeram as pazes!' }, nofx: { aff: -12, msg: '💔 Clima ficou pesado…' } });
+    add(1, { k: 'sogra', icon: '👵', title: 'Visita da sogra', text: `A família de ${L.partner.name} vem passar o fim de semana. Capricha no almoço?`, cost: R(day * 3), yes: 'Caprichar', no: 'Pedir pizza', fx: { aff: 12, msg: '😋 Todos amaram o almoço!' }, nofx: { aff: -5 } });
+  } else {
+    add(1, { k: 'crush', icon: '💘', title: 'Alguém de olho em você', text: 'Parece que tem alguém interessado em você… Vá em 👤 Vida → ❤️ Amor e procure!', gain: 0, yes: 'Ficar curioso', fx: { xp: 5 } });
+  }
+  return E;
 }
 
-// Aceitar (yes=true) ou recusar o evento atual. Retorna mensagem
+export function makeEvent(s, mk) {
+  const pool = eventPool(s, mk).filter((x) => !s.lastEventK || x.ev.k !== s.lastEventK);
+  if (!pool.length) return null;
+  let r = Math.random() * pool.reduce((t, x) => t + x.w, 0);
+  let e = pool[0].ev;
+  for (const x of pool) { r -= x.w; if (r < 0) { e = x.ev; break; } }
+  s.lastEventK = e.k;
+  return { ...e, exp: Date.now() + 12 * MIN };
+}
+
+// Aplica uma lista de efeitos. stake = valor pago (para pendências e prêmios proporcionais)
+function applyFx(s, fx, stake = 0) {
+  if (!fx) return {};
+  const now = Date.now();
+  const out = { msg: fx.msg };
+  if (fx.chance) { const sub = Math.random() < fx.chance.p ? fx.chance.win : fx.chance.lose; const r = applyFx(s, sub, stake); return { ...out, ...r, msg: r.msg || out.msg, win: sub === fx.chance.win && !!sub.cashMult }; }
+  if (fx.cash) { s.cash += fx.cash; out.gain = fx.cash; }
+  if (fx.cashMult) { s.cash += stake * fx.cashMult; out.gain = stake * fx.cashMult; }
+  if (fx.pay) payForced(s, fx.pay);
+  if (fx.buff) { s.buffs = (s.buffs || []).filter((x) => x.until > now); s.buffs.push({ id: fx.buff.id, mult: fx.buff.mult, until: now + fx.buff.mins * MIN }); }
+  if (fx.pending) { s.pending = s.pending || []; s.pending.push({ amt: stake * fx.pending.mult, at: now + fx.pending.mins * MIN, p: fx.pending.p, label: fx.pending.label }); if (!out.msg) out.msg = `⏳ Resultado em ${fx.pending.mins} min…`; }
+  if (fx.aff && s.love) s.love.aff = Math.max(0, Math.min(100, s.love.aff + fx.aff));
+  if (fx.xp) addXP(s, fx.xp);
+  if (fx.rest) s.rested = Math.max(s.rested || 0, now) + fx.rest * MIN;
+  if (fx.tip) out.tip = true;
+  return out;
+}
+// Despesa obrigatória: se faltar dinheiro, o resto vai para a dívida do cartão
+function payForced(s, amt) {
+  const fromCash = Math.min(Math.max(0, s.cash), amt);
+  s.cash -= fromCash;
+  if (amt > fromCash) s.debt += amt - fromCash;
+}
+
+// Aceitar (yes=true) ou recusar o evento atual. Retorna mensagem/objeto
 export function answerEvent(s, yes) {
   const e = s.event;
   if (!e) return 'Nada para responder';
-  const now = Date.now();
-  s.buffs = (s.buffs || []).filter((x) => x.until > now);
-  s.pending = s.pending || [];
-  if (!yes) {
-    s.event = null;
-    if (e.k === 'reparo') { s.buffs.push({ id: e.biz, mult: 0.5, until: now + 60 * MIN }); return '😬 O lucro do negócio caiu pela metade por 1 hora.'; }
-    return null;
-  }
+  if (!yes) { s.event = null; return applyFx(s, e.nofx); }
   if (e.cost) { const err = spend(s, e.cost); if (err) return err; }
+  if (e.pay) payForced(s, e.pay);
   s.event = null;
   s.stats.events = (s.stats.events || 0) + 1;
   addXP(s, 10);
-  switch (e.k) {
-    case 'influ': s.buffs.push({ id: e.biz, mult: 2, until: now + 30 * MIN }); return { msg: '📣 Lucro em dobro por 30 min!' };
-    case 'feira': s.buffs.push({ id: '*', mult: 1.25, until: now + 40 * MIN }); return { msg: '🎪 Todos os negócios +25% por 40 min!' };
-    case 'reparo': return { msg: '🔧 Consertado! Tudo funcionando.' };
-    case 'estoque': s.pending.push({ amt: e.cost * 1.4, at: now + 20 * MIN, p: 1, label: 'Venda do estoque' }); return { msg: '📦 Em 20 min você recebe o retorno.' };
-    case 'amigo': s.pending.push({ amt: e.cost * 2, at: now + 60 * MIN, p: 0.65, label: 'Seu amigo' }); return { msg: '🤞 Agora é torcer!' };
-    case 'dica': return { msg: '🕵️ ' + e.tip, tip: true };
-    case 'heranca': s.cash += e.gain; return { msg: '🎁 Herança recebida!', gain: e.gain };
-    case 'loteria': if (Math.random() < 0.1) { s.cash += e.cost * 8; return { msg: '🎉 GANHOU! Prêmio de 8x!', win: true }; } return { msg: '🎟️ Não foi dessa vez…' };
-  }
-  return null;
+  const r = applyFx(s, e.fx, e.cost || 0);
+  if (e.tip) { r.msg = '🕵️ ' + e.tip; r.tip = true; }
+  if (!r.msg) r.msg = e.pay ? '💸 Pago.' : e.gain ? '💰 Recebido!' : '✅ Feito!';
+  return r;
 }
 
 // Chamado no loop: cria eventos, expira e paga pendências. Retorna lista de mensagens
@@ -471,12 +546,14 @@ export function eventTick(s, mk) {
   const now = Date.now();
   const out = [];
   if (s.event && now > s.event.exp) {
-    if (s.event.k === 'reparo') { s.buffs = s.buffs || []; s.buffs.push({ id: s.event.biz, mult: 0.5, until: now + 60 * MIN }); out.push('😬 Você ignorou o conserto: lucro do negócio pela metade por 1h.'); }
+    const e = s.event;
     s.event = null;
+    if (e.pay && !e.no) { payForced(s, e.pay); out.push(`💸 ${e.title}: pago automaticamente.`); }
+    else if (e.nofx) { const r = applyFx(s, e.nofx); if (r.msg) out.push(r.msg); }
   }
   if (!s.event && now > (s.nextEvent || 0)) {
     if (s.nextEvent) { s.event = makeEvent(s, mk); if (s.event) out.push({ newEvent: true }); }
-    s.nextEvent = now + (8 + Math.random() * 10) * MIN;
+    s.nextEvent = now + (6 + Math.random() * 8) * MIN;
   }
   if (s.pending && s.pending.length) {
     s.pending = s.pending.filter((p) => {

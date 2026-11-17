@@ -692,3 +692,4 @@ details.appear[open] summary { margin-bottom: 8px; }
 .scratch .cover.scratching { clip-path: inset(0 0 0 100%); }
 .hint { font-size: 13px; color: #fff; background: #ffffff1a; border: 2px dashed #ffffff40; border-radius: 14px; padding: 10px 12px; margin: 0 0 12px; font-weight: 600; line-height: 1.4; }
 .sheet .hint, .box .hint { color: var(--ink); background: var(--card2); border-color: var(--edge); }
+.evgain { font-size: 15px; color: var(--green-d); margin-top: 6px !important; }
