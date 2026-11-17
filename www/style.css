@@ -576,3 +576,4 @@ details.appear[open] summary { margin-bottom: 8px; }
 .town span { position: relative; font-size: 26px; line-height: 1; filter: saturate(.85); }
 .town span i { position: absolute; top: -8px; right: -4px; font-style: normal; font-size: 9px; font-weight: 700; background: var(--gold); color: #6b3d00; border-radius: 8px; padding: 0 4px; }
 .scene.big .homebig, .scene.big .cast { z-index: 1; }
+.town span i { display: none; }
