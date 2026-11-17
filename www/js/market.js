@@ -39,8 +39,8 @@ function driftFor(secIdx) {
 }
 
 function jumpAt(i, t) {
-  if (h32(5, i, t) >= 0.0018) return 0;
-  return (h32(6, i, t) < 0.5 ? -1 : 1) * (0.08 + 0.17 * h32(7, i, t));
+  if (h32(5, i, t) >= 0.0007) return 0;
+  return (h32(6, i, t) < 0.5 ? -1 : 1) * (0.06 + 0.1 * h32(7, i, t));
 }
 
 function step(x, i, a, t) {
@@ -51,7 +51,7 @@ function step(x, i, a, t) {
   return x + KAPPA * (target - x) + reg * driftFor(sec) + a.sigma * z + jumpAt(i, t);
 }
 
-const LS_KEY = 'magnata_market_v1';
+const LS_KEY = 'magnata_market_v2';
 
 export class Market {
   constructor() {

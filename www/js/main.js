@@ -14,14 +14,15 @@ function afterAction() {
   const lvlBefore = G.level(ctx.s);
   const achs = G.checkAchievements(ctx.s);
   achs.forEach((a, i) => setTimeout(() => UI.toast(`🎖️ Conquista: <b>${a.name}</b>`, 'gold'), 400 * i));
-  if (newCard) cardModal(newCard);
+  if (newCard) { cardModal(newCard); UI.confetti(); }
+  else if (achs.length) UI.confetti();
   G.save(ctx.s);
   if (G.level(ctx.s) > lvlBefore || achs.length || newCard) UI.render();
 }
 
 function cardModal(c) {
   UI.modal(`<div class="celebrate"><h3>🎉 Novo cartão desbloqueado!</h3>
-    <div class="ccard ${c.cls} pop"><div class="cc-top"><span class="cc-bank">MAGNATA BANK</span><span class="cc-tier">${c.name.toUpperCase()}</span></div><div class="chip"></div><div class="cc-num">•••• •••• •••• ••••</div><div class="cc-bottom"><span>${ctx.s.name.toUpperCase()}</span><span>${money(c.min)}+</span></div></div>
+    <div class="ccard ${c.cls} pop"><div class="cc-top"><span class="cc-bank">MAGNATA</span><span class="cc-tier">${c.name.toUpperCase()}</span></div><div class="chip"></div><div class="cc-num">•••• •••• •••• ••••</div><div class="cc-bottom"><span>${ctx.s.name.toUpperCase()}</span><span>${money(c.min)}+</span></div></div>
     <p>Cashback de <b>${Math.round(c.cashback * 100)}%</b> · Limite de <b>${money(c.limit)}</b> · <b>${c.hours}h</b> de renda offline</p>
     <button class="btn full" data-act="close">Show! 😎</button></div>`);
 }
@@ -36,7 +37,7 @@ function tick() {
   const done = G.checkCourse(ctx.s);
   if (done) { UI.toast(`🎓 Você concluiu: <b>${done.name}</b>!`, 'gold'); afterAction(); UI.render(); }
   const L = G.level(ctx.s);
-  if (lastLevel && L > lastLevel) { UI.toast(`⭐ Subiu para o nível <b>${L}</b>! Renda +3%`, 'gold'); UI.render(); }
+  if (lastLevel && L > lastLevel) { UI.toast(`⭐ Subiu para o nível <b>${L}</b>! Renda +3%`, 'gold'); UI.confetti(); UI.render(); }
   lastLevel = L;
   UI.refresh();
 }

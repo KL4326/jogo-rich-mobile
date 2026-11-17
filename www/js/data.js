@@ -17,28 +17,28 @@ export const SECTOR = Object.fromEntries(SECTORS.map((s, i) => [s.id, { ...s, id
 
 // Ações (empresas fictícias). sigma = volatilidade por pregão, g = crescimento de longo prazo, div = dividendos por dia
 export const STOCKS = [
-  { sym: 'TECN3', name: 'TecNova', sector: 'tech', base: 42, sigma: 0.0084, g: 0.000003, div: 0 },
-  { sym: 'NUVM3', name: 'Nuvem Mais', sector: 'tech', base: 18, sigma: 0.0112, g: 0.000004, div: 0 },
-  { sym: 'PIXL3', name: 'Pixel Games', sector: 'tech', base: 9.5, sigma: 0.0154, g: 0.000005, div: 0 },
-  { sym: 'SABR3', name: 'Sabor Brasil', sector: 'food', base: 27, sigma: 0.0056, g: 0.000001, div: 0.0002 },
-  { sym: 'GRAO3', name: 'Grão Forte Agro', sector: 'food', base: 35, sigma: 0.007, g: 0.000002, div: 0.00015 },
-  { sym: 'MAGZ3', name: 'MegaLojas', sector: 'retail', base: 14, sigma: 0.0098, g: 0.000002, div: 0 },
-  { sym: 'MODA3', name: 'Moda Viva', sector: 'retail', base: 8.2, sigma: 0.0126, g: 0.000003, div: 0 },
-  { sym: 'VOLT3', name: 'Volta Energia', sector: 'energy', base: 31, sigma: 0.0063, g: 0.000001, div: 0.00025 },
-  { sym: 'PETX3', name: 'PetroMar', sector: 'energy', base: 38, sigma: 0.0091, g: 0.000002, div: 0.0002 },
-  { sym: 'BCOF4', name: 'Banco Forte', sector: 'finance', base: 24, sigma: 0.0063, g: 0.000002, div: 0.0002 },
-  { sym: 'PAGU3', name: 'PagUp', sector: 'finance', base: 12, sigma: 0.014, g: 0.000005, div: 0 },
-  { sym: 'CONS3', name: 'Constrular', sector: 'realestate', base: 16, sigma: 0.0105, g: 0.000002, div: 0.0001 },
-  { sym: 'LAJE11', name: 'Fundo Laje', sector: 'realestate', base: 98, sigma: 0.0042, g: 0.000001, div: 0.0003 },
-  { sym: 'VIDA3', name: 'VidaMed', sector: 'health', base: 52, sigma: 0.007, g: 0.000003, div: 0.0001 },
-  { sym: 'FARM3', name: 'FarmaJá', sector: 'health', base: 21, sigma: 0.0098, g: 0.000003, div: 0 },
-  { sym: 'LOGX3', name: 'LogiExpress', sector: 'services', base: 19, sigma: 0.0105, g: 0.000003, div: 0 },
+  { sym: 'TECN3', name: 'TecNova', sector: 'tech', base: 42, sigma: 0.0042, g: 0.000003, div: 0 },
+  { sym: 'NUVM3', name: 'Nuvem Mais', sector: 'tech', base: 18, sigma: 0.0056, g: 0.000004, div: 0 },
+  { sym: 'PIXL3', name: 'Pixel Games', sector: 'tech', base: 9.5, sigma: 0.0077, g: 0.000005, div: 0 },
+  { sym: 'SABR3', name: 'Sabor Brasil', sector: 'food', base: 27, sigma: 0.0028, g: 0.000001, div: 0.0002 },
+  { sym: 'GRAO3', name: 'Grão Forte Agro', sector: 'food', base: 35, sigma: 0.0035, g: 0.000002, div: 0.00015 },
+  { sym: 'MAGZ3', name: 'MegaLojas', sector: 'retail', base: 14, sigma: 0.0049, g: 0.000002, div: 0 },
+  { sym: 'MODA3', name: 'Moda Viva', sector: 'retail', base: 8.2, sigma: 0.0063, g: 0.000003, div: 0 },
+  { sym: 'VOLT3', name: 'Volta Energia', sector: 'energy', base: 31, sigma: 0.0032, g: 0.000001, div: 0.00025 },
+  { sym: 'PETX3', name: 'PetroMar', sector: 'energy', base: 38, sigma: 0.0046, g: 0.000002, div: 0.0002 },
+  { sym: 'BCOF4', name: 'Banco Forte', sector: 'finance', base: 24, sigma: 0.0032, g: 0.000002, div: 0.0002 },
+  { sym: 'PAGU3', name: 'PagUp', sector: 'finance', base: 12, sigma: 0.007, g: 0.000005, div: 0 },
+  { sym: 'CONS3', name: 'Constrular', sector: 'realestate', base: 16, sigma: 0.0053, g: 0.000002, div: 0.0001 },
+  { sym: 'LAJE11', name: 'Fundo Laje', sector: 'realestate', base: 98, sigma: 0.0021, g: 0.000001, div: 0.0003 },
+  { sym: 'VIDA3', name: 'VidaMed', sector: 'health', base: 52, sigma: 0.0035, g: 0.000003, div: 0.0001 },
+  { sym: 'FARM3', name: 'FarmaJá', sector: 'health', base: 21, sigma: 0.0049, g: 0.000003, div: 0 },
+  { sym: 'LOGX3', name: 'LogiExpress', sector: 'services', base: 19, sigma: 0.0053, g: 0.000003, div: 0 },
 ];
 
 export const CRYPTOS = [
-  { sym: 'ODG', name: 'Ouro Digital', sector: 'crypto', base: 350000, sigma: 0.012, g: 0.000004, div: 0 },
-  { sym: 'LMN', name: 'Lumen', sector: 'crypto', base: 12000, sigma: 0.021, g: 0.000005, div: 0 },
-  { sym: 'PATO', name: 'PatoCoin', sector: 'crypto', base: 0.8, sigma: 0.0385, g: 0.000002, div: 0 },
+  { sym: 'ODG', name: 'Ouro Digital', sector: 'crypto', base: 350000, sigma: 0.006, g: 0.000004, div: 0 },
+  { sym: 'LMN', name: 'Lumen', sector: 'crypto', base: 12000, sigma: 0.0105, g: 0.000005, div: 0 },
+  { sym: 'PATO', name: 'PatoCoin', sector: 'crypto', base: 0.8, sigma: 0.0192, g: 0.000002, div: 0 },
 ];
 
 export const ASSETS = [...STOCKS, ...CRYPTOS];

@@ -1,9 +1,9 @@
-// ===== Interface =====
+// ===== Interface (visual de jogo) =====
 import {
-  DAY_MS, SECTORS, SECTOR, STOCKS, CRYPTOS, ASSETS, BUSINESSES, COURSES, JOBS, PROPERTIES, GOODS, CARDS, UNLOCKS, TRADE_FEE, LOAN_RATE, LEVEL_BONUS,
+  DAY_MS, SECTORS, SECTOR, STOCKS, CRYPTOS, ASSETS, BUSINESSES, COURSES, JOBS, PROPERTIES, GOODS, CARDS, UNLOCKS, TRADE_FEE, LOAN_RATE, LEVEL_BONUS, RENT_NO_HOME,
 } from './data.js';
 import * as G from './game.js';
-import { TICK_MS, tickToMs } from './market.js';
+import { tickToMs } from './market.js';
 
 // ---------- formatação ----------
 const SUF = ['', ' mil', ' mi', ' bi', ' tri', ' quatri', ' quint', ' sext', ' sept'];
@@ -28,7 +28,7 @@ function dur(ms) {
   ms = Math.max(0, ms);
   const s = Math.ceil(ms / 1000);
   const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), ss = s % 60;
-  return h ? `${h}h ${String(m).padStart(2, '0')}min` : `${m}:${String(ss).padStart(2, '0')}`;
+  return h ? `${h}h${String(m).padStart(2, '0')}` : `${m}:${String(ss).padStart(2, '0')}`;
 }
 function ago(ts) {
   const m = Math.floor((Date.now() - ts) / 60000);
@@ -36,12 +36,15 @@ function ago(ts) {
   if (m < 60) return `há ${m} min`;
   const h = Math.floor(m / 60);
   if (h < 24) return `há ${h}h`;
-  return `há ${Math.floor(h / 24)} dia(s)`;
+  return `há ${Math.floor(h / 24)}d`;
 }
-const regLabel = (r) => (r === 1 ? '<span class="up">▲ Alta</span>' : r === -1 ? '<span class="down">▼ Queda</span>' : r === 0 ? '<span class="flat">● Estável</span>' : '<span class="muted">? Incerto</span>');
+// clima do setor: 🔥 alta, ❄️ queda, ➖ estável, ❔ desconhecido
+const WX = { 1: '🔥', '-1': '❄️', 0: '➖', null: '❔' };
+const WXN = { 1: 'Em alta', '-1': 'Em queda', 0: 'Estável', null: 'Incerto' };
+const wxCls = (r) => (r === 1 ? 'hot' : r === -1 ? 'cold' : r === 0 ? 'calm' : 'unk');
 
 // ---------- contexto ----------
-let C; // { s, mk, save(), afterAction() }
+let C;
 const ui = { tab: 'inicio', sub: { investir: 'bolsa', bens: 'veiculos', perfil: 'ranking' }, bizN: 1 };
 const $ = (sel, root = document) => root.querySelector(sel);
 
@@ -52,7 +55,7 @@ export function init(ctx) {
   render();
 }
 
-// ---------- toasts / modais ----------
+// ---------- efeitos ----------
 export function toast(msg, kind = '') {
   const el = document.createElement('div');
   el.className = 'toast ' + kind;
@@ -61,6 +64,35 @@ export function toast(msg, kind = '') {
   const all = $('#toasts').children; while (all.length > 3) all[0].remove();
   setTimeout(() => el.classList.add('out'), 2600);
   setTimeout(() => el.remove(), 3000);
+}
+function burst(el, glyph = '🪙', n = 7) {
+  if (!el || !el.getBoundingClientRect) return;
+  const r = el.getBoundingClientRect();
+  for (let i = 0; i < n; i++) {
+    const p = document.createElement('span');
+    p.className = 'coin';
+    p.textContent = glyph;
+    p.style.left = r.left + r.width / 2 + 'px';
+    p.style.top = r.top + r.height / 2 + 'px';
+    p.style.setProperty('--dx', (Math.random() * 140 - 70) + 'px');
+    p.style.setProperty('--dy', (-60 - Math.random() * 90) + 'px');
+    p.style.animationDelay = i * 25 + 'ms';
+    document.body.appendChild(p);
+    setTimeout(() => p.remove(), 1100);
+  }
+}
+export function confetti() {
+  const colors = ['#ffc93c', '#ff6b9a', '#4dabff', '#3ddc84', '#b07bff'];
+  for (let i = 0; i < 60; i++) {
+    const p = document.createElement('i');
+    p.className = 'confetti';
+    p.style.left = Math.random() * 100 + 'vw';
+    p.style.background = colors[i % colors.length];
+    p.style.animationDelay = Math.random() * 0.5 + 's';
+    p.style.setProperty('--rot', Math.random() * 720 + 'deg');
+    document.body.appendChild(p);
+    setTimeout(() => p.remove(), 2600);
+  }
 }
 export function modal(html, cls = '') {
   const root = $('#modal-root');
@@ -76,10 +108,11 @@ export function closeModal() {
 const modalOpen = () => $('#modal-root').classList.contains('open');
 
 // ---------- ações ----------
-function act(fn, okMsg) {
+function act(fn, okMsg, el) {
   const r = fn();
   if (typeof r === 'string') { toast('⚠️ ' + r, 'err'); return false; }
   if (okMsg) toast(okMsg, 'ok');
+  if (el) burst(el);
   C.afterAction();
   return r || true;
 }
@@ -89,9 +122,9 @@ const handlers = {
   tab: (d) => { ui.tab = d.tab; if (d.sub) ui.sub[d.tab] = d.sub; closeModal(); renderTabs(); render(); $('#view').scrollTop = 0; },
   sub: (d) => { ui.sub[ui.tab] = d.sub; render(); $('#view').scrollTop = 0; },
   bizn: (d) => { ui.bizN = d.n === 'max' ? 'max' : +d.n; render(); },
-  buybiz: (d) => act(() => G.buyBiz(C.s, d.id, ui.bizN)) && render(),
-  course: (d) => act(() => G.startCourse(C.s, d.id), '📚 Curso iniciado!') && render(),
-  job: (d) => act(() => G.takeJob(C.s, d.id), '💼 Novo emprego!') && render(),
+  buybiz: (d, el) => { const sc = $('#view').scrollTop; if (act(() => G.buyBiz(C.s, d.id, ui.bizN), null, el)) { render(); $('#view').scrollTop = sc; } },
+  course: (d, el) => act(() => G.startCourse(C.s, d.id), '📚 Bons estudos!', el) && render(),
+  job: (d, el) => act(() => G.takeJob(C.s, d.id), '💼 Novo emprego!', el) && render(),
   asset: (d) => openAsset(d.sym),
   qty: (d) => { const inp = $('#qty'); if (!inp) return; inp.value = d.v; updateTradePreview(); },
   trade: (d) => doTrade(d.sym, d.side),
@@ -100,14 +133,15 @@ const handlers = {
   fixedgo: (d) => {
     const v = readAmount();
     if (d.kind === 'saque') act(() => G.withdrawPoup(C.s, v), '🏦 Saque feito');
-    else act(() => G.applyFixed(C.s, d.kind, v), '✅ Aplicação feita');
+    else act(() => G.applyFixed(C.s, d.kind, v), '✅ Dinheiro aplicado');
     closeModal(); render();
   },
   pctamt: (d) => { const inp = $('#amt'); inp.value = Math.floor(+d.base * +d.p * 100) / 100; },
-  redeem: (d) => act(() => G.redeem(C.s, d.kind, +d.i), '💰 Resgatado') && render(),
-  buyprop: (d) => act(() => G.buyProp(C.s, C.mk, d.id), '🔑 Imóvel comprado!') && render(),
+  redeem: (d, el) => act(() => G.redeem(C.s, d.kind, +d.i), '💰 Resgatado', el) && render(),
+  buyprop: (d, el) => act(() => G.buyProp(C.s, C.mk, d.id), '🔑 Imóvel comprado!', el) && render(),
   sellprop: (d) => confirmBox('Vender este imóvel?', () => act(() => G.sellProp(C.s, C.mk, d.id), 'Imóvel vendido') && render()),
-  buygood: (d) => act(() => G.buyGood(C.s, d.id), '🎉 Comprado!') && render(),
+  good: (d) => openGood(d.id),
+  buygood: (d, el) => { if (act(() => G.buyGood(C.s, d.id), null, el)) { closeModal(); confetti(); toast(`🎉 ${G_NAME(d.id)} é seu!`, 'gold'); render(); } },
   sellgood: (d) => confirmBox('Vender este bem? Você recebe só uma parte do valor.', () => act(() => G.sellGood(C.s, d.id), 'Vendido') && render()),
   loan: (d) => openLoan(d.kind),
   loango: (d) => {
@@ -115,14 +149,18 @@ const handlers = {
     act(() => (d.kind === 'borrow' ? G.borrow(C.s, v) : G.repay(C.s, v)), d.kind === 'borrow' ? '💳 Crédito liberado' : '✅ Pagamento feito');
     closeModal(); render();
   },
+  flow: () => modal(`<h3>📊 Seu dinheiro por dia</h3><div class="flow" data-live-html="flow"></div><p class="muted small">1 dia no jogo = 1 minuto de verdade.</p>`),
+  news: () => modal(`<h3>📺 Jornal do Mercado</h3><div class="news" data-live-html="news20"></div>`),
+  info: (d) => modal(INFO[d.k]),
   copycode: () => copyCode(),
+  pastecode: () => modal(`<h3>📥 Colar código</h3><p class="muted">Cole o código que a pessoa mandou no grupo.</p><textarea id="friendcode" rows="4" placeholder="MAG1..."></textarea><button class="btn full" data-act="addfriend">Adicionar ao ranking</button>`),
   addfriend: () => {
-    const raw = $('#friendcode').value;
-    const d = G.parseCode(raw);
+    const d = G.parseCode($('#friendcode').value);
     if (!d) return toast('⚠️ Código inválido', 'err');
-    act(() => G.addFriend(C.s, d), `👥 ${esc(d.n)} adicionado ao ranking`) && render();
+    if (act(() => G.addFriend(C.s, d), `👥 ${esc(d.n)} entrou no ranking!`)) { closeModal(); render(); }
   },
   delfriend: (d) => confirmBox('Remover do ranking?', () => { C.s.friends = C.s.friends.filter((f) => String(f.id) !== d.id); C.afterAction(); render(); }),
+  ach: (d) => { const a = G.ACHIEVEMENTS.find((x) => x.id === d.id); toast(`${C.s.ach[a.id] ? a.icon : '🔒'} <b>${a.name}</b>: ${a.desc}`, C.s.ach[a.id] ? 'gold' : ''); },
   rename: () => {
     const v = $('#newname').value.trim().slice(0, 18);
     if (!v) return;
@@ -132,27 +170,52 @@ const handlers = {
   help: () => openHelp(),
   confirmyes: () => { const f = pendingConfirm; closeModal(); f && f(); },
 };
+const G_NAME = (id) => Object.values(GOODS).flat().find((g) => g.id === id).name;
 
 function onClick(e) {
   const el = e.target.closest('[data-act]');
   if (!el) return;
   const h = handlers[el.dataset.act];
-  if (h) { e.preventDefault(); h(el.dataset); }
+  if (h) { e.preventDefault(); h(el.dataset, el); }
 }
 
 let pendingConfirm = null;
 function confirmBox(msg, fn) {
   pendingConfirm = fn;
-  modal(`<h3>Confirmar</h3><p>${msg}</p><div class="btns"><button class="btn ghost" data-act="close">Cancelar</button><button class="btn" data-act="confirmyes">Confirmar</button></div>`);
+  modal(`<h3>Tem certeza?</h3><p>${msg}</p><div class="btns"><button class="btn ghost" data-act="close">Cancelar</button><button class="btn red" data-act="confirmyes">Confirmar</button></div>`);
 }
+
+// ---------- textos de ajuda (ficam escondidos atrás do botão "?") ----------
+const INFO = {
+  empresas: `<h3>🏭 Como funcionam os negócios</h3>
+    <p>Cada negócio gera dinheiro sozinho, todo dia. Cada nível aumenta o lucro.</p>
+    <p>⭐ A cada <b>10, 25, 50, 100…</b> níveis o lucro <b>dobra</b>.</p>
+    <p>🔥 Se o setor do negócio está <b>em alta</b>, ele lucra +30%. ❄️ Em <b>queda</b>, -25%.</p>
+    <p>💳 Seu cartão dá cashback em cada compra.</p>`,
+  bolsa: `<h3>📈 Como ganhar na Bolsa</h3>
+    <p>O mercado é <b>o mesmo para todos os jogadores</b>. Vence quem decidir melhor!</p>
+    <p>⏰ A cada <b>1 hora</b>, cada setor ganha um clima: 🔥 alta, ❄️ queda ou ➖ estável. Em alta as ações sobem; em queda, caem.</p>
+    <p>🔮 <b>Previsão:</b> 20 min antes do novo ciclo, aparece o palpite dos analistas (acerta 7 de cada 10 vezes). Arriscado, mas quem entra cedo ganha mais.</p>
+    <p>✅ <b>Confirmação:</b> 15 min depois do ciclo começar, o clima real é revelado.</p>
+    <p>💥 Às vezes uma empresa tem uma notícia bombástica e o preço salta ou despenca na hora.</p>
+    <p>💸 Algumas ações pagam <b>dividendos</b> todo dia só por você tê-las. Cada compra/venda tem taxa de ${(TRADE_FEE * 100).toFixed(1)}%.</p>`,
+  cripto: `<h3>🪙 Cripto</h3><p>Funciona como a Bolsa, mas é <b>muito mais maluca</b>: pode subir ou cair dezenas de % em uma hora. Dá para comprar pedacinhos de uma moeda.</p>`,
+  renda: `<h3>🏦 Renda fixa</h3><p>Dinheiro guardado que rende sempre, sem risco. Rende menos que negócios e ações em alta, mas nunca perde.</p>
+    <p>🐷 <b>Poupança:</b> saque quando quiser.<br>📄 <b>CDB:</b> rende mais, fica preso 1 hora.<br>🏛️ <b>Tesouro:</b> rende mais ainda, fica preso 4 horas.</p><p>A taxa (CDI) muda a cada 6 horas.</p>`,
+  imoveis: `<h3>🔑 Imóveis</h3><p>Compre imóveis e receba aluguel todo dia. O preço deles sobe e desce junto com o setor Imobiliário — dá pra comprar barato na crise e vender caro na alta!</p>`,
+  credito: `<h3>💳 Empréstimo</h3><p>Pegue dinheiro emprestado para abrir negócios mais cedo. Mas cuidado: os juros (${(LOAN_RATE * 100).toFixed(2)}% ao dia) correm sem parar! O limite depende do seu cartão.</p>`,
+  bens: `<h3>🛍️ Coleção de bens</h3><p>🚗 <b>Veículos</b> aumentam seu salário (vale o melhor que você tiver).</p><p>🏠 <b>Moradia</b> acaba com o aluguel de ${money(RENT_NO_HOME)}/dia e aumenta as horas que você ganha com o jogo fechado.</p><p>💎 <b>Luxo</b> dá muito prestígio ✨ para se exibir no ranking.</p><p>Bens têm uma pequena manutenção diária e, se vender, você recebe só parte do valor.</p>`,
+  carreira: `<h3>💼 Carreira</h3><p>Estude para desbloquear empregos melhores. Os cursos levam <b>tempo de verdade</b> — deixe estudando e volte depois!</p><p>Alguns empregos também pedem um nível mínimo.</p>`,
+};
+const infoBtn = (k) => `<button class="qbtn" data-act="info" data-k="${k}">?</button>`;
 
 // ---------- abas ----------
 const TABS = [
-  { id: 'inicio', icon: '🏠', name: 'Início' },
-  { id: 'carreira', icon: '💼', name: 'Carreira' },
-  { id: 'empresas', icon: '🏭', name: 'Empresas' },
+  { id: 'inicio', icon: '🏙️', name: 'Início' },
+  { id: 'carreira', icon: '🎓', name: 'Carreira' },
+  { id: 'empresas', icon: '🏭', name: 'Negócios' },
   { id: 'investir', icon: '📈', name: 'Investir' },
-  { id: 'bens', icon: '🛍️', name: 'Bens' },
+  { id: 'bens', icon: '💎', name: 'Bens' },
   { id: 'perfil', icon: '🏆', name: 'Ranking' },
 ];
 function renderTabs() {
@@ -163,7 +226,7 @@ export function render() {
   renderTop();
   const v = $('#view');
   const fn = { inicio: vInicio, carreira: vCarreira, empresas: vEmpresas, investir: vInvestir, bens: vBens, perfil: vPerfil }[ui.tab];
-  v.innerHTML = fn();
+  v.innerHTML = `<div class="page">${fn()}</div>`;
   refresh(true);
 }
 
@@ -171,76 +234,98 @@ function renderTop() {
   const s = C.s;
   const c = G.card(s);
   $('#top').innerHTML = `
-    <div class="who">
-      <div class="avatar">${esc(s.name[0] || '?').toUpperCase()}</div>
-      <div class="whoinfo"><b>${esc(s.name)}</b>
-        <div class="lvl">Nível <span data-live="lvl"></span><div class="xpbar"><i data-live-w="xp"></i></div></div>
+    <div class="hud">
+      <div class="lvbadge"><span data-live="lvl"></span></div>
+      <div class="hudmid">
+        <b class="pname">${esc(s.name)}</b>
+        <div class="xpbar"><i data-live-w="xp"></i><span data-live="xptxt"></span></div>
       </div>
       <div class="minicard ${c.cls}" data-act="tab" data-tab="perfil" data-sub="cartoes"><span>${c.name}</span></div>
     </div>
-    <div class="money"><div class="cash" data-live="cash"></div><div class="rate" data-live="rate"></div></div>`;
+    <div class="cashpill"><span class="cicon">🪙</span><span class="cash" data-live="cash"></span><span class="rate" data-live="rate"></span></div>`;
 }
 
-const lockBox = (lvl, what) => `<div class="locked"><div class="big">🔒</div><b>${what}</b><p>Desbloqueia no <b>nível ${lvl}</b>.<br>Ganhe experiência estudando, abrindo empresas, comprando bens e conquistando objetivos.</p></div>`;
-const subtabs = (list) => `<div class="subtabs">${list.map(([id, name]) => `<button class="${ui.sub[ui.tab] === id ? 'on' : ''}" data-act="sub" data-sub="${id}">${name}</button>`).join('')}</div>`;
-const costBtn = (act, data, cost, label = '') => `<button class="btn buy" data-act="${act}" ${Object.entries(data).map(([k, v]) => `data-${k}="${v}"`).join(' ')} data-cost="${cost}">${label}${money(cost)}</button>`;
+const title = (icon, text, help) => `<div class="ptitle"><h2>${icon} ${text}</h2>${help ? infoBtn(help) : ''}</div>`;
+const lockBox = (lvl, what) => `<div class="locked"><div class="lk">🔒</div><b>${what}</b><p>Libera no <span class="lvchip">Nível ${lvl}</span></p><small>Suba de nível estudando, abrindo negócios e conquistando troféus.</small></div>`;
+const subtabs = (list) => `<div class="subtabs">${list.map(([id, icon, name]) => `<button class="${ui.sub[ui.tab] === id ? 'on' : ''}" data-act="sub" data-sub="${id}"><span>${icon}</span>${name}</button>`).join('')}</div>`;
+const dataAttrs = (data) => Object.entries(data).map(([k, v]) => `data-${k}="${v}"`).join(' ');
+const costBtn = (act, data, cost, label = '') => `<button class="btn gold" data-act="${act}" ${dataAttrs(data)} data-cost="${cost}">${label}<span>${money(cost)}</span></button>`;
 
 // ---------- INÍCIO ----------
-function bigCard(s, c, idx, locked = false) {
+export function bigCard(name, c, idx, locked = false) {
   return `<div class="ccard ${c.cls} ${locked ? 'lockedcard' : ''}">
-    <div class="cc-top"><span class="cc-bank">MAGNATA BANK</span><span class="cc-tier">${c.name.toUpperCase()}</span></div>
+    <div class="cc-top"><span class="cc-bank">MAGNATA</span><span class="cc-tier">${c.name.toUpperCase()}</span></div>
     <div class="chip"></div>
     <div class="cc-num">•••• •••• •••• ${String(1000 + idx * 731).slice(-4)}</div>
-    <div class="cc-bottom"><span>${locked ? 'BLOQUEADO' : esc(s.name.toUpperCase())}</span><span>${locked ? money(c.min) : 'VIP ' + (idx + 1)}</span></div>
+    <div class="cc-bottom"><span>${locked ? '🔒 ' + money(c.min) : esc(name.toUpperCase())}</span><span>★ ${idx + 1}</span></div>
+  </div>`;
+}
+function scene() {
+  const s = C.s;
+  const h = new Date().getHours();
+  const night = h < 6 || h >= 19;
+  const home = G.homeOf(s);
+  const veh = GOODS.veiculos.filter((g) => s.goods[g.id]).pop();
+  const lux = GOODS.luxo.filter((g) => s.goods[g.id]).slice(-2);
+  const bizs = BUSINESSES.filter((b) => s.biz[b.id]).slice(-5);
+  const job = JOBS.find((j) => j.id === s.job);
+  return `<div class="scene ${night ? 'night' : 'day'}">
+    <span class="sun">${night ? '🌙' : '☀️'}</span>
+    ${night ? '<span class="stars">✦ · ✧ · ✦ · ✧</span>' : '<span class="cloud c1">☁️</span><span class="cloud c2">☁️</span>'}
+    <div class="skyline">${bizs.length ? bizs.map((b, i) => `<span class="bld" style="--i:${i}">${b.icon}<i>${s.biz[b.id]}</i></span>`).join('') : '<span class="empty">Seus negócios aparecem aqui</span>'}</div>
+    <div class="ground">
+      <span class="home">${home ? home.icon : '🏚️'}</span>
+      <span class="me">🧍<em>${job.icon}</em></span>
+      <span class="veh">${veh ? veh.icon : ''}</span>
+      ${lux.map((g) => `<span class="lux">${g.icon}</span>`).join('')}
+    </div>
+    <div class="plaque"><small>Patrimônio</small><b data-live="nw"></b></div>
   </div>`;
 }
 function vInicio() {
   const s = C.s;
-  const c = G.card(s);
   const next = CARDS[s.cardMax + 1];
   const course = s.course ? COURSES.find((x) => x.id === s.course.id) : null;
+  const q = quest();
   return `
-  <section class="hero">
-    ${bigCard(s, c, s.cardMax)}
-    <div class="nw"><small>Patrimônio líquido</small><b data-live="nw"></b></div>
-    ${next ? `<div class="goal"><div class="goalrow"><span>Próximo cartão: <b>${next.name}</b></span><span>${money(next.min)}</span></div><div class="bar"><i data-live-w="nextcard"></i></div></div>` : '<div class="goal">👑 Você tem o cartão mais alto do jogo!</div>'}
-  </section>
-  ${course ? `<section class="panel"><h4>📚 Estudando: ${course.name}</h4><div class="bar"><i data-live-w="course"></i></div><small class="muted">Termina em <span data-live="coursetime"></span></small></section>` : ''}
-  ${tipsPanel()}
-  <section class="panel">
-    <h4>📊 Fluxo por dia <small class="muted">(1 dia = 1 minuto)</small></h4>
-    <div class="flow" data-live-html="flow"></div>
-  </section>
-  <section class="panel">
-    <h4>📰 Notícias do mercado</h4>
-    <div class="news" data-live-html="news6"></div>
-    <button class="btn ghost full" data-act="tab" data-tab="investir" data-sub="bolsa">Ver mercado</button>
-  </section>`;
+  ${scene()}
+  <div class="stats3" data-act="flow">
+    <div><small>Ganha por dia</small><b class="up" data-live="inc"></b></div>
+    <div><small>Gasta por dia</small><b class="down" data-live="exp"></b></div>
+    <div class="more">›</div>
+  </div>
+  ${q ? `<div class="quest"><span class="qi">⭐</span><div><small>MISSÃO</small><p>${q}</p></div></div>` : ''}
+  ${course ? `<div class="box studying"><span class="bi">${course.icon}</span><div class="grow"><b>${course.name}</b><div class="bar"><i data-live-w="course"></i></div></div><span class="timer" data-live="coursetime"></span></div>` : ''}
+  ${next ? `<div class="box goal" data-act="tab" data-tab="perfil" data-sub="cartoes"><div class="mini2 ${next.cls}"></div><div class="grow"><small>Próximo cartão</small><b>${next.name}</b><div class="bar gold"><i data-live-w="nextcard"></i></div></div><span class="goalv">${money(next.min)}</span></div>` : ''}
+  <div class="box newsbox" data-act="news">
+    <div class="nhead"><b>📺 Jornal do Mercado</b><span class="lnk">ver tudo ›</span></div>
+    <div class="news" data-live-html="news3"></div>
+  </div>`;
 }
-function tipsPanel() {
+function quest() {
   const s = C.s;
-  const tips = [];
-  if (!s.edu.length && !s.course) tips.push('📘 Faça o <b>Ensino Médio</b> na aba Carreira para conseguir empregos melhores.');
-  if (!Object.keys(s.biz).length) tips.push('🥟 Abra sua primeira empresa: a <b>Barraca de Pastel</b> gera renda passiva para sempre.');
-  if (G.level(s) >= UNLOCKS.bolsa && !s.stats.trades) tips.push('📈 A Bolsa foi liberada! Leia as <b>notícias</b>: setores em alta fazem as ações subirem.');
-  if (!s.goods.bike && s.cash > 900) tips.push('🚲 Uma <b>bicicleta</b> aumenta seu salário em 5%. Veículos melhores dão bônus maiores.');
-  if (!tips.length) return '';
-  return `<section class="panel tips"><h4>💡 Dicas</h4>${tips.slice(0, 2).map((t) => `<p>${t}</p>`).join('')}</section>`;
+  if (!s.edu.length && !s.course) return 'Faça o <b>Ensino Médio</b> na aba 🎓 Carreira para ganhar mais.';
+  if (!Object.keys(s.biz).length) return 'Abra sua primeira <b>Barraca de Pastel</b> na aba 🏭 Negócios.';
+  if (s.job === 'entregador' && s.edu.includes('medio')) return 'Você já pode ser <b>Atendente</b>! Vá em 🎓 Carreira.';
+  if (!s.goods.bike && !G.vehicleBonus(s)) return 'Compre uma <b>bicicleta</b> em 💎 Bens: +5% de salário.';
+  if (G.level(s) >= UNLOCKS.bolsa && !s.stats.trades) return 'A <b>Bolsa</b> abriu! Veja o 📺 jornal e compre ações de um setor 🔥.';
+  if (!G.homeOf(s) && s.cash > 50000) return 'Compre sua <b>casa própria</b> e pare de pagar aluguel.';
+  return '';
 }
 function flowHTML() {
   const ib = G.incomeBreakdown(C.s, C.mk);
   const rows = [
-    ['💼 Salário', ib.sal], ['🏭 Empresas', ib.biz], ['🔑 Aluguéis', ib.rent], ['💸 Dividendos', ib.divs], ['🏦 Juros', ib.juros],
-    ['🏠 Aluguel de moradia', -ib.moradia], ['🔧 Manutenção dos bens', -ib.manut], ['💳 Juros do empréstimo', -ib.loan],
+    ['💼 Salário', ib.sal], ['🏭 Negócios', ib.biz], ['🔑 Aluguéis', ib.rent], ['💸 Dividendos', ib.divs], ['🏦 Juros', ib.juros],
+    ['🏠 Aluguel da moradia', -ib.moradia], ['🔧 Manutenção', -ib.manut], ['💳 Juros da dívida', -ib.loan],
   ].filter((r) => Math.abs(r[1]) > 0.0001);
   return rows.map(([n, v]) => `<div class="fr"><span>${n}</span><b class="${v < 0 ? 'down' : 'up'}">${v < 0 ? '-' : '+'}${money(Math.abs(v))}</b></div>`).join('') +
-    `<div class="fr total"><span>Total por dia</span><b class="${ib.net < 0 ? 'down' : 'up'}">${money(ib.net)}</b></div>` +
-    `<div class="fr"><span class="muted">Bônus de nível</span><b class="muted">+${Math.round(LEVEL_BONUS * 100 * (G.level(C.s) - 1))}%</b></div>`;
+    `<div class="fr total"><span>Sobra por dia</span><b class="${ib.net < 0 ? 'down' : 'up'}">${money(ib.net)}</b></div>` +
+    `<div class="fr"><span>⭐ Bônus de nível</span><b>+${Math.round(LEVEL_BONUS * 100 * (G.level(C.s) - 1))}%</b></div>`;
 }
 function newsHTML(n) {
   const list = C.mk.news(n);
-  if (!list.length) return '<p class="muted">Sem notícias por enquanto.</p>';
-  return list.map((x) => `<div class="nitem ${x.dir > 0 ? 'pos' : 'neg'} ${x.kind}"><span class="ni">${x.icon}</span><div><p>${x.text}</p><small>${ago(tickToMs(x.t))}${x.kind === 'forecast' ? ' · previsão (70% de acerto)' : ''}</small></div></div>`).join('');
+  if (!list.length) return '<p class="muted">Nada de novo por enquanto…</p>';
+  return list.map((x) => `<div class="nitem ${x.dir > 0 ? 'pos' : 'neg'} ${x.kind}"><span class="ni">${x.icon}</span><div><p>${x.text}</p><small>${ago(tickToMs(x.t))}${x.kind === 'forecast' ? ' · palpite' : ''}</small></div></div>`).join('');
 }
 
 // ---------- CARREIRA ----------
@@ -248,79 +333,80 @@ function vCarreira() {
   const s = C.s;
   const job = JOBS.find((j) => j.id === s.job);
   const lvl = G.level(s);
-  return `
-  <section class="panel jobnow">
-    <div class="big">${job.icon}</div>
-    <div><small class="muted">Emprego atual</small><h3>${job.name}</h3><b class="up" data-live="salary"></b> <small class="muted">por dia</small>
-    ${G.vehicleBonus(s) ? `<br><small class="muted">inclui +${Math.round(G.vehicleBonus(s) * 100)}% do seu veículo</small>` : ''}</div>
-  </section>
-  <h4 class="sec">🎓 Educação</h4>
-  ${COURSES.map((c) => {
+  const courses = COURSES.map((c) => {
     const done = s.edu.includes(c.id);
     const running = s.course && s.course.id === c.id;
     const reqOk = !c.req || s.edu.includes(c.req);
     let right;
-    if (done) right = '<span class="tag ok">✓ Concluído</span>';
-    else if (running) right = `<span class="tag run" data-live="coursetime"></span>`;
-    else if (!reqOk) right = `<span class="tag">Requer ${COURSES.find((x) => x.id === c.req).name}</span>`;
-    else if (s.course) right = '<span class="tag">Termine o curso atual</span>';
+    if (done) right = '<span class="pill ok">✓</span>';
+    else if (running) right = '<span class="timer" data-live="coursetime"></span>';
+    else if (!reqOk || s.course) right = '<span class="pill">🔒</span>';
     else right = costBtn('course', { id: c.id }, c.cost);
-    return `<div class="row ${done ? 'dim' : ''}"><div class="ico">${c.icon}</div><div class="grow"><b>${c.name}</b><small>Duração: ${c.mins} min</small>${running ? '<div class="bar"><i data-live-w="course"></i></div>' : ''}</div>${right}</div>`;
-  }).join('')}
-  <h4 class="sec">💼 Empregos</h4>
-  ${JOBS.map((j) => {
+    return `<div class="item ${done ? 'done' : ''} ${!reqOk && !done ? 'dim' : ''}"><span class="bi">${c.icon}</span><div class="grow"><b>${c.name}</b><small>⏱️ ${c.mins} min${!reqOk && !done ? ` · precisa de ${COURSES.find((x) => x.id === c.req).name}` : ''}</small>${running ? '<div class="bar"><i data-live-w="course"></i></div>' : ''}</div>${right}</div>`;
+  }).join('');
+  const jobs = JOBS.map((j) => {
     const cur = s.job === j.id;
     const ok = G.canTakeJob(s, j);
-    const reqs = [...j.edu.map((e) => COURSES.find((c) => c.id === e).name), j.lvl > 1 ? `Nível ${j.lvl}` : null].filter(Boolean);
     const miss = [...j.edu.filter((e) => !s.edu.includes(e)).map((e) => COURSES.find((c) => c.id === e).name), lvl < j.lvl ? `Nível ${j.lvl}` : null].filter(Boolean);
-    return `<div class="row ${cur ? 'cur' : ''}"><div class="ico">${j.icon}</div><div class="grow"><b>${j.name}</b><small>${money(j.salary)}/dia base${reqs.length ? ' · ' + reqs.join(', ') : ''}</small>${!ok ? `<small class="down">Falta: ${miss.join(', ')}</small>` : ''}</div>
-    ${cur ? '<span class="tag ok">Atual</span>' : ok ? `<button class="btn" data-act="job" data-id="${j.id}">Assumir</button>` : '<span class="tag">🔒</span>'}</div>`;
-  }).join('')}`;
+    if (cur) return '';
+    return `<div class="item ${ok ? '' : 'dim'}"><span class="bi">${j.icon}</span><div class="grow"><b>${j.name}</b><small>${ok ? `💵 ${money(j.salary)}/dia` : '🔒 ' + miss.join(', ')}</small></div>${ok ? `<button class="btn" data-act="job" data-id="${j.id}">Trabalhar</button>` : ''}</div>`;
+  }).join('');
+  return `${title('🎓', 'Carreira', 'carreira')}
+  <div class="hero job"><span class="hi">${job.icon}</span><div><small>Seu emprego</small><h3>${job.name}</h3><span class="pill money"><b data-live="salary"></b>/dia</span></div></div>
+  <h4 class="sec">📚 Estudos</h4>${courses}
+  <h4 class="sec">💼 Outros empregos</h4>${jobs}`;
 }
 
-// ---------- EMPRESAS ----------
+// ---------- NEGÓCIOS ----------
 function vEmpresas() {
   const s = C.s;
   const mk = C.mk;
   const total = BUSINESSES.reduce((t, b) => t + G.bizProfit(s, b, mk), 0);
-  return `
-  <section class="panel row-flat"><div><small class="muted">Lucro das empresas</small><h3 class="up">${money(total)}<small>/dia</small></h3></div>
-    <div class="seg">${[1, 10, 'max'].map((n) => `<button class="${ui.bizN === n ? 'on' : ''}" data-act="bizn" data-n="${n}">${n === 'max' ? 'MÁX' : 'x' + n}</button>`).join('')}</div></section>
-  <p class="hint">💡 Cada empresa pertence a um setor. Setor em <span class="up">alta</span> = +30% de lucro, em <span class="down">queda</span> = -25%. A cada 10, 25, 50, 100... níveis o lucro <b>dobra</b>.</p>
-  ${BUSINESSES.map((b, i) => {
+  let shownLocked = false;
+  const cards = BUSINESSES.map((b, i) => {
     const lvl = s.biz[b.id] || 0;
     const prevOwned = i === 0 || (s.biz[BUSINESSES[i - 1].id] || 0) > 0;
-    if (!lvl && !prevOwned) return `<div class="row dim"><div class="ico">❔</div><div class="grow"><b>???</b><small>Abra a empresa anterior para revelar</small></div></div>`;
+    if (!lvl && !prevOwned) {
+      if (shownLocked) return '';
+      shownLocked = true;
+      return `<div class="biz mystery"><span class="bico">❔</span><div class="grow"><b>Negócio secreto</b><small>Abra o anterior para revelar</small></div></div>`;
+    }
     const n = ui.bizN === 'max' ? Math.max(1, G.bizMaxBuy(b, lvl, s.cash)) : ui.bizN;
     const cost = G.bizCost(b, lvl, n);
     const ms = G.nextMilestone(lvl);
     const reg = mk.sectorNow(b.sector);
-    const profitNext = b.profit * (lvl + n) * G.bizMult(lvl + n) * G.SECTOR_MULT[reg] * G.levelMult(s) - G.bizProfit(s, b, mk);
-    return `<div class="row biz ${lvl ? '' : 'new'}">
-      <div class="ico">${b.icon}${lvl ? `<span class="lv">${lvl}</span>` : ''}</div>
-      <div class="grow"><b>${b.name}</b>
-        <small>${SECTOR[b.sector].icon} ${SECTOR[b.sector].name} · ${reg === 1 ? '<span class="up">em alta</span>' : reg === -1 ? '<span class="down">em queda</span>' : 'estável'}</small>
-        ${lvl ? `<small>Lucro: <b class="up">${money(G.bizProfit(s, b, mk))}/dia</b> · x${G.bizMult(lvl)}</small>` : `<small>Lucro inicial: ${money(b.profit * G.SECTOR_MULT[reg] * G.levelMult(s))}/dia</small>`}
-        ${lvl && ms ? `<div class="bar thin"><i style="width:${Math.min(100, (lvl / ms) * 100)}%"></i></div><small class="muted">${ms - lvl} níveis para dobrar o lucro</small>` : ''}
+    const profit = lvl ? G.bizProfit(s, b, mk) : b.profit * G.SECTOR_MULT[reg] * G.levelMult(s);
+    const prevMs = [0, ...[10, 25, 50, 100, 150, 200, 300, 400, 500]].filter((m) => m <= lvl).pop();
+    return `<div class="biz ${lvl ? '' : 'new'}">
+      <span class="bico s-${b.sector}">${b.icon}${lvl ? `<i class="lv">${lvl}</i>` : ''}<em class="wx ${wxCls(reg)}" title="${WXN[reg]}">${WX[reg]}</em></span>
+      <div class="grow">
+        <b>${b.name}</b>
+        <span class="pill money">+${money(profit)}/dia</span>
+        ${lvl && ms ? `<div class="bar thin"><i style="width:${Math.min(100, ((lvl - prevMs) / (ms - prevMs)) * 100)}%"></i></div><small>⭐ ${ms - lvl} p/ dobrar</small>` : `<small>${lvl ? '⭐ nível máximo de bônus' : SECTOR[b.sector].name}</small>`}
       </div>
-      <div class="col"><small class="up">+${money(profitNext)}/dia</small>${costBtn('buybiz', { id: b.id }, cost, lvl ? `+${n} ` : 'Abrir ')}</div>
+      ${costBtn('buybiz', { id: b.id }, cost, lvl ? `<em>▲ ${n}</em>` : '<em>Abrir</em>')}
     </div>`;
-  }).join('')}`;
+  }).join('');
+  return `${title('🏭', 'Negócios', 'empresas')}
+  <div class="bizhead"><div><small>Lucro total</small><b class="up">${money(total)}<small>/dia</small></b></div>
+    <div class="seg">${[1, 10, 'max'].map((n) => `<button class="${ui.bizN === n ? 'on' : ''}" data-act="bizn" data-n="${n}">${n === 'max' ? 'MÁX' : 'x' + n}</button>`).join('')}</div></div>
+  ${cards}`;
 }
 
 // ---------- INVESTIR ----------
 function vInvestir() {
   const s = C.s;
   const sub = ui.sub.investir;
-  const head = subtabs([['bolsa', '📈 Bolsa'], ['cripto', '🪙 Cripto'], ['renda', '🏦 Renda Fixa'], ['imoveis', '🔑 Imóveis'], ['credito', '💳 Crédito']]);
+  const head = subtabs([['bolsa', '📈', 'Bolsa'], ['cripto', '🪙', 'Cripto'], ['renda', '🐷', 'Poupar'], ['imoveis', '🔑', 'Imóveis'], ['credito', '💳', 'Crédito']]);
   const L = G.level(s);
   let body = '';
   if (sub === 'bolsa') body = L < UNLOCKS.bolsa ? lockBox(UNLOCKS.bolsa, 'Bolsa de Valores') : vBolsa(STOCKS, true);
   if (sub === 'cripto') body = L < UNLOCKS.cripto ? lockBox(UNLOCKS.cripto, 'Criptomoedas') : vBolsa(CRYPTOS, false);
   if (sub === 'renda') body = vRenda();
-  if (sub === 'imoveis') body = L < UNLOCKS.imoveis ? lockBox(UNLOCKS.imoveis, 'Imóveis para alugar') : vImoveis();
-  if (sub === 'credito') body = L < UNLOCKS.credito ? lockBox(UNLOCKS.credito, 'Crédito') : vCredito();
-  return head + body;
+  if (sub === 'imoveis') body = L < UNLOCKS.imoveis ? lockBox(UNLOCKS.imoveis, 'Imóveis') : vImoveis();
+  if (sub === 'credito') body = L < UNLOCKS.credito ? lockBox(UNLOCKS.credito, 'Empréstimos') : vCredito();
+  const helpKey = { bolsa: 'bolsa', cripto: 'cripto', renda: 'renda', imoveis: 'imoveis', credito: 'credito' }[sub];
+  return title('📈', 'Investir', helpKey) + head + body;
 }
 
 function portfolioValue(list) {
@@ -329,24 +415,19 @@ function portfolioValue(list) {
   return { v, cost };
 }
 function vBolsa(list, stocks) {
-  const pv = portfolioValue(list);
+  const k = stocks ? 's' : 'c';
   return `
-  <section class="panel">
-    <div class="row-flat"><div><small class="muted">Sua carteira</small><h3 data-live="pv:${stocks ? 's' : 'c'}"></h3></div><div class="right"><small class="muted">Resultado</small><b data-live="pl:${stocks ? 's' : 'c'}"></b></div></div>
-    <small class="muted">Próximo pregão em <span data-live="nexttick"></span> · Taxa de corretagem ${(TRADE_FEE * 100).toFixed(1)}%</small>
-  </section>
-  ${stocks ? `<section class="panel"><h4>🧭 Termômetro dos setores <small class="muted">· ciclo muda em <span data-live="nextblock"></span></small></h4>
-    <div class="sectors" data-live-html="sectors"></div>
-    <small class="muted">Toque num setor para entender. Previsões acertam ~70% das vezes. A confirmação sai 15 min após o início do ciclo.</small></section>` : `<p class="hint">⚠️ Criptomoedas são MUITO voláteis: podem dobrar ou derreter em uma hora. Compra fracionada por valor.</p>
-    <section class="panel"><h4>🪙 Ciclo cripto</h4><div class="sectors" data-live-html="cryptosector"></div></section>`}
-  <div class="list">${list.map((a) => `
-    <div class="row asset" data-act="asset" data-sym="${a.sym}">
-      <div class="ico">${SECTOR[a.sector].icon}</div>
-      <div class="grow"><b>${a.name}</b><small>${a.sym}${a.div ? ` · 💸 div. ${(a.div * 100).toFixed(2)}%/dia` : ''}</small><small class="held" data-live="held:${a.sym}"></small></div>
+  <div class="wallet"><div><small>💼 Sua carteira</small><b data-live="pv:${k}"></b></div><div class="right"><small>Lucro</small><b data-live="pl:${k}"></b></div></div>
+  <div class="wxhead"><b>Clima dos setores</b><small>muda em <span data-live="nextblock"></span></small></div>
+  <div class="wxrow" data-live-html="${stocks ? 'sectors' : 'cryptosector'}"></div>
+  <div class="assets">${list.map((a) => `
+    <div class="asset" data-act="asset" data-sym="${a.sym}">
+      <span class="aico s-${a.sector}">${SECTOR[a.sector].icon}</span>
+      <div class="grow"><b>${a.name}${a.div ? ' <em class="divtag">💸</em>' : ''}</b><small class="held" data-live="held:${a.sym}"></small></div>
       <svg class="spark" data-spark="${a.sym}" viewBox="0 0 64 28" preserveAspectRatio="none"></svg>
-      <div class="right"><b data-live="price:${a.sym}"></b><small data-live="chg:${a.sym}"></small></div>
+      <div class="right"><b data-live="price:${a.sym}"></b><span class="chg" data-live="chg:${a.sym}"></span></div>
     </div>`).join('')}</div>
-  <section class="panel"><h4>📰 Notícias</h4><div class="news" data-live-html="news20"></div></section>`;
+  <div class="box newsbox" data-act="news"><div class="nhead"><b>📺 Jornal do Mercado</b><span class="lnk">ver tudo ›</span></div><div class="news" data-live-html="news3"></div></div>`;
 }
 function sectorsHTML(ids) {
   const mk = C.mk;
@@ -354,18 +435,18 @@ function sectorsHTML(ids) {
     const sc = SECTOR[id];
     const k = mk.sectorKnown(id);
     const f = mk.sectorForecast(id);
-    return `<div class="sct" data-act="sector" data-id="${id}"><span>${sc.icon}</span><b>${sc.name}</b><div>${regLabel(k)}</div><small>Próx: ${f === null ? '<span class="muted">aguardando</span>' : regLabel(f)}</small></div>`;
+    return `<div class="wxc ${wxCls(k)}" data-act="sector" data-id="${id}"><span class="wi">${sc.icon}</span><span class="wn">${sc.name}</span><span class="wnow">${WX[k]}</span>${f !== null ? `<span class="wf">→${WX[f]}</span>` : ''}</div>`;
   }).join('');
 }
 function openSector(id) {
   const sc = SECTOR[id];
   const assets = ASSETS.filter((a) => a.sector === id);
   const biz = BUSINESSES.filter((b) => b.sector === id);
+  const k = C.mk.sectorKnown(id), f = C.mk.sectorForecast(id);
   modal(`<h3>${sc.icon} ${sc.name}</h3>
-  <p>Agora: ${regLabel(C.mk.sectorKnown(id))}<br>Próximo ciclo (previsão): ${regLabel(C.mk.sectorForecast(id))}</p>
-  <p class="muted">Cada ciclo dura 1 hora. Em <b>alta</b>, as ações do setor tendem a subir e as suas empresas desse setor lucram +30%. Em <b>queda</b>, o contrário. A previsão sai 20 min antes do ciclo começar e acerta ~70% das vezes — quem compra antes da confirmação arrisca mais, mas pode lucrar mais.</p>
-  <h4>Ativos</h4>${assets.map((a) => `<div class="row" data-act="asset" data-sym="${a.sym}"><div class="grow"><b>${a.name}</b><small>${a.sym}</small></div><div class="right"><b data-live="price:${a.sym}"></b><small data-live="chg:${a.sym}"></small></div></div>`).join('')}
-  ${biz.length ? `<h4>Suas empresas do setor</h4><p>${biz.map((b) => `${b.icon} ${b.name}`).join('<br>')}</p>` : ''}`);
+  <div class="wxbig"><div class="${wxCls(k)}"><small>Agora</small><span>${WX[k]}</span><b>${WXN[k]}</b></div><div class="${wxCls(f)}"><small>Próxima hora (palpite)</small><span>${WX[f]}</span><b>${f === null ? 'Aguardando' : WXN[f]}</b></div></div>
+  <div class="assets">${assets.map((a) => `<div class="asset" data-act="asset" data-sym="${a.sym}"><div class="grow"><b>${a.name}</b><small>${a.sym}</small></div><div class="right"><b data-live="price:${a.sym}"></b><span class="chg" data-live="chg:${a.sym}"></span></div></div>`).join('')}</div>
+  ${biz.length ? `<p class="muted">Negócios deste setor: ${biz.map((b) => b.icon).join(' ')}</p>` : ''}`);
 }
 
 function sparkPath(h, w, hh, pad = 2) {
@@ -380,7 +461,7 @@ function drawSparks() {
     const up = h.length > 1 && h[h.length - 1] >= h[0];
     const big = el.classList.contains('chart');
     const w = big ? 300 : 64, hh = big ? 140 : 28;
-    const d = sparkPath(h, w, hh, big ? 8 : 2);
+    const d = sparkPath(h, w, hh, big ? 8 : 3);
     el.innerHTML = big
       ? `<path d="${d} L${w},${hh} L0,${hh} Z" class="area ${up ? 'up' : 'down'}"/><path d="${d}" class="line ${up ? 'up' : 'down'}"/>`
       : `<path d="${d}" class="line ${up ? 'up' : 'down'}"/>`;
@@ -393,20 +474,19 @@ function openAsset(sym) {
   const crypto = G.isCrypto(sym);
   tradeSym = sym;
   const h = C.s.port[sym];
-  modal(`<h3>${SECTOR[a.sector].icon} ${a.name} <small class="muted">${a.sym}</small></h3>
-    <div class="row-flat"><b class="bigprice" data-live="price:${sym}"></b><span data-live="chg:${sym}"></span></div>
+  const k = C.mk.sectorKnown(a.sector);
+  modal(`<h3>${SECTOR[a.sector].icon} ${a.name}</h3>
+    <div class="pricehead"><b class="bigprice" data-live="price:${sym}"></b><span class="chg" data-live="chg:${sym}"></span></div>
     <svg class="spark chart" data-spark="${sym}" viewBox="0 0 300 140" preserveAspectRatio="none"></svg>
-    <small class="muted">Última hora · setor ${SECTOR[a.sector].name}: ${regLabel(C.mk.sectorKnown(a.sector))}${a.div ? ` · paga ${(a.div * 100).toFixed(2)}% ao dia em dividendos` : ''}</small>
-    <div class="held big" data-live="heldfull:${sym}"></div>
-    <label class="lbl">${crypto ? 'Quantidade (pode ser fracionada)' : 'Quantidade de ações'}</label>
-    <input id="qty" type="number" inputmode="decimal" min="0" step="${crypto ? 'any' : '1'}" value="${crypto ? '' : 1}" placeholder="0">
-    <div class="quick">${crypto ? '' : '<button class="btn ghost sm" data-act="qty" data-v="1">1</button><button class="btn ghost sm" data-act="qty" data-v="10">10</button><button class="btn ghost sm" data-act="qty" data-v="100">100</button>'}
-      <button class="btn ghost sm" data-act="qty" data-v="${maxBuy(sym)}">Máx compra</button>
-      ${h && h.q > 0 ? `<button class="btn ghost sm" data-act="qty" data-v="${h.q}">Tudo que tenho</button>` : ''}</div>
+    <div class="tags"><span class="pill ${wxCls(k)}">${WX[k]} ${SECTOR[a.sector].name}: ${WXN[k]}</span>${a.div ? `<span class="pill">💸 ${(a.div * 100).toFixed(2)}%/dia</span>` : ''}</div>
+    <div class="heldbox" data-live="heldfull:${sym}"></div>
+    <div class="qtyrow"><input id="qty" type="number" inputmode="decimal" min="0" step="${crypto ? 'any' : '1'}" value="${crypto ? '' : 1}" placeholder="${crypto ? 'Quantidade' : 'Qtd. de ações'}"></div>
+    <div class="quick">${crypto ? '' : '<button class="chipbtn" data-act="qty" data-v="1">1</button><button class="chipbtn" data-act="qty" data-v="10">10</button><button class="chipbtn" data-act="qty" data-v="100">100</button>'}
+      <button class="chipbtn" data-act="qty" data-v="${maxBuy(sym)}">Máx</button>
+      ${h && h.q > 0 ? `<button class="chipbtn" data-act="qty" data-v="${h.q}">Tudo meu</button>` : ''}</div>
     <div class="preview" id="tradeprev"></div>
-    <div class="btns"><button class="btn sell" data-act="trade" data-side="sell" data-sym="${sym}">Vender</button><button class="btn" data-act="trade" data-side="buy" data-sym="${sym}">Comprar</button></div>`);
-  const inp = $('#qty');
-  inp.addEventListener('input', updateTradePreview);
+    <div class="btns"><button class="btn red" data-act="trade" data-side="sell" data-sym="${sym}">Vender</button><button class="btn" data-act="trade" data-side="buy" data-sym="${sym}">Comprar</button></div>`);
+  $('#qty').addEventListener('input', updateTradePreview);
   updateTradePreview();
 }
 function maxBuy(sym) {
@@ -418,8 +498,7 @@ function updateTradePreview() {
   const el = $('#tradeprev');
   if (!el || !tradeSym) return;
   const q = parseFloat($('#qty').value) || 0;
-  const p = C.mk.price(tradeSym);
-  el.innerHTML = `Total: <b>${money(q * p)}</b> <small class="muted">(+ ${money(q * p * TRADE_FEE)} de taxa)</small>`;
+  el.innerHTML = `Total: <b>${money(q * C.mk.price(tradeSym))}</b>`;
 }
 function doTrade(sym, side) {
   let q = parseFloat($('#qty').value);
@@ -427,7 +506,8 @@ function doTrade(sym, side) {
   const r = act(() => G.trade(C.s, C.mk, sym, q, side));
   if (!r) return;
   if (side === 'buy') toast(`✅ Comprou ${fmt(q)} ${sym}`, 'ok');
-  else toast(r.profit >= 0 ? `💰 Lucro de ${money(r.profit)}!` : `📉 Prejuízo de ${money(-r.profit)}`, r.profit >= 0 ? 'ok' : 'err');
+  else if (r.profit >= 0) { toast(`💰 Lucro de ${money(r.profit)}!`, 'gold'); confetti(); }
+  else toast(`📉 Prejuízo de ${money(-r.profit)}`, 'err');
   closeModal(); render();
 }
 
@@ -437,173 +517,167 @@ function vRenda() {
   const now = Date.now();
   const list = (kind) => s[kind].map((x, i) => {
     const ready = now >= x.until;
-    return `<div class="row sm"><div class="grow"><b>${money(x.amt)}</b><small>${ready ? 'Disponível para resgate' : 'Libera em ' + dur(x.until - now)}</small></div>${ready ? `<button class="btn sm" data-act="redeem" data-kind="${kind}" data-i="${i}">Resgatar</button>` : '<span class="tag">🔒</span>'}</div>`;
+    return `<div class="lock"><b>${money(x.amt)}</b>${ready ? `<button class="btn sm" data-act="redeem" data-kind="${kind}" data-i="${i}">Resgatar</button>` : `<span class="timer sm">🔒 ${dur(x.until - now)}</span>`}</div>`;
   }).join('');
+  const sum = (k) => s[k].reduce((t, x) => t + x.amt, 0);
   return `
-  <p class="hint">🏦 Renda fixa é segura: rende sempre, sem risco. Mas rende menos que empresas e ações em alta. O CDI muda a cada 6 horas.</p>
-  <section class="panel"><div class="row-flat"><span>CDI atual</span><b>${(cdi * 100).toFixed(3)}% ao dia</b></div></section>
-  <section class="panel">
-    <div class="row-flat"><div><h4>🐷 Poupança</h4><small class="muted">${(cdi * 70).toFixed(3)}%/dia · saque a qualquer hora</small></div><b data-live="poup"></b></div>
-    <div class="btns"><button class="btn ghost" data-act="fixed" data-kind="saque">Sacar</button><button class="btn" data-act="fixed" data-kind="poup">Depositar</button></div>
-  </section>
-  <section class="panel">
-    <div class="row-flat"><div><h4>📄 CDB</h4><small class="muted">${(cdi * 110).toFixed(3)}%/dia · carência de 1 hora</small></div><b>${money(s.cdb.reduce((t, x) => t + x.amt, 0))}</b></div>
-    ${list('cdb')}
-    <button class="btn full" data-act="fixed" data-kind="cdb">Aplicar no CDB</button>
-  </section>
-  <section class="panel">
-    <div class="row-flat"><div><h4>🏛️ Tesouro</h4><small class="muted">${(cdi * 130).toFixed(3)}%/dia · carência de 4 horas</small></div><b>${money(s.tes.reduce((t, x) => t + x.amt, 0))}</b></div>
-    ${list('tes')}
-    <button class="btn full" data-act="fixed" data-kind="tes">Investir no Tesouro</button>
-  </section>`;
+  <div class="vault pig"><span class="vi">🐷</span><div class="grow"><b>Poupança</b><small>+${(cdi * 70).toFixed(3)}%/dia · saque livre</small><span class="vv" data-live="poup"></span></div>
+    <div class="vbtns"><button class="btn sm" data-act="fixed" data-kind="poup">Guardar</button><button class="btn ghost sm" data-act="fixed" data-kind="saque">Sacar</button></div></div>
+  <div class="vault cdb"><span class="vi">📄</span><div class="grow"><b>CDB</b><small>+${(cdi * 110).toFixed(3)}%/dia · preso 1h</small><span class="vv">${money(sum('cdb'))}</span>${list('cdb')}</div>
+    <div class="vbtns"><button class="btn sm" data-act="fixed" data-kind="cdb">Aplicar</button></div></div>
+  <div class="vault tes"><span class="vi">🏛️</span><div class="grow"><b>Tesouro</b><small>+${(cdi * 130).toFixed(3)}%/dia · preso 4h</small><span class="vv">${money(sum('tes'))}</span>${list('tes')}</div>
+    <div class="vbtns"><button class="btn sm" data-act="fixed" data-kind="tes">Aplicar</button></div></div>`;
 }
 function readAmount() { return parseFloat(($('#amt') || {}).value) || 0; }
-function amountModal(title, desc, base, go, kind) {
-  modal(`<h3>${title}</h3><p class="muted">${desc}</p>
+function amountModal(ttl, desc, base, go, kind) {
+  modal(`<h3>${ttl}</h3><p class="muted">${desc}</p>
     <input id="amt" type="number" inputmode="decimal" min="0" placeholder="Valor em R$">
-    <div class="quick">${[0.25, 0.5, 1].map((p) => `<button class="btn ghost sm" data-act="pctamt" data-p="${p}" data-base="${Math.max(0, base)}">${p * 100}%</button>`).join('')}</div>
+    <div class="quick">${[0.25, 0.5, 1].map((p) => `<button class="chipbtn" data-act="pctamt" data-p="${p}" data-base="${Math.max(0, base)}">${p === 1 ? 'Tudo' : p * 100 + '%'}</button>`).join('')}</div>
     <div class="btns"><button class="btn ghost" data-act="close">Cancelar</button><button class="btn" data-act="${go}" data-kind="${kind}">Confirmar</button></div>`);
 }
 function openFixed(kind) {
   const s = C.s;
-  if (kind === 'saque') return amountModal('Sacar da poupança', `Saldo: ${money(s.poup)}`, s.poup, 'fixedgo', 'saque');
-  const names = { poup: 'Depositar na poupança', cdb: 'Aplicar no CDB', tes: 'Investir no Tesouro' };
-  amountModal(names[kind], `Disponível: ${money(s.cash)}`, s.cash, 'fixedgo', kind);
+  if (kind === 'saque') return amountModal('🐷 Sacar da poupança', `Saldo: ${money(s.poup)}`, s.poup, 'fixedgo', 'saque');
+  const names = { poup: '🐷 Guardar na poupança', cdb: '📄 Aplicar no CDB', tes: '🏛️ Investir no Tesouro' };
+  amountModal(names[kind], `Você tem ${money(s.cash)}`, s.cash, 'fixedgo', kind);
 }
 
 function vImoveis() {
   const s = C.s;
   const idx = C.mk.realEstateIndex();
+  const k = C.mk.sectorKnown('realestate');
   return `
-  <p class="hint">🔑 Imóveis pagam aluguel todo dia e valorizam (ou desvalorizam) junto com o setor Imobiliário. Bom para renda estável.</p>
-  <section class="panel row-flat"><div><small class="muted">Índice imobiliário</small><h3 class="${idx >= 1 ? 'up' : 'down'}">${pct(idx - 1)}</h3></div><div class="right"><small class="muted">Setor agora</small><div>${regLabel(C.mk.sectorKnown('realestate'))}</div></div></section>
+  <div class="wallet"><div><small>🏘️ Preço dos imóveis</small><b class="${idx >= 1 ? 'up' : 'down'}">${pct(idx - 1)}</b></div><div class="right"><small>Setor</small><b class="${wxCls(k)}t">${WX[k]} ${WXN[k]}</b></div></div>
   ${PROPERTIES.map((p) => {
     const n = s.props[p.id] || 0;
     const cost = p.cost * idx;
-    return `<div class="row"><div class="ico">${p.icon}${n ? `<span class="lv">${n}</span>` : ''}</div><div class="grow"><b>${p.name}</b><small>Aluguel: <b class="up">${money(p.rent * G.levelMult(s))}/dia</b> · ${(p.rent / cost * 100).toFixed(2)}%</small>${n ? `<small>Você tem ${n} · rende ${money(n * p.rent * G.levelMult(s))}/dia</small>` : ''}</div>
-    <div class="col">${costBtn('buyprop', { id: p.id }, cost)}${n ? `<button class="btn ghost sm" data-act="sellprop" data-id="${p.id}">Vender</button>` : ''}</div></div>`;
+    return `<div class="biz"><span class="bico s-realestate">${p.icon}${n ? `<i class="lv">${n}</i>` : ''}</span><div class="grow"><b>${p.name}</b><span class="pill money">+${money(p.rent * G.levelMult(s))}/dia</span>${n ? `<button class="lnk" data-act="sellprop" data-id="${p.id}">vender 1</button>` : ''}</div>
+    ${costBtn('buyprop', { id: p.id }, cost, '<em>Comprar</em>')}</div>`;
   }).join('')}`;
 }
 
 function vCredito() {
   const s = C.s;
   const c = G.card(s);
+  const used = s.debt / c.limit;
   return `
-  <p class="hint">💳 Empréstimo é uma faca de dois gumes: dá para abrir uma empresa antes, mas os juros (${(LOAN_RATE * 100).toFixed(2)}% ao dia) correm sem parar. O limite depende do seu cartão.</p>
-  <section class="panel">
-    <div class="row-flat"><span>Cartão</span><b>${c.name}</b></div>
-    <div class="row-flat"><span>Limite total</span><b>${money(c.limit)}</b></div>
-    <div class="row-flat"><span>Dívida atual</span><b class="down" data-live="debt"></b></div>
-    <div class="row-flat"><span>Juros por dia</span><b class="down" data-live="debtint"></b></div>
-    <div class="btns"><button class="btn ghost" data-act="loan" data-kind="repay">Pagar</button><button class="btn" data-act="loan" data-kind="borrow">Pegar empréstimo</button></div>
-  </section>`;
+  <div class="loanbox">
+    ${bigCard(s.name, c, s.cardMax)}
+    <div class="limit"><div class="lrow"><span>Limite usado</span><b><span data-live="debt"></span> / ${money(c.limit)}</b></div><div class="bar red"><i style="width:${Math.min(100, used * 100)}%"></i></div>
+    <small class="muted">Juros: <b class="down" data-live="debtint"></b> por dia</small></div>
+    <div class="btns"><button class="btn ghost" data-act="loan" data-kind="repay">Pagar dívida</button><button class="btn" data-act="loan" data-kind="borrow">Pegar emprestado</button></div>
+  </div>`;
 }
 function openLoan(kind) {
   const s = C.s;
-  if (kind === 'borrow') amountModal('Pegar empréstimo', `Disponível: ${money(G.card(s).limit - s.debt)}`, G.card(s).limit - s.debt, 'loango', 'borrow');
-  else amountModal('Pagar dívida', `Dívida: ${money(s.debt)}`, Math.min(s.debt, s.cash), 'loango', 'repay');
+  if (kind === 'borrow') amountModal('💳 Pegar emprestado', `Disponível: ${money(G.card(s).limit - s.debt)}`, G.card(s).limit - s.debt, 'loango', 'borrow');
+  else amountModal('✅ Pagar dívida', `Dívida: ${money(s.debt)}`, Math.min(s.debt, s.cash), 'loango', 'repay');
 }
 
 // ---------- BENS ----------
+const RAR = ['comum', 'comum', 'raro', 'raro', 'epico', 'epico', 'lendario', 'lendario', 'lendario'];
+const RARN = { comum: 'Comum', raro: 'Raro', epico: 'Épico', lendario: 'Lendário' };
 function vBens() {
   const s = C.s;
   const sub = ui.sub.bens;
   const list = GOODS[sub];
-  const info = {
-    veiculos: '🚗 Veículos aumentam seu <b>salário</b> (só o melhor conta). Revenda: 60% do valor.',
-    moradia: `🏠 Ter moradia própria elimina o aluguel de ${money(15)}/dia e aumenta as <b>horas de renda offline</b>. Revenda: 90%.`,
-    luxo: '💎 Itens de luxo dão muito <b>prestígio</b>, que aparece no ranking. Revenda: 75%.',
-  }[sub];
-  return subtabs([['veiculos', '🚗 Veículos'], ['moradia', '🏠 Moradia'], ['luxo', '💎 Luxo']]) + `
-  <section class="panel row-flat"><div><small class="muted">Prestígio</small><h3>✨ ${fmt(G.prestige(s))}</h3></div><div class="right"><small class="muted">Cashback do cartão</small><h3>${Math.round(G.card(s).cashback * 100)}%</h3></div></section>
-  <p class="hint">${info} Bens têm manutenção de 0,02% do valor por dia.</p>
-  <div class="goods">${list.map((g) => {
+  const owned = list.filter((g) => s.goods[g.id]).length;
+  return title('💎', 'Coleção', 'bens') + subtabs([['veiculos', '🚗', 'Veículos'], ['moradia', '🏠', 'Moradia'], ['luxo', '💎', 'Luxo']]) + `
+  <div class="wallet"><div><small>✨ Prestígio</small><b>${fmt(G.prestige(s))}</b></div><div class="right"><small>Coleção</small><b>${owned}/${list.length}</b></div></div>
+  <div class="goods">${list.map((g, i) => {
     const own = !!s.goods[g.id];
-    const perk = g.bonus ? `+${Math.round(g.bonus * 100)}% salário` : g.hours ? `+${g.hours}h offline` : '';
-    return `<div class="good ${own ? 'own' : ''}"><div class="gi">${g.icon}</div><b>${g.name}</b><small>✨ ${g.prestige} ${perk ? '· ' + perk : ''}</small>
-      ${own ? `<span class="tag ok">✓ Seu</span><button class="btn ghost sm" data-act="sellgood" data-id="${g.id}">Vender</button>` : costBtn('buygood', { id: g.id }, g.cost)}</div>`;
+    const r = RAR[i];
+    const perk = g.bonus ? `+${Math.round(g.bonus * 100)}% salário` : g.hours ? `+${g.hours}h offline` : `✨ ${g.prestige}`;
+    return `<div class="gcard ${r} ${own ? 'own' : ''}" data-act="good" data-id="${g.id}">
+      <span class="rar">${RARN[r]}</span>${own ? '<span class="owned">✓</span>' : ''}
+      <div class="gi">${g.icon}</div><b>${g.name}</b><small>${perk}</small>
+      <div class="gprice" data-cost="${own ? 0 : g.cost}">${own ? 'É seu!' : money(g.cost)}</div></div>`;
   }).join('')}</div>`;
 }
+function openGood(id) {
+  const s = C.s;
+  const list = Object.values(GOODS).flat();
+  const g = list.find((x) => x.id === id);
+  const cat = Object.keys(GOODS).find((k) => GOODS[k].some((x) => x.id === id));
+  const r = RAR[GOODS[cat].indexOf(g)];
+  const own = !!s.goods[id];
+  const rate = cat === 'veiculos' ? 0.6 : cat === 'moradia' ? 0.9 : 0.75;
+  modal(`<div class="goodmodal ${r}"><div class="gi">${g.icon}</div><span class="rar">${RARN[r]}</span><h3>${g.name}</h3>
+    <div class="tags">${g.bonus ? `<span class="pill">💼 +${Math.round(g.bonus * 100)}% salário</span>` : ''}${g.hours ? `<span class="pill">🌙 +${g.hours}h offline</span><span class="pill">🏠 sem aluguel</span>` : ''}<span class="pill">✨ ${g.prestige} prestígio</span></div>
+    ${own ? `<p class="muted">Você é dono disso! Se vender, recebe ${money(g.cost * rate)}.</p><button class="btn red full" data-act="sellgood" data-id="${id}">Vender</button>`
+      : `<p class="muted">Cashback do seu cartão: ${Math.round(G.card(s).cashback * 100)}%</p><button class="btn gold full" data-act="buygood" data-id="${id}" data-cost="${g.cost}"><em>Comprar</em><span>${money(g.cost)}</span></button>`}</div>`);
+}
 
-// ---------- PERFIL / RANKING ----------
+// ---------- RANKING / PERFIL ----------
 function vPerfil() {
   const sub = ui.sub.perfil;
-  const head = subtabs([['ranking', '🏆 Ranking'], ['cartoes', '💳 Cartões'], ['conquistas', '🎖️ Conquistas'], ['ajustes', '⚙️ Ajustes']]);
-  if (sub === 'cartoes') return head + vCartoes();
-  if (sub === 'conquistas') return head + vConquistas();
-  if (sub === 'ajustes') return head + vAjustes();
-  return head + vRanking();
+  const head = subtabs([['ranking', '🏆', 'Ranking'], ['cartoes', '💳', 'Cartões'], ['conquistas', '🎖️', 'Troféus'], ['ajustes', '⚙️', 'Ajustes']]);
+  const body = sub === 'cartoes' ? vCartoes() : sub === 'conquistas' ? vConquistas() : sub === 'ajustes' ? vAjustes() : vRanking();
+  return title('🏆', { ranking: 'Ranking', cartoes: 'Cartões', conquistas: 'Troféus', ajustes: 'Ajustes' }[sub]) + head + body;
 }
 function vRanking() {
   const s = C.s;
   const me = { n: s.name, w: G.netWorth(s, C.mk), l: G.level(s), a: Object.keys(s.ach).length, c: s.cardMax, p: G.prestige(s), t: Date.now(), me: true };
   const all = [me, ...s.friends].sort((a, b) => b.w - a.w);
-  const medal = ['🥇', '🥈', '🥉'];
+  const pod = [all[1], all[0], all[2]];
+  const medal = ['🥈', '🥇', '🥉'];
+  const cls = ['p2', 'p1', 'p3'];
   return `
-  <section class="panel">
-    <h4>👨‍👩‍👧 Ranking da família</h4>
-    ${all.map((p, i) => `<div class="rank ${p.me ? 'me' : ''}"><span class="pos">${medal[i] || i + 1 + 'º'}</span>
-      <div class="grow"><b>${esc(p.n)}${p.me ? ' (você)' : ''}</b><small>Nv ${p.l} · 💳 ${CARDS[p.c].name} · 🎖️ ${p.a} · ✨ ${fmt(p.p)}</small><small class="muted">${p.me ? 'ao vivo' : 'atualizado ' + ago(p.t)}</small></div>
-      <div class="right"><b>${money(p.w)}</b>${p.me ? '' : `<button class="lnk" data-act="delfriend" data-id="${p.id}">remover</button>`}</div></div>`).join('')}
-  </section>
-  <section class="panel">
-    <h4>📤 Seu código</h4>
-    <p class="muted">Copie e mande no grupo da família (WhatsApp). Cada um cola o código dos outros aqui embaixo para atualizar o ranking.</p>
-    <textarea id="mycode" readonly rows="3">${G.shareCode(s, C.mk)}</textarea>
-    <button class="btn full" data-act="copycode">📋 Copiar meu código</button>
-  </section>
-  <section class="panel">
-    <h4>📥 Adicionar código de alguém</h4>
-    <textarea id="friendcode" rows="3" placeholder="Cole aqui o código MAG1..."></textarea>
-    <button class="btn full" data-act="addfriend">Adicionar / Atualizar</button>
-  </section>
-  <p class="hint">🎯 O mercado é o MESMO para todos: as notícias e os preços que você vê são iguais aos dos outros jogadores. Vence quem tomar as melhores decisões!</p>`;
+  <div class="podium">${pod.map((p, i) => p ? `<div class="pcol ${cls[i]} ${p.me ? 'me' : ''}"><div class="pav">${esc(p.n[0] || '?').toUpperCase()}</div><b>${esc(p.n)}</b><small>${money(p.w)}</small><div class="pbar"><span>${medal[i]}</span></div></div>` : '<div class="pcol empty"><div class="pbar"></div></div>').join('')}</div>
+  <div class="ranklist">${all.map((p, i) => `<div class="rank ${p.me ? 'me' : ''}"><span class="pos">${i + 1}º</span>
+      <div class="grow"><b>${esc(p.n)}${p.me ? ' (você)' : ''}</b><small>⭐${p.l} · 💳${CARDS[p.c].name} · 🎖️${p.a} · ✨${fmt(p.p)}${p.me ? '' : ' · ' + ago(p.t)}</small></div>
+      <div class="right"><b>${money(p.w)}</b>${p.me ? '' : `<button class="lnk" data-act="delfriend" data-id="${p.id}">remover</button>`}</div></div>`).join('')}</div>
+  ${s.friends.length ? '' : '<p class="muted center">Ainda só você aqui! Troque códigos com a família 👇</p>'}
+  <div class="btns"><button class="btn" data-act="copycode">📤 Enviar meu código</button><button class="btn blue" data-act="pastecode">📥 Colar código</button></div>
+  <textarea id="mycode" class="hidden" readonly></textarea>
+  <p class="muted center small">O mercado é o mesmo para todos. Vence quem decidir melhor! 😎</p>`;
 }
 function copyCode() {
   const ta = $('#mycode');
   ta.value = G.shareCode(C.s, C.mk);
-  const done = () => toast('📋 Código copiado! Agora cole no WhatsApp.', 'ok');
-  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(ta.value).then(done, () => { ta.select(); document.execCommand('copy'); done(); });
-  else { ta.select(); document.execCommand('copy'); done(); }
+  const done = () => toast('📋 Código copiado! Cole no grupo da família.', 'ok');
+  const fallback = () => { ta.classList.remove('hidden'); ta.select(); try { document.execCommand('copy'); done(); } catch (e) { toast('Copie o código abaixo', ''); } };
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(ta.value).then(done, fallback);
+  else fallback();
 }
 function vCartoes() {
   const s = C.s;
-  return `<p class="hint">💳 Cartões são desbloqueados quando seu patrimônio atinge cada patamar — e ficam com você para sempre. Cada um aumenta cashback, limite de crédito e horas de renda offline.</p>
-  <div class="cards">${CARDS.map((c, i) => `<div class="cardwrap">${bigCard(s, c, i, i > s.cardMax)}
-    <small>${i <= s.cardMax ? '✅ ' : '🔒 '}<b>${c.name}</b> · ${money(c.min)}<br>Cashback ${Math.round(c.cashback * 100)}% · Limite ${money(c.limit)} · Offline ${c.hours}h</small></div>`).join('')}</div>`;
+  return `<p class="muted center">Cartões são liberados pelo seu patrimônio e são seus para sempre.</p>
+  <div class="cards">${CARDS.map((c, i) => `<div class="cardwrap ${i > s.cardMax ? 'lk' : ''}">${bigCard(s.name, c, i, i > s.cardMax)}
+    <div class="perks"><span>💸 ${Math.round(c.cashback * 100)}%</span><span>💳 ${money(c.limit)}</span><span>🌙 ${c.hours}h</span></div></div>`).join('')}</div>`;
 }
 function vConquistas() {
   const s = C.s;
   const got = G.ACHIEVEMENTS.filter((a) => s.ach[a.id]).length;
-  return `<section class="panel row-flat"><h3>🎖️ ${got} / ${G.ACHIEVEMENTS.length}</h3><small class="muted">Cada conquista dá +80 XP</small></section>
-  <div class="achs">${G.ACHIEVEMENTS.map((a) => `<div class="ach ${s.ach[a.id] ? 'got' : ''}"><span>${s.ach[a.id] ? a.icon : '🔒'}</span><div><b>${a.name}</b><small>${a.desc}</small></div></div>`).join('')}</div>`;
+  return `<div class="trophyhead"><span>🏆</span><b>${got} / ${G.ACHIEVEMENTS.length}</b><small>toque num troféu para ver</small></div>
+  <div class="badges">${G.ACHIEVEMENTS.map((a) => `<div class="badge ${s.ach[a.id] ? 'got' : ''}" data-act="ach" data-id="${a.id}"><span>${s.ach[a.id] ? a.icon : '🔒'}</span><small>${a.name}</small></div>`).join('')}</div>`;
 }
 function vAjustes() {
   const s = C.s;
-  return `<section class="panel"><h4>✏️ Seu nome</h4><input id="newname" maxlength="18" value="${esc(s.name)}"><button class="btn full" data-act="rename">Salvar nome</button></section>
-  <section class="panel"><h4>📖 Como jogar</h4><button class="btn ghost full" data-act="help">Abrir guia</button></section>
-  <section class="panel"><h4>📈 Estatísticas</h4>
-    <div class="row-flat"><span>Dias jogados</span><b>${fmt(Math.floor((Date.now() - s.created) / DAY_MS))}</b></div>
-    <div class="row-flat"><span>Total ganho</span><b>${money(s.stats.earned)}</b></div>
-    <div class="row-flat"><span>Operações na bolsa</span><b>${s.stats.trades}</b></div>
-    <div class="row-flat"><span>Lucro com trades</span><b class="${s.stats.tradeProfit >= 0 ? 'up' : 'down'}">${money(s.stats.tradeProfit)}</b></div>
-    <div class="row-flat"><span>Dividendos recebidos</span><b>${money(s.stats.divs)}</b></div>
-    <div class="row-flat"><span>Maior patrimônio</span><b>${money(s.peakNW)}</b></div>
-  </section>
-  <p class="muted" style="text-align:center">Versão do jogo: ${esc(window.GAME_VERSION || '?')} · atualiza sozinho</p>
-  <section class="panel danger"><h4>⚠️ Zona de perigo</h4><button class="btn sell full" data-act="reset">Apagar progresso e recomeçar</button></section>`;
+  return `<div class="box col"><b>✏️ Seu nome</b><input id="newname" maxlength="18" value="${esc(s.name)}"><button class="btn full" data-act="rename">Salvar</button></div>
+  <button class="btn ghost full" data-act="help">📖 Como jogar</button>
+  <div class="box col stats">
+    <div class="fr"><span>📅 Dias jogados</span><b>${fmt(Math.floor((Date.now() - s.created) / DAY_MS))}</b></div>
+    <div class="fr"><span>💰 Total ganho</span><b>${money(s.stats.earned)}</b></div>
+    <div class="fr"><span>📈 Operações na bolsa</span><b>${s.stats.trades}</b></div>
+    <div class="fr"><span>🎯 Lucro com ações</span><b class="${s.stats.tradeProfit >= 0 ? 'up' : 'down'}">${money(s.stats.tradeProfit)}</b></div>
+    <div class="fr"><span>🏔️ Maior patrimônio</span><b>${money(s.peakNW)}</b></div>
+  </div>
+  <p class="muted center small">Versão do jogo: ${esc(window.GAME_VERSION || '?')} · atualiza sozinho</p>
+  <button class="btn red full" data-act="reset">Apagar progresso</button>`;
 }
 
 export function openHelp() {
   modal(`<h3>📖 Como jogar</h3>
-  <p><b>Objetivo:</b> ter o maior patrimônio da família. Aqui não tem que ficar tocando na tela — o dinheiro vem das suas <b>decisões</b>.</p>
-  <p>⏱️ <b>1 dia no jogo = 1 minuto real.</b> Salário, lucros e juros caem continuamente. Com o app fechado você continua ganhando por algumas horas (aumenta com cartões e moradia).</p>
-  <p>💼 <b>Carreira:</b> estude para pegar empregos melhores. Cursos levam tempo real.</p>
-  <p>🏭 <b>Empresas:</b> renda passiva. Cada nível aumenta o lucro e, em 10/25/50/100 níveis, o lucro dobra.</p>
-  <p>📈 <b>Bolsa e Cripto:</b> o mercado é o MESMO para todos os jogadores. A cada hora cada setor entra num ciclo de alta, queda ou estabilidade. Leia as <b>previsões</b> (70% de acerto) e as <b>confirmações</b> nas notícias para comprar na hora certa.</p>
-  <p>🏦 <b>Renda fixa:</b> segura, mas rende menos. 🔑 <b>Imóveis:</b> aluguel todo dia. 💳 <b>Crédito:</b> antecipa compras, mas cobra juros.</p>
-  <p>💳 <b>Cartões:</b> desbloqueados por patrimônio. Dão cashback, limite e horas offline.</p>
-  <p>🏆 <b>Ranking:</b> copie seu código e mande no grupo. Cole o dos outros para ver quem está na frente.</p>
+  <div class="helpl">
+  <p><span>🎯</span><span>Seja a pessoa <b>mais rica da família</b>. Sem ficar tocando na tela: aqui vence quem toma as <b>melhores decisões</b>.</span></p>
+  <p><span>⏱️</span><span><b>1 dia no jogo = 1 minuto real.</b> O dinheiro cai sozinho, até com o jogo fechado (por algumas horas).</span></p>
+  <p><span>🎓</span><span>Estude para pegar empregos melhores.</span></p>
+  <p><span>🏭</span><span>Abra negócios e suba de nível. A cada 10, 25, 50… níveis o lucro dobra!</span></p>
+  <p><span>🔥</span><span>Cada setor tem um <b>clima</b> que muda toda hora. Leia o 📺 jornal e invista no setor que vai esquentar.</span></p>
+  <p><span>💳</span><span>Fique rico para desbloquear cartões cada vez mais top.</span></p>
+  <p><span>🏆</span><span>Troque códigos no grupo da família e veja quem está na frente.</span></p>
+  </div>
   <button class="btn full" data-act="close">Bora ficar rico! 🚀</button>`);
 }
 
@@ -613,25 +687,27 @@ function liveValue(key) {
   const [k, arg] = key.split(':');
   switch (k) {
     case 'cash': return money(s.cash);
-    case 'rate': { const n = G.incomeBreakdown(s, mk).net; return { t: `${n >= 0 ? '+' : ''}${money(n)}/dia`, c: n >= 0 ? 'up' : 'down' }; }
+    case 'rate': { const n = G.incomeBreakdown(s, mk).net; return { t: `${n >= 0 ? '+' : ''}${fmt(n)}/dia`, c: n >= 0 ? 'up' : 'down' }; }
+    case 'inc': return '+' + money(G.incomeBreakdown(s, mk).inc);
+    case 'exp': return '-' + money(G.incomeBreakdown(s, mk).exp);
     case 'lvl': return G.level(s);
+    case 'xptxt': { const L = G.level(s); return `${fmt(s.xp - G.xpForLevel(L))} / ${fmt(G.xpForLevel(L + 1) - G.xpForLevel(L))} XP`; }
     case 'nw': return money(G.netWorth(s, mk));
     case 'salary': return money(G.salary(s));
     case 'poup': return money(s.poup);
     case 'debt': return money(s.debt);
     case 'debtint': return money(s.debt * LOAN_RATE);
-    case 'coursetime': return s.course ? dur(s.course.end - Date.now()) : '';
-    case 'nexttick': return dur(mk.msToNextTick());
+    case 'coursetime': return s.course ? '⏱️ ' + dur(s.course.end - Date.now()) : '';
     case 'nextblock': return dur(mk.msToNextBlock());
     case 'price': return price(mk.price(arg));
-    case 'chg': { const c = mk.change(arg); return { t: pct(c) + ' 1h', c: c >= 0 ? 'up' : 'down' }; }
+    case 'chg': { const c = mk.change(arg); return { t: (c >= 0 ? '▲ ' : '▼ ') + pct(Math.abs(c)).slice(1), c: c >= 0 ? 'up' : 'down' }; }
     case 'held': case 'heldfull': {
       const h = s.port[arg];
-      if (!h || !(h.q > 0)) return k === 'heldfull' ? 'Você não tem este ativo.' : '';
+      if (!h || !(h.q > 0)) return k === 'heldfull' ? 'Você ainda não tem.' : G.isCrypto(arg) || !ASSETS.find((a) => a.sym === arg) ? arg : arg;
       const v = h.q * mk.price(arg);
       const pl = v / h.cost - 1;
       const q = G.isCrypto(arg) ? fmt(h.q, h.q < 10 ? 4 : 2) : fmt(h.q);
-      return { t: `Você tem ${q} · ${money(v)} (${pct(pl)})`, c: pl >= 0 ? 'up' : 'down' };
+      return { t: k === 'heldfull' ? `Você tem ${q} = ${money(v)} (${pct(pl)})` : `🎒 ${q} · ${pct(pl, 0)}`, c: pl >= 0 ? 'up' : 'down' };
     }
     case 'pv': case 'pl': {
       const r = portfolioValue(arg === 's' ? STOCKS : CRYPTOS);
@@ -645,7 +721,7 @@ function liveValue(key) {
 function liveHTML(key) {
   switch (key) {
     case 'flow': return flowHTML();
-    case 'news6': return newsHTML(6);
+    case 'news3': return newsHTML(3);
     case 'news20': return newsHTML(20);
     case 'sectors': return sectorsHTML(SECTORS.filter((x) => x.id !== 'crypto').map((x) => x.id));
     case 'cryptosector': return sectorsHTML(['crypto']);
@@ -660,7 +736,6 @@ function liveWidth(key) {
   return 0;
 }
 
-// refresh leve (a cada ~250ms). heavy=true quando o mercado muda
 export function refresh(heavy = false) {
   if (!C) return;
   document.querySelectorAll('[data-live]').forEach((el) => {
@@ -678,12 +753,10 @@ export function refresh(heavy = false) {
   }
 }
 export function onMarketTick() {
-  // re-renderiza blocos pesados; se aba depende de preços, atualiza
   refresh(true);
-  if (ui.tab === 'empresas' && !modalOpen()) render();
+  if (ui.tab === 'empresas' && !modalOpen()) { const sc = $('#view').scrollTop; render(); $('#view').scrollTop = sc; }
 }
 export function slowRefresh() {
-  // fluxo muda continuamente; atualiza a cada poucos segundos
   document.querySelectorAll('[data-live-html="flow"]').forEach((el) => { el.innerHTML = flowHTML(); });
 }
 export { ui };
