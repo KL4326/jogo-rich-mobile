@@ -198,12 +198,14 @@ const handlers = {
     const patch = { [d.k]: v };
     if (d.k === 'sex' && v !== C.s.look.sex) { patch.hair = v === 'f' ? 'longo' : 'curto'; }
     G.setLook(C.s, patch); C.afterAction();
-    if (!refreshCreator() && !refreshVisual('appear')) keepScroll(render);
+    if (!refreshCreator() && !refreshVisual()) keepScroll(render);
   },
-  slot: (d) => { ui.slot = d.slot; if (!refreshVisual('closet')) keepScroll(render); },
-  buycloth: (d, el) => { const owned = !!C.s.wardrobe[d.id]; if (act(() => G.buyCloth(C.s, d.id), owned ? null : '🛍️ Comprado!', owned ? null : el)) { if (!refreshVisual('closet')) keepScroll(render); } },
-  buyset: (d, el) => { const st = SETS.find((x) => x.id === d.id); const paid = setCost(C.s, st) > 0; if (act(() => G.buySet(C.s, st), paid ? `🎭 Fantasia de ${st.name}!` : null, paid ? el : null)) { if (!refreshVisual('closet')) keepScroll(render); } },
-  takeoff: (d) => { G.takeOff(C.s, d.slot); C.afterAction(); if (!refreshVisual('closet')) keepScroll(render); },
+  vis: (d) => { ui.vis = d.t; if (!refreshVisual()) keepScroll(render); },
+  cvis: (d) => { ui.cvis = d.t; refreshCreator(); },
+  pt: (d) => { ui[d.g] = d.t; keepScroll(render); },
+  buycloth: (d, el) => { const owned = !!C.s.wardrobe[d.id]; if (act(() => G.buyCloth(C.s, d.id), owned ? null : '🛍️ Comprado!', owned ? null : el)) { if (!refreshVisual()) keepScroll(render); } },
+  buyset: (d, el) => { const st = SETS.find((x) => x.id === d.id); const paid = setCost(C.s, st) > 0; if (act(() => G.buySet(C.s, st), paid ? `🎭 Fantasia de ${st.name}!` : null, paid ? el : null)) { if (!refreshVisual()) keepScroll(render); } },
+  takeoff: (d) => { G.takeOff(C.s, d.slot); C.afterAction(); if (!refreshVisual()) keepScroll(render); },
   findlove: (d) => { G.findCandidate(C.s, d.p); C.afterAction(); render(); },
   askout: (d, el) => {
     const r = act(() => G.askOut(C.s), null, el);
@@ -282,6 +284,7 @@ export function render(anim = false) {
   const v = $('#view');
   const fn = { inicio: vInicio, vida: vVida, empresas: vEmpresas, investir: vInvestir, bens: vBens, perfil: vPerfil }[ui.tab];
   v.innerHTML = `<div class="page${anim ? ' anim' : ''}">${fn()}</div>`;
+  v.querySelectorAll('.subtabs').forEach(centerTab);
   refresh(true);
 }
 
@@ -304,6 +307,7 @@ const title = (icon, text, help) => `<div class="ptitle"><h2>${icon} ${text}</h2
 const lockBox = (lvl, what) => `<div class="locked"><div class="lk">🔒</div><b>${what}</b><p>Libera no <span class="lvchip">Nível ${lvl}</span></p><small>Suba de nível estudando, abrindo negócios e conquistando troféus.</small></div>`;
 const subtabs = (list) => `<div class="subtabs">${list.map(([id, icon, name]) => `<button class="${ui.sub[ui.tab] === id ? 'on' : ''}" data-act="sub" data-sub="${id}"><span>${icon}</span>${name}</button>`).join('')}</div>`;
 const dataAttrs = (data) => Object.entries(data).map(([k, v]) => `data-${k}="${v}"`).join(' ');
+const pillTabs = (g, list, cur) => `<div class="ptabs">${list.map(([id, icon, name]) => `<button class="${cur === id ? 'on' : ''}" data-act="pt" data-g="${g}" data-t="${id}">${icon} ${name}</button>`).join('')}</div>`;
 const costBtn = (act, data, cost, label = '') => `<button class="btn gold" data-act="${act}" ${dataAttrs(data)} data-cost="${cost}">${label}<span>${money(cost)}</span></button>`;
 
 // ---------- INÍCIO ----------
@@ -354,33 +358,37 @@ function vVida() {
   return title('👤', 'Minha Vida', sub === 'carreira' ? 'carreira' : sub) + head + body;
 }
 
-const swatches = (k, list, cur) => `<div class="swatches">${list.map((c, i) => `<button class="sw ${cur === i ? 'on' : ''}" style="background:${c}" data-act="look" data-k="${k}" data-v="${i}"></button>`).join('')}</div>`;
-function appearanceHTML(L) {
-  return `<div class="lookrow"><span>Sou</span><div class="seg2">${[['m', '👨 Homem'], ['f', '👩 Mulher']].map(([v, n]) => `<button class="${L.sex === v ? 'on' : ''}" data-act="look" data-k="sex" data-v="${v}">${n}</button>`).join('')}</div></div>
-    <div class="lookrow"><span>Pele</span>${swatches('skin', SKINS, L.skin)}</div>
-    <div class="lookrow col"><span>Cabelo</span><div class="hairs">${HAIRS.map((h) => `<button class="chipbtn ${L.hair === h.id ? 'on' : ''}" data-act="look" data-k="hair" data-v="${h.id}">${h.name}</button>`).join('')}</div></div>
-    <div class="lookrow"><span>Cor</span>${swatches('hairColor', HAIR_COLORS, L.hairColor)}</div>
-    <div class="lookrow col"><span>Barba e bigode</span><div class="hairs">${BEARDS.map((b) => `<button class="chipbtn ${(L.beard || null) === b.id ? 'on' : ''}" data-act="look" data-k="beard" data-v="${b.id || ''}">${b.name}</button>`).join('')}</div></div>
-    <div class="lookrow"><span>Olhos</span>${swatches('eyes', EYE_COLORS, L.eyes)}</div>`;
+const swatches = (k, list, cur) => `<div class="swatches big">${list.map((c, i) => `<button class="sw ${cur === i ? 'on' : ''}" style="background:${c}" data-act="look" data-k="${k}" data-v="${i}"></button>`).join('')}</div>`;
+const LOOK_TABS = [{ id: 'corpo', icon: '🧍', name: 'Corpo' }, { id: 'cabelo', icon: '💇', name: 'Cabelo' }, { id: 'olhos', icon: '👀', name: 'Olhos' }, { id: 'barba', icon: '🧔', name: 'Barba' }];
+const isLookTab = (t) => LOOK_TABS.some((x) => x.id === t);
+const pickCard = (look, name, on, k, v, size) => `<button class="citem pick ${on ? 'worn' : ''}" data-act="look" data-k="${k}" data-v="${v}"><div class="cprev">${avatarSVG(look, { size })}</div><b>${name}</b>${on ? '<span class="pill ok">✓ Usando</span>' : ''}</button>`;
+// Conteúdo de uma aba de aparência (grátis)
+function lookPanel(tab, L, size = 110) {
+  if (tab === 'corpo') return `<div class="panelbox"><b>Sou</b><div class="seg2">${[['m', '👨 Homem'], ['f', '👩 Mulher']].map(([v, n]) => `<button class="${L.sex === v ? 'on' : ''}" data-act="look" data-k="sex" data-v="${v}">${n}</button>`).join('')}</div>
+    <b>Tom de pele</b>${swatches('skin', SKINS, L.skin)}</div>`;
+  if (tab === 'olhos') return `<div class="panelbox"><b>Cor dos olhos</b>${swatches('eyes', EYE_COLORS, L.eyes)}</div>`;
+  if (tab === 'cabelo') return `<div class="panelbox"><b>Cor do cabelo</b>${swatches('hairColor', HAIR_COLORS, L.hairColor)}</div>
+    <div class="closet">${HAIRS.map((h) => pickCard({ ...L, hair: h.id, head: null }, h.name, L.hair === h.id, 'hair', h.id, size)).join('')}</div>`;
+  if (tab === 'barba') return `<div class="closet">${BEARDS.map((b) => pickCard({ ...L, beard: b.id, face: null }, b.name, (L.beard || null) === b.id, 'beard', b.id || '', size)).join('')}</div>`;
+  return '';
 }
+const tabChip = (act, t, cur) => `<button class="${cur === t.id ? 'on' : ''}" data-act="${act}" data-t="${t.id}"><span>${t.icon}</span>${t.name}</button>`;
+const visBar = (cur) => LOOK_TABS.map((t) => tabChip('vis', t, cur)).join('') + '<span class="tabsep">🛍️ Loja</span>' + SLOTS.map((t) => tabChip('vis', t, cur)).join('');
+const visPanel = (tab) => (isLookTab(tab) ? lookPanel(tab, C.s.look) : `<div class="closet">${closetHTML(tab)}</div>`);
 function vVisual() {
   const s = C.s;
-  const slot = ui.slot || 'sets';
+  const tab = ui.vis || 'corpo';
   return `
   <div class="mirror"><div class="mirrorav" id="mirrorav">${avatarSVG(s.look, { size: 230 })}</div><div class="stylebadge">👗 Estilo <b id="stylev">${fmt(G.styleOf(s))}</b></div></div>
-  <details class="box col appear" id="appear"><summary><b>✂️ Aparência</b> <small class="muted">grátis · toque para mudar</small></summary><div id="appearbody">${appearanceHTML(s.look)}</div></details>
-  <h4 class="sec">🛍️ Loja de roupas</h4>
-  <div class="subtabs slots" id="slotbar">${slotBar(slot)}</div>
-  <div class="closet" id="closet">${closetHTML(slot)}</div>`;
+  <div class="subtabs vistabs" id="vistabs">${visBar(tab)}</div>
+  <div id="vispanel">${visPanel(tab)}</div>`;
 }
-const slotBar = (slot) => SLOTS.map((x) => `<button class="${slot === x.id ? 'on' : ''}" data-act="slot" data-slot="${x.id}"><span>${x.icon}</span>${x.name}</button>`).join('');
 function setCost(s, st) { return Object.values(st.pieces).filter((id) => id && !s.wardrobe[id]).reduce((t, id) => t + CLOTH[id].cost, 0); }
 function closetHTML(slot) {
   const s = C.s;
   const L = s.look;
   if (slot === 'sets') return SETS.map((st) => {
     const cost = setCost(s, st);
-    const worn = Object.entries(st.pieces).every(([k, v]) => (L[k] || null) === v || (!v && !L[k]) || (v === null));
     const wornAll = Object.entries(st.pieces).filter(([, v]) => v).every(([k, v]) => L[k] === v);
     const btn = wornAll ? '<span class="pill ok">Vestindo</span>' : cost ? `<button class="btn gold sm" data-act="buyset" data-id="${st.id}" data-cost="${cost}"><span>${money(cost)}</span></button>` : `<button class="btn sm" data-act="buyset" data-id="${st.id}">Vestir</button>`;
     return `<div class="citem ${wornAll ? 'worn' : ''}"><div class="cprev">${avatarSVG({ ...L, ...st.pieces }, { size: 118 })}</div><b>${st.icon} ${st.name}</b><small>✨ ${Object.values(st.pieces).filter(Boolean).reduce((t, id) => t + CLOTH[id].style, 0)} de estilo</small>${btn}</div>`;
@@ -394,23 +402,29 @@ function closetHTML(slot) {
   }).join('');
 }
 // Atualiza só o que mudou no Visual (sem redesenhar a aba inteira nem mexer na rolagem)
-function refreshVisual(what) {
-  if (!$('#closet')) return false;
-  const s = C.s;
-  const slot = ui.slot || 'sets';
-  $('#mirrorav').innerHTML = avatarSVG(s.look, { size: 230 });
-  $('#stylev').textContent = fmt(G.styleOf(s));
-  if (what === 'appear') $('#appearbody').innerHTML = appearanceHTML(s.look);
-  $('#slotbar').innerHTML = slotBar(slot);
-  $('#closet').innerHTML = closetHTML(slot);
+function refreshVisual() {
+  if (!$('#vispanel')) return false;
+  const tab = ui.vis || 'corpo';
+  $('#mirrorav').innerHTML = avatarSVG(C.s.look, { size: 230 });
+  $('#stylev').textContent = fmt(G.styleOf(C.s));
+  $('#vistabs').innerHTML = visBar(tab);
+  $('#vispanel').innerHTML = visPanel(tab);
+  centerTab($('#vistabs'));
   refresh();
   return true;
+}
+function centerTab(bar) {
+  const on = bar && bar.querySelector('.on');
+  if (on) bar.scrollLeft = on.offsetLeft - bar.clientWidth / 2 + on.clientWidth / 2;
 }
 function refreshCreator() {
   const box = $('#creator');
   if (!box) return false;
-  box.querySelector('.mirror').innerHTML = avatarSVG(C.s.look, { size: 200 });
-  $('#creatorbody').innerHTML = appearanceHTML(C.s.look);
+  const tab = ui.cvis || 'corpo';
+  box.querySelector('.mirror').innerHTML = avatarSVG(C.s.look, { size: 180 });
+  $('#ctabs').innerHTML = LOOK_TABS.map((t) => tabChip('cvis', t, tab)).join('');
+  $('#creatorbody').innerHTML = lookPanel(tab, C.s.look, 96);
+  centerTab($('#ctabs'));
   return true;
 }
 
@@ -435,7 +449,11 @@ function vAmor() {
   let next = '';
   if (!L.act && L.stage === 1) next = `<button class="btn pink full" data-act="nextstep">💌 Pedir em namoro <small>(❤️ 40)</small></button>`;
   if (!L.act && L.stage === 2) next = `<button class="btn pink full" data-act="nextstep" data-cost="${RING_COST}">💍 Pedir em casamento <small>(anel ${money(RING_COST)} · ❤️ 60)</small></button>`;
-  if (!L.act && L.stage === 3) next = `<h4 class="sec">💒 Escolha o casamento <small>(precisa ❤️ 75)</small></h4>${WEDDINGS.map((w) => `<div class="item"><span class="bi">${w.icon}</span><div class="grow"><b>${w.name}</b><small>⏱️ ${w.mins} dias · ✨ +${w.prestige}</small></div>${costBtn('marry', { id: w.id }, w.cost)}</div>`).join('')}`;
+  const weddings = `<p class="hint small">💒 Precisa de ❤️ 75 de carinho.</p>${WEDDINGS.map((w) => `<div class="item"><span class="bi">${w.icon}</span><div class="grow"><b>${w.name}</b><small>⏱️ ${w.mins} dias · ✨ +${w.prestige}</small></div>${costBtn('marry', { id: w.id }, w.cost)}</div>`).join('')}`;
+  const tabs = [['programas', '🎟️', 'Programas'], ['presentes', '🎁', 'Presentes']];
+  if (!L.act && L.stage === 3) tabs.unshift(['casamento', '💒', 'Casamento']);
+  let lt = ui.lov || 'programas';
+  if (!tabs.some(([id]) => id === lt)) lt = tabs[0][0];
   return `
   <div class="couple">
     <div>${avatarSVG(s.look, { size: 150 })}<b>${esc(s.name)}</b></div>
@@ -450,10 +468,10 @@ function vAmor() {
   </div>
   ${act ? `<div class="box studying"><span class="bi">${act.icon}</span><div class="grow"><b>${act.name}</b><small class="muted">juntos agora</small></div><span class="timer" data-live="lovetime"></span></div>` : ''}
   ${next}
-  <h4 class="sec">🎟️ Programas a dois</h4>
-  ${DATES.map((d) => `<div class="item ${L.act ? 'dim' : ''}"><span class="bi">${d.icon}</span><div class="grow"><b>${d.name}</b><small>⏱️ ${d.mins} dias · ❤️ +${d.aff}</small></div>${L.act ? '' : costBtn('date', { id: d.id }, d.cost)}</div>`).join('')}
-  <h4 class="sec">🎁 Presentes</h4>
-  <div class="gifts">${GIFTS.map((g) => `<button class="gift" data-act="gift" data-id="${g.id}" data-cost="${g.cost}"><span>${g.icon}</span><b>${g.name}</b><small>❤️ +${g.aff}</small><em>${money(g.cost)}</em></button>`).join('')}</div>
+  ${pillTabs('lov', tabs, lt)}
+  ${lt === 'casamento' ? weddings : ''}
+  ${lt !== 'programas' ? '' : DATES.map((d) => `<div class="item ${L.act ? 'dim' : ''}"><span class="bi">${d.icon}</span><div class="grow"><b>${d.name}</b><small>⏱️ ${d.mins} dias · ❤️ +${d.aff}</small></div>${L.act ? '' : costBtn('date', { id: d.id }, d.cost)}</div>`).join('')}
+  ${lt !== 'presentes' ? '' : `<div class="gifts">${GIFTS.map((g) => `<button class="gift" data-act="gift" data-id="${g.id}" data-cost="${g.cost}"><span>${g.icon}</span><b>${g.name}</b><small>❤️ +${g.aff}</small><em>${money(g.cost)}</em></button>`).join('')}</div>`}
   <button class="lnk center-block" data-act="breakup">${L.stage >= 4 ? 'Pedir divórcio (custa 25% do dinheiro)' : 'Terminar relacionamento'}</button>`;
 }
 
@@ -476,7 +494,9 @@ function vViagens() {
 export function openCreator() {
   const L = C.s.look || defaultLook('m');
   C.s.look = L;
-  modal(`<div id="creator"><h3>✨ Crie seu personagem</h3><div class="mirror small">${avatarSVG(L, { size: 200 })}</div><div id="creatorbody">${appearanceHTML(L)}</div>
+  const tab = ui.cvis || 'corpo';
+  modal(`<div id="creator"><h3>✨ Crie seu personagem</h3><div class="mirror small">${avatarSVG(L, { size: 180 })}</div>
+    <div class="subtabs vistabs incard" id="ctabs">${LOOK_TABS.map((t) => tabChip('cvis', t, tab)).join('')}</div><div id="creatorbody">${lookPanel(tab, L, 96)}</div>
     <p class="muted small">Roupas e acessórios você compra depois na aba 👤 Vida → Visual.</p>
     <button class="btn full" data-act="close">Pronto! 😎</button></div>`);
 }
@@ -585,10 +605,11 @@ function vCarreira() {
     if (cur) return '';
     return `<div class="item ${ok ? '' : 'dim'}"><span class="bi">${j.icon}</span><div class="grow"><b>${j.name}</b><small>${ok ? `💵 ${money(j.salary)}/dia` : '🔒 ' + miss.join(', ')}</small></div>${ok ? `<button class="btn" data-act="job" data-id="${j.id}">Trabalhar</button>` : ''}</div>`;
   }).join('');
+  const t = ui.car || 'estudos';
   return `
   <div class="hero job"><span class="hi">${job.icon}</span><div><small>Seu emprego</small><h3>${job.name}</h3><span class="pill money"><b data-live="salary"></b>/dia</span></div></div>
-  <h4 class="sec">📚 Estudos</h4>${courses}
-  <h4 class="sec">💼 Outros empregos</h4>${jobs}`;
+  ${pillTabs('car', [['estudos', '📚', 'Estudos'], ['empregos', '💼', 'Empregos']], t)}
+  ${t === 'estudos' ? courses : jobs}`;
 }
 
 // ---------- NEGÓCIOS ----------
