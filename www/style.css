@@ -585,3 +585,35 @@ details.appear[open] summary { margin-bottom: 8px; }
 .street::-webkit-scrollbar { display: none; }
 .streetin { height: 100%; display: flex; align-items: flex-end; padding: 0 10px 14px; width: max-content; min-width: 100%; justify-content: center; }
 .street .townsvg { max-width: none; height: 74px; max-height: none; width: auto; }
+
+/* ===== PC / navegador ===== */
+#deskside { display: none; }
+[data-act] { cursor: pointer; }
+@media (hover: hover) {
+  .btn:hover, .chipbtn:hover, .gift:hover, .seg2 button:hover { filter: brightness(1.07); }
+  .item:hover, .biz:hover, .asset:hover, .citem:hover, .gcard:hover, .rank:hover, .lchip:hover, .wxc:hover { filter: brightness(1.03); }
+  #tabs button:hover span { transform: translateY(-2px) scale(1.08); filter: none; }
+}
+#view { scrollbar-width: thin; scrollbar-color: #ffffff44 transparent; }
+#view::-webkit-scrollbar { width: 8px; }
+#view::-webkit-scrollbar-thumb { background: #ffffff44; border-radius: 8px; }
+.sheet { scrollbar-width: thin; }
+@media (min-width: 820px) and (min-height: 560px) {
+  body { background: radial-gradient(circle at 15% 20%, #6a52e0 0%, transparent 40%), radial-gradient(circle at 85% 80%, #2bc46f33 0%, transparent 40%), linear-gradient(135deg, #2b1d70, #120b36); }
+  #app { width: 440px; max-width: 440px; height: calc(100vh - 40px); margin: 20px auto; border-radius: 38px; overflow: hidden; border: 7px solid #0d0828; box-shadow: 0 30px 80px #0009, 0 0 0 2px #ffffff22; background: radial-gradient(circle at 20% 0%, #5a44c9 0%, transparent 50%), linear-gradient(180deg, var(--bg1), var(--bg2)); }
+  #app::before { content: ''; position: absolute; inset: 0; pointer-events: none; opacity: .07; background-image: radial-gradient(#fff 1.5px, transparent 1.6px); background-size: 22px 22px; }
+  body::before { display: none; }
+  #top { padding-top: 14px; }
+  #tabs { margin-bottom: 10px; }
+  .sheet { max-width: 440px; bottom: 27px; border-radius: 28px; max-height: calc(100vh - 80px); }
+  #toasts { top: 34px; }
+  #deskside { display: flex; flex-direction: column; gap: 18px; position: fixed; top: 50%; left: calc(50% - 220px - 360px); width: 300px; transform: translateY(-50%); color: #fff; }
+  #deskside .dsb { display: flex; flex-direction: column; align-items: flex-start; }
+  #deskside .bcoin { width: 84px; height: 84px; font-size: 52px; }
+  #deskside h1 { margin: 10px 0 0; font-family: var(--display); font-weight: 400; font-size: 58px; background: linear-gradient(180deg, #fff6c9, var(--gold) 55%, var(--gold-d)); -webkit-background-clip: text; background-clip: text; color: transparent; filter: drop-shadow(0 4px 0 #6b3d00); }
+  #deskside p { margin: 0; letter-spacing: 3px; text-transform: uppercase; font-weight: 700; opacity: .8; }
+  #deskside ul { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px; }
+  #deskside li { background: #ffffff14; border: 2px solid #ffffff1f; border-radius: 16px; padding: 10px 14px; font-weight: 600; font-size: 16px; }
+  #deskside small { opacity: .7; }
+}
+@media (min-width: 820px) and (max-width: 1180px) { #deskside { display: none; } }

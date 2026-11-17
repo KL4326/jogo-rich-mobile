@@ -54,6 +54,11 @@ const $ = (sel, root = document) => root.querySelector(sel);
 export function init(ctx) {
   C = ctx;
   document.addEventListener('click', onClick);
+  // No PC: rodinha do mouse rola as faixas horizontais
+  document.addEventListener('wheel', (e) => {
+    const el = e.target.closest('.subtabs, .wxrow, .street, .lifechips');
+    if (el && Math.abs(e.deltaY) > Math.abs(e.deltaX) && el.scrollWidth > el.clientWidth) { el.scrollLeft += e.deltaY; e.preventDefault(); }
+  }, { passive: false });
   renderTabs();
   render();
 }

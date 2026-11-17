@@ -48,6 +48,7 @@ function loginScreen(mode = 'login', msg = '') {
     </div>`;
   const err = (t) => { $('lerr').textContent = t; $('lerr').classList.toggle('ok', t.startsWith('✅')); };
   $('lswap').onclick = () => loginScreen(signup ? 'login' : 'signup');
+  $('lpass').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('lgo').click(); });
   if (!signup) $('lforgot').onclick = async () => {
     const email = $('lemail').value;
     if (!email) return err('Digite seu e-mail acima e toque de novo.');
@@ -280,6 +281,7 @@ function localOnboarding() {
     <div class="loginbox"><h3>Como você quer ser chamado?</h3>
     <input id="pname" maxlength="18" placeholder="Seu nome">
     <button class="btn full" id="startbtn">Começar minha jornada 🚀</button></div>`;
+  $('pname').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('startbtn').click(); });
   $('startbtn').onclick = () => {
     const n = $('pname').value.trim().slice(0, 18);
     if (!n) return;
