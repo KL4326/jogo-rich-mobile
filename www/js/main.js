@@ -4,6 +4,7 @@ import { Market } from './market.js';
 import * as UI from './ui.js';
 import { money } from './ui.js';
 import * as Cloud from './cloud.js';
+import { JOBS, GOODS } from './data.js';
 
 const mk = new Market();
 const ctx = { s: null, mk, afterAction, friends: {}, cloud: Cloud.enabled, uid: null, addFriend, removeFriend, logout, answerEvent };
@@ -92,7 +93,7 @@ async function enterGame(user, newName) {
   hideSplash();
   start(s);
   pushCloud();
-  if (isNew) UI.openHelp();
+  if (isNew && s.look) UI.openHelp();
 }
 
 async function logout() {
@@ -109,6 +110,9 @@ function profileOf(s) {
     name: s.name, tag: s.tag || '', nw: Math.round(G.netWorth(s, mk)), level: G.level(s), card: s.cardMax,
     ach: Object.keys(s.ach).length, prestige: G.prestige(s), net: Math.round(G.incomeBreakdown(s, mk).net),
     job: s.job, home: home ? home.icon : '🏚️', updated: Date.now(),
+    look: s.look || null, partner: s.love ? { name: s.love.partner.name, look: s.love.partner.look, stage: s.love.stage } : null,
+    trips: Object.keys(s.trips || {}).length, jobName: (JOBS.find((j) => j.id === s.job) || {}).name, jobIcon: (JOBS.find((j) => j.id === s.job) || {}).icon,
+    veh: ([...GOODS.veiculos, ...GOODS.ceumar].filter((g) => s.goods[g.id]).sort((a, b) => a.cost - b.cost).pop() || {}).icon || '',
   };
 }
 let lastPush = 0;
@@ -186,6 +190,16 @@ function tick() {
   if (mk.update(now)) UI.onMarketTick();
   const done = G.checkCourse(s);
   if (done) { UI.toast(`🎓 Você concluiu: <b>${done.name}</b>!`, 'gold'); afterAction(); UI.render(); }
+  const tr = G.checkTrip(s);
+  if (tr) { UI.toast(`🧳 Você voltou de <b>${tr.trip.name}</b>! Descansado: +10% de renda por 3h${tr.first ? ' · 🛂 novo carimbo!' : ''}`, 'gold'); UI.confetti(); afterAction(); UI.render(); }
+  const lv = G.checkLove(s);
+  if (lv) {
+    if (lv.broke) UI.toast(`💔 ${lv.broke} foi embora… o carinho acabou.`, 'err');
+    else if (lv.wedding) { UI.toast('💒 Vocês se casaram! Felicidades! 🎉', 'gold'); UI.confetti(); }
+    else if (lv.firstDate) UI.toast(`😊 O encontro foi ótimo! Vocês estão ficando.`, 'gold');
+    else UI.toast('💕 Programa a dois concluído! Carinho aumentou.', 'ok');
+    afterAction(); UI.render();
+  }
   for (const ev of G.eventTick(s, mk)) {
     if (typeof ev === 'string') UI.toast(ev, 'err');
     else if (ev.newEvent) { UI.toast(`📨 Nova oportunidade: <b>${s.event.title}</b>`, 'gold'); UI.onEvent(); }
@@ -227,6 +241,7 @@ function start(s) {
   offlineProgress();
   afterAction();
   watchFriends();
+  if (!s.look) UI.openCreator();
   setInterval(tick, 250);
   setInterval(() => G.save(ctx.s), 5000);
   setInterval(UI.slowRefresh, 3000);
@@ -272,7 +287,6 @@ function localOnboarding() {
     G.save(s);
     hideSplash();
     start(s);
-    UI.openHelp();
   };
 }
 

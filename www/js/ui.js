@@ -1,8 +1,10 @@
 // ===== Interface (visual de jogo) =====
 import {
+  TRIPS, LOVE_STAGES, DATES, GIFTS, RING_COST, WEDDINGS,
   DAY_MS, SECTORS, SECTOR, STOCKS, CRYPTOS, ASSETS, BUSINESSES, COURSES, JOBS, PROPERTIES, GOODS, CARDS, UNLOCKS, TRADE_FEE, LOAN_RATE, LEVEL_BONUS, RENT_NO_HOME,
 } from './data.js';
 import * as G from './game.js';
+import { avatarSVG, defaultLook, SKINS, HAIR_COLORS, EYE_COLORS, HAIRS, CLOTHES, SLOTS } from './avatar.js';
 import { tickToMs } from './market.js';
 
 // ---------- formatação ----------
@@ -45,7 +47,7 @@ const wxCls = (r) => (r === 1 ? 'hot' : r === -1 ? 'cold' : r === 0 ? 'calm' : '
 
 // ---------- contexto ----------
 let C;
-const ui = { tab: 'inicio', sub: { investir: 'bolsa', bens: 'veiculos', perfil: 'ranking' }, bizN: 1 };
+const ui = { tab: 'inicio', sub: { investir: 'bolsa', bens: 'veiculos', perfil: 'ranking', vida: 'carreira' }, bizN: 1 };
 const $ = (sel, root = document) => root.querySelector(sel);
 
 export function init(ctx) {
@@ -179,8 +181,33 @@ const handlers = {
     else toast('Sua tag: ' + esc(t));
   },
   logout: () => confirmBox('Sair da conta? Seu progresso fica salvo na nuvem.', () => C.logout()),
+  look: (d) => {
+    const v = ['skin', 'hairColor', 'eyes'].includes(d.k) ? +d.v : d.v;
+    const patch = { [d.k]: v };
+    if (d.k === 'sex' && v !== C.s.look.sex) { patch.hair = v === 'f' ? 'longo' : 'curto'; }
+    G.setLook(C.s, patch); C.afterAction();
+    if ($('#creator')) openCreator(); else keepScroll(render);
+  },
+  slot: (d) => { ui.slot = d.slot; keepScroll(render); },
+  buycloth: (d, el) => { const owned = !!C.s.wardrobe[d.id]; if (act(() => G.buyCloth(C.s, d.id), owned ? null : '🛍️ Comprado!', owned ? null : el)) keepScroll(render); },
+  takeoff: (d) => { G.takeOff(C.s, d.slot); C.afterAction(); keepScroll(render); },
+  findlove: (d) => { G.findCandidate(C.s, d.p); C.afterAction(); render(); },
+  askout: (d, el) => {
+    const r = act(() => G.askOut(C.s), null, el);
+    if (r && r.refused) { toast(`💔 ${esc(r.refused)} recusou o convite…`, 'err'); }
+    else if (r) toast(`☕ ${esc(C.s.love.partner.name)} aceitou! Estão no primeiro encontro.`, 'gold');
+    render();
+  },
+  date: (d, el) => act(() => G.doDate(C.s, d.id), '💕 Programa começou!', el) && keepScroll(render),
+  gift: (d, el) => { if (act(() => G.giveGift(C.s, d.id), null, el)) { burst(el, '❤️', 6); toast('🎁 Amou o presente!', 'ok'); keepScroll(render); } },
+  nextstep: (d, el) => { const st = C.s.love.stage; if (act(() => G.nextStep(C.s), null, el)) { confetti(); toast(st === 1 ? '💑 Agora vocês estão namorando!' : '💍 Disse SIM! Vocês estão noivos!', 'gold'); render(); } },
+  marry: (d, el) => act(() => G.marry(C.s, d.id), '💒 Preparativos do casamento começaram!', el) && render(),
+  breakup: () => confirmBox(C.s.love && C.s.love.stage >= 4 ? 'Pedir divórcio? Você perde 25% do dinheiro.' : 'Terminar o relacionamento?', () => { G.breakUp(C.s); C.afterAction(); render(); toast('💔 Fim do relacionamento.', 'err'); }),
+  trip: (d, el) => { if (act(() => G.startTrip(C.s, d.id, d.partner === '1'), null, el)) { toast('✈️ Boa viagem!', 'gold'); render(); } },
+  friend: (d) => friendView(d.id),
   confirmyes: () => { const f = pendingConfirm; closeModal(); f && f(); },
 };
+const keepScroll = (fn) => { const sc = $('#view').scrollTop; fn(); $('#view').scrollTop = sc; };
 const G_NAME = (id) => Object.values(GOODS).flat().find((g) => g.id === id).name;
 
 function onClick(e) {
@@ -216,6 +243,9 @@ const INFO = {
   imoveis: `<h3>🔑 Imóveis</h3><p>Compre imóveis e receba aluguel todo dia. O preço deles sobe e desce junto com o setor Imobiliário — dá pra comprar barato na crise e vender caro na alta!</p>`,
   credito: `<h3>💳 Empréstimo</h3><p>Pegue dinheiro emprestado para abrir negócios mais cedo. Mas cuidado: os juros (${(LOAN_RATE * 100).toFixed(2)}% ao dia) correm sem parar! O limite depende do seu cartão.</p>`,
   bens: `<h3>🛍️ Coleção de bens</h3><p>🚗🛥️ <b>Carros, barcos e aeronaves</b> aumentam seu salário (vale o melhor que você tiver).</p><p>🏠 <b>Moradia</b> acaba com o aluguel de ${money(RENT_NO_HOME)}/dia e aumenta as horas que você ganha com o jogo fechado.</p><p>💍🖼️ <b>Luxo e Coleção</b> dão muito prestígio ✨ para se exibir no ranking.</p><p>Bens têm uma pequena manutenção diária e, se vender, você recebe só parte do valor.</p>`,
+  visual: `<h3>👗 Visual</h3><p>Mude sua aparência de graça quando quiser. Na loja, compre roupas, calçados e acessórios — tudo que você compra fica no guarda-roupa e soma <b>estilo</b> ✨, que entra no seu prestígio do ranking.</p>`,
+  amor: `<h3>❤️ Amor</h3><p>Procure alguém e chame pra sair. Programas a dois e presentes aumentam o <b>carinho</b> ❤️, que esfria com o tempo — não esqueça do seu amor!</p><p>Etapas: Ficando (+2%) → Namorando (+5%) → Noivos (+8%) → Casados (+12% de renda), valendo enquanto o carinho estiver acima de 30.</p><p>Se o carinho chegar a zero, a pessoa vai embora.</p>`,
+  viagens: `<h3>✈️ Viagens</h3><p>Cada dia de viagem dura 1 minuto. Ao voltar você fica <b>descansado</b>: +10% de renda por 3 horas. Cada destino novo carimba seu passaporte e dá prestígio ✨.</p><p>Viajar com seu amor custa o dobro, mas dá +25 de carinho ❤️.</p>`,
   carreira: `<h3>💼 Carreira</h3><p>Estude para desbloquear empregos melhores. Os cursos levam <b>tempo de verdade</b> — deixe estudando e volte depois!</p><p>Alguns empregos também pedem um nível mínimo.</p>`,
 };
 const infoBtn = (k) => `<button class="qbtn" data-act="info" data-k="${k}">?</button>`;
@@ -223,7 +253,7 @@ const infoBtn = (k) => `<button class="qbtn" data-act="info" data-k="${k}">?</bu
 // ---------- abas ----------
 const TABS = [
   { id: 'inicio', icon: '🏙️', name: 'Início' },
-  { id: 'carreira', icon: '🎓', name: 'Carreira' },
+  { id: 'vida', icon: '👤', name: 'Vida' },
   { id: 'empresas', icon: '🏭', name: 'Negócios' },
   { id: 'investir', icon: '📈', name: 'Investir' },
   { id: 'bens', icon: '💎', name: 'Bens' },
@@ -237,7 +267,7 @@ export function render() {
   renderTop();
   renderTabs();
   const v = $('#view');
-  const fn = { inicio: vInicio, carreira: vCarreira, empresas: vEmpresas, investir: vInvestir, bens: vBens, perfil: vPerfil }[ui.tab];
+  const fn = { inicio: vInicio, vida: vVida, empresas: vEmpresas, investir: vInvestir, bens: vBens, perfil: vPerfil }[ui.tab];
   v.innerHTML = `<div class="page">${fn()}</div>`;
   refresh(true);
 }
@@ -272,28 +302,155 @@ export function bigCard(name, c, idx, locked = false) {
     <div class="cc-bottom"><span>${locked ? '🔒 ' + money(c.min) : esc(name.toUpperCase())}</span><span>★ ${idx + 1}</span></div>
   </div>`;
 }
+// ---------- VIDA ----------
 function scene() {
   const s = C.s;
   const h = new Date().getHours();
   const night = h < 6 || h >= 19;
   const home = G.homeOf(s);
   const veh = [...GOODS.veiculos, ...GOODS.ceumar].filter((g) => s.goods[g.id]).sort((a, b) => a.cost - b.cost).pop();
-  const lux = GOODS.luxo.filter((g) => s.goods[g.id]).slice(-2);
-  const bizs = BUSINESSES.filter((b) => s.biz[b.id]).slice(-5);
-  const job = JOBS.find((j) => j.id === s.job);
-  return `<div class="scene ${night ? 'night' : 'day'}">
+  const bizs = BUSINESSES.filter((b) => s.biz[b.id]).slice(-4);
+  const trip = s.trip ? TRIPS.find((x) => x.id === s.trip.id) : null;
+  const L = s.love;
+  const showPartner = L && (!trip || s.trip.partner);
+  return `<div class="scene big ${night ? 'night' : 'day'} ${trip ? 'travel' : ''}">
     <span class="sun">${night ? '🌙' : '☀️'}</span>
     ${night ? '<span class="stars">✦ · ✧ · ✦ · ✧</span>' : '<span class="cloud c1">☁️</span><span class="cloud c2">☁️</span>'}
-    <div class="skyline">${bizs.length ? bizs.map((b, i) => `<span class="bld" style="--i:${i}">${b.icon}<i>${s.biz[b.id]}</i></span>`).join('') : '<span class="empty">Seus negócios aparecem aqui</span>'}</div>
-    <div class="ground">
-      <span class="home">${home ? home.icon : '🏚️'}</span>
-      <span class="me">🧍<em>${job.icon}</em></span>
-      <span class="veh">${veh ? veh.icon : ''}</span>
-      ${lux.map((g) => `<span class="lux">${g.icon}</span>`).join('')}
+    ${!trip && bizs.length ? `<div class="skyline">${bizs.map((b, i) => `<span class="bld" style="--i:${i}">${b.icon}<i>${s.biz[b.id]}</i></span>`).join('')}</div>` : ''}
+    <div class="homebig">${trip ? trip.icon : home ? home.icon : '🏚️'}</div>
+    <div class="ground"></div>
+    <div class="cast ${showPartner ? 'duo' : ''}">
+      ${veh && !trip ? `<span class="vehbig">${veh.icon}</span>` : ''}
+      <div class="me" data-act="tab" data-tab="vida" data-sub="visual">${avatarSVG(s.look, { size: showPartner ? 175 : 190 })}</div>
+      ${showPartner ? `<div class="partner" data-act="tab" data-tab="vida" data-sub="amor"><span class="heart">${L.stage >= 4 ? '💞' : '❤️'}</span>${avatarSVG(L.partner.look, { size: 160 })}</div>` : ''}
     </div>
+    ${trip ? `<div class="tripbanner">✈️ ${trip.name} · volta em <b data-live="triptime"></b></div>` : ''}
     <div class="plaque"><small>Patrimônio</small><b data-live="nw"></b></div>
+  </div>
+  <div class="lifechips">
+    <span class="lchip" data-act="tab" data-tab="vida" data-sub="carreira">${JOBS.find((j) => j.id === s.job).icon} ${JOBS.find((j) => j.id === s.job).name}</span>
+    <span class="lchip" data-act="tab" data-tab="vida" data-sub="amor">${L ? `${LOVE_STAGES[L.stage].icon} ${esc(L.partner.name)}` : '💔 Solteiro(a)'}</span>
+    <span class="lchip" data-act="tab" data-tab="bens">✨ ${fmt(G.prestige(s))}</span>
   </div>`;
 }
+
+function vVida() {
+  const sub = ui.sub.vida;
+  const head = subtabs([['carreira', '🎓', 'Carreira'], ['visual', '👗', 'Visual'], ['amor', '❤️', 'Amor'], ['viagens', '✈️', 'Viagens']]);
+  const body = sub === 'visual' ? vVisual() : sub === 'amor' ? vAmor() : sub === 'viagens' ? vViagens() : vCarreira();
+  return title('👤', 'Minha Vida', sub === 'carreira' ? 'carreira' : sub) + head + body;
+}
+
+const swatches = (k, list, cur) => `<div class="swatches">${list.map((c, i) => `<button class="sw ${cur === i ? 'on' : ''}" style="background:${c}" data-act="look" data-k="${k}" data-v="${i}"></button>`).join('')}</div>`;
+function appearanceHTML(L) {
+  return `<div class="lookrow"><span>Sou</span><div class="seg2">${[['m', '👨 Homem'], ['f', '👩 Mulher']].map(([v, n]) => `<button class="${L.sex === v ? 'on' : ''}" data-act="look" data-k="sex" data-v="${v}">${n}</button>`).join('')}</div></div>
+    <div class="lookrow"><span>Pele</span>${swatches('skin', SKINS, L.skin)}</div>
+    <div class="lookrow col"><span>Cabelo</span><div class="hairs">${HAIRS.map((h) => `<button class="chipbtn ${L.hair === h.id ? 'on' : ''}" data-act="look" data-k="hair" data-v="${h.id}">${h.name}</button>`).join('')}</div></div>
+    <div class="lookrow"><span>Cor</span>${swatches('hairColor', HAIR_COLORS, L.hairColor)}</div>
+    <div class="lookrow"><span>Olhos</span>${swatches('eyes', EYE_COLORS, L.eyes)}</div>`;
+}
+function vVisual() {
+  const s = C.s;
+  const L = s.look;
+  const slot = ui.slot || 'top';
+  const items = CLOTHES.filter((c) => c.slot === slot);
+  return `
+  <div class="mirror"><div class="mirrorav">${avatarSVG(L, { size: 230 })}</div><div class="stylebadge">👗 Estilo <b>${fmt(G.styleOf(s))}</b></div></div>
+  <details class="box col appear"><summary><b>✂️ Aparência</b> <small class="muted">grátis · toque para mudar</small></summary>${appearanceHTML(L)}</details>
+  <h4 class="sec">🛍️ Loja de roupas</h4>
+  <div class="subtabs slots">${SLOTS.map((x) => `<button class="${slot === x.id ? 'on' : ''}" data-act="slot" data-slot="${x.id}"><span>${x.icon}</span>${x.name}</button>`).join('')}</div>
+  <div class="closet">${items.map((c) => {
+    const own = !!s.wardrobe[c.id];
+    const worn = L[slot] === c.id;
+    const btn = worn ? (['head', 'face', 'neck'].includes(slot) || c.cost > 0 ? `<button class="btn ghost sm" data-act="takeoff" data-slot="${slot}">Tirar</button>` : '<span class="pill ok">Usando</span>')
+      : own ? `<button class="btn sm" data-act="buycloth" data-id="${c.id}">Vestir</button>` : `<button class="btn gold sm" data-act="buycloth" data-id="${c.id}" data-cost="${c.cost}"><span>${money(c.cost)}</span></button>`;
+    return `<div class="citem ${worn ? 'worn' : ''} ${c.shine ? 'lux' : ''}"><div class="cprev">${avatarSVG({ ...L, [slot]: c.id }, { size: 118 })}</div><b>${c.name}</b><small>✨ ${c.style} de estilo</small>${btn}</div>`;
+  }).join('')}</div>`;
+}
+
+function vAmor() {
+  const s = C.s;
+  const L = s.love;
+  if (!L) {
+    const c = s.candidate;
+    const pref = s.lovePref || (s.look && s.look.sex === 'f' ? 'm' : 'f');
+    return `
+    <div class="lovehead"><span>💘</span><div><b>Coração livre</b><small>Encontre alguém especial. Relacionamentos felizes dão bônus na sua renda!</small></div></div>
+    <div class="lookrow"><span>Procurar</span><div class="seg2">${[['f', '👩'], ['m', '👨'], ['a', '💞']].map(([v, n]) => `<button class="${pref === v ? 'on' : ''}" data-act="findlove" data-p="${v}">${n}</button>`).join('')}</div></div>
+    ${c ? `<div class="candidate"><div class="cav">${avatarSVG(c.look, { size: 190 })}</div><h3>${esc(c.name)}</h3>
+      <div class="compat"><small>Compatibilidade</small><div class="bar pink"><i style="width:${c.compat}%"></i></div><b>${c.compat}%</b></div>
+      <div class="btns"><button class="btn ghost" data-act="findlove" data-p="${pref}">Próxima pessoa</button><button class="btn pink" data-act="askout" data-cost="${DATES[0].cost}">☕ Chamar pra sair</button></div>
+      <small class="muted">O primeiro encontro custa ${money(DATES[0].cost)}. Quanto maior a compatibilidade, maior a chance de aceitar.</small></div>`
+      : `<button class="btn pink full" data-act="findlove" data-p="${pref}">🔎 Procurar alguém</button>`}`;
+  }
+  const st = LOVE_STAGES[L.stage];
+  const daysTogether = Math.floor((Date.now() - L.since) / DAY_MS);
+  const act = L.act ? (L.act.id === 'wedding' ? { icon: '💒', name: 'Preparando o casamento' } : DATES.find((d) => d.id === L.act.id)) : null;
+  let next = '';
+  if (!L.act && L.stage === 1) next = `<button class="btn pink full" data-act="nextstep">💌 Pedir em namoro <small>(❤️ 40)</small></button>`;
+  if (!L.act && L.stage === 2) next = `<button class="btn pink full" data-act="nextstep" data-cost="${RING_COST}">💍 Pedir em casamento <small>(anel ${money(RING_COST)} · ❤️ 60)</small></button>`;
+  if (!L.act && L.stage === 3) next = `<h4 class="sec">💒 Escolha o casamento <small>(precisa ❤️ 75)</small></h4>${WEDDINGS.map((w) => `<div class="item"><span class="bi">${w.icon}</span><div class="grow"><b>${w.name}</b><small>⏱️ ${w.mins} dias · ✨ +${w.prestige}</small></div>${costBtn('marry', { id: w.id }, w.cost)}</div>`).join('')}`;
+  return `
+  <div class="couple">
+    <div>${avatarSVG(s.look, { size: 150 })}<b>${esc(s.name)}</b></div>
+    <span class="bigheart">${L.stage >= 4 ? '💞' : '❤️'}</span>
+    <div>${avatarSVG(L.partner.look, { size: 150 })}<b>${esc(L.partner.name)}</b></div>
+  </div>
+  <div class="box col">
+    <div class="lrow"><b>${st.icon} ${st.name}</b><small class="muted">${daysTogether} dias juntos</small></div>
+    <div class="lrow"><span>❤️ Carinho</span><b data-live="aff"></b></div>
+    <div class="bar pink"><i data-live-w="aff"></i></div>
+    <small class="${L.aff >= 30 ? 'up' : 'down'}">${L.aff >= 30 ? `😊 Felicidade: +${Math.round(st.bonus * 100)}% de renda` : '😟 Carinho baixo! Sem bônus — e se chegar a zero, termina.'}</small>
+  </div>
+  ${act ? `<div class="box studying"><span class="bi">${act.icon}</span><div class="grow"><b>${act.name}</b><small class="muted">juntos agora</small></div><span class="timer" data-live="lovetime"></span></div>` : ''}
+  ${next}
+  <h4 class="sec">🎟️ Programas a dois</h4>
+  ${DATES.map((d) => `<div class="item ${L.act ? 'dim' : ''}"><span class="bi">${d.icon}</span><div class="grow"><b>${d.name}</b><small>⏱️ ${d.mins} dias · ❤️ +${d.aff}</small></div>${L.act ? '' : costBtn('date', { id: d.id }, d.cost)}</div>`).join('')}
+  <h4 class="sec">🎁 Presentes</h4>
+  <div class="gifts">${GIFTS.map((g) => `<button class="gift" data-act="gift" data-id="${g.id}" data-cost="${g.cost}"><span>${g.icon}</span><b>${g.name}</b><small>❤️ +${g.aff}</small><em>${money(g.cost)}</em></button>`).join('')}</div>
+  <button class="lnk center-block" data-act="breakup">${L.stage >= 4 ? 'Pedir divórcio (custa 25% do dinheiro)' : 'Terminar relacionamento'}</button>`;
+}
+
+function vViagens() {
+  const s = C.s;
+  const trip = s.trip ? TRIPS.find((x) => x.id === s.trip.id) : null;
+  const visited = Object.keys(s.trips).length;
+  const L = s.love;
+  return `
+  ${trip ? `<div class="box studying"><span class="bi big">${trip.icon}</span><div class="grow"><b>Viajando: ${trip.name}</b><div class="bar"><i data-live-w="trip"></i></div></div><span class="timer" data-live="triptime"></span></div>` : ''}
+  ${G.restBonus(s) ? `<div class="pill money restpill">😌 Descansado: +${Math.round(G.restBonus(s) * 100)}% de renda por mais <b data-live="resttime"></b></div>` : ''}
+  <div class="passport"><span>🛂</span><div><small>Passaporte</small><b>${visited} / ${TRIPS.length} destinos</b></div><div class="stamps">${TRIPS.filter((t) => s.trips[t.id]).map((t) => `<span>${t.icon}</span>`).join('')}</div></div>
+  ${TRIPS.map((t) => {
+    const n = s.trips[t.id] || 0;
+    return `<div class="item trip ${n ? 'done' : ''}"><span class="bi">${t.icon}${n ? '<i class="stamp">✓</i>' : ''}</span><div class="grow"><b>${t.name}</b><small>🗓️ ${t.days} dias${n ? ` · visitado ${n}x` : ''}</small></div>
+      ${trip ? '' : `<div class="col">${costBtn('trip', { id: t.id }, t.cost)}${L ? `<button class="btn pink sm" data-act="trip" data-id="${t.id}" data-partner="1" data-cost="${t.cost * 2}">+ ${esc(L.partner.name)} ❤️</button>` : ''}</div>`}</div>`;
+  }).join('')}`;
+}
+
+export function openCreator() {
+  const L = C.s.look || defaultLook('m');
+  C.s.look = L;
+  modal(`<div id="creator"><h3>✨ Crie seu personagem</h3><div class="mirror small">${avatarSVG(L, { size: 200 })}</div>${appearanceHTML(L)}
+    <p class="muted small">Roupas e acessórios você compra depois na aba 👤 Vida → Visual.</p>
+    <button class="btn full" data-act="close">Pronto! 😎</button></div>`);
+}
+
+function friendView(uid) {
+  const p = C.friends[uid];
+  if (!p) return;
+  const card = CARDS[p.card || 0];
+  modal(`<div class="fview"><h3>${p.home || ''} ${esc(p.name)} <small class="muted">${esc(p.tag || '')}</small></h3>
+    <div class="couple small"><div>${avatarSVG(p.look, { size: 150 })}</div>${p.partner ? `<span class="bigheart">${p.partner.stage >= 4 ? '💞' : '❤️'}</span><div>${avatarSVG(p.partner.look, { size: 135 })}<b>${esc(p.partner.name)}</b></div>` : ''}</div>
+    <div class="fstats">
+      <div><small>Patrimônio</small><b>${money(p.nw)}</b></div><div><small>Por dia</small><b class="up">+${money(p.net || 0)}</b></div>
+      <div><small>Nível</small><b>⭐ ${p.level}</b></div><div><small>Cartão</small><b>${card.name}</b></div>
+      <div><small>Trabalho</small><b>${p.jobIcon || ''} ${esc(p.jobName || '')}</b></div><div><small>Amor</small><b>${p.partner ? LOVE_STAGES[p.partner.stage].icon + ' ' + LOVE_STAGES[p.partner.stage].name : '💔 Solteiro(a)'}</b></div>
+      <div><small>Viagens</small><b>🛂 ${p.trips || 0}</b></div><div><small>Prestígio</small><b>✨ ${fmt(p.prestige || 0)}</b></div>
+      <div><small>Troféus</small><b>🎖️ ${p.ach}</b></div><div><small>Veículo</small><b>${p.veh || '🚶'}</b></div>
+    </div>
+    <small class="muted">${Date.now() - p.updated < 180000 ? '🟢 jogando agora' : '⚪ visto ' + ago(p.updated)}</small></div>`);
+}
+
 function vInicio() {
   const s = C.s;
   const next = CARDS[s.cardMax + 1];
@@ -331,11 +488,13 @@ function buffsLine() {
 }
 function quest() {
   const s = C.s;
-  if (!s.edu.length && !s.course) return 'Faça o <b>Ensino Médio</b> na aba 🎓 Carreira para ganhar mais.';
+  if (!s.edu.length && !s.course) return 'Faça o <b>Ensino Médio</b> na aba 👤 Vida → Carreira para ganhar mais.';
   if (!Object.keys(s.biz).length) return 'Abra sua primeira <b>Barraca de Pastel</b> na aba 🏭 Negócios.';
-  if (s.job === 'entregador' && s.edu.includes('medio')) return 'Você já pode ser <b>Atendente</b>! Vá em 🎓 Carreira.';
+  if (s.job === 'entregador' && s.edu.includes('medio')) return 'Você já pode ser <b>Atendente</b>! Vá em 👤 Vida → Carreira.';
   if (!s.goods.bike && !G.vehicleBonus(s)) return 'Compre uma <b>bicicleta</b> em 💎 Bens: +5% de salário.';
   if (G.level(s) >= UNLOCKS.bolsa && !s.stats.trades) return 'A <b>Bolsa</b> abriu! Veja o 📺 jornal e compre ações de um setor 🔥.';
+  if (!s.love && s.cash > 3000 && !s.candidate) return 'Que tal encontrar um amor? Vá em 👤 Vida → ❤️ Amor.';
+  if (!Object.keys(s.trips).length && s.cash > 8000) return 'Tire férias! Viajar dá bônus de renda. 👤 Vida → ✈️ Viagens.';
   if (!G.homeOf(s) && s.cash > 50000) return 'Compre sua <b>casa própria</b> e pare de pagar aluguel.';
   return '';
 }
@@ -347,6 +506,7 @@ function flowHTML() {
   ].filter((r) => Math.abs(r[1]) > 0.0001);
   return rows.map(([n, v]) => `<div class="fr"><span>${n}</span><b class="${v < 0 ? 'down' : 'up'}">${v < 0 ? '-' : '+'}${money(Math.abs(v))}</b></div>`).join('') +
     `<div class="fr total"><span>Sobra por dia</span><b class="${ib.net < 0 ? 'down' : 'up'}">${money(ib.net)}</b></div>` +
+    (G.lifeMult(C.s) > 1 ? `<div class="fr"><span>😊 Felicidade e descanso</span><b>+${Math.round((G.lifeMult(C.s) - 1) * 100)}%</b></div>` : '') +
     `<div class="fr"><span>⭐ Bônus de nível</span><b>+${Math.round(LEVEL_BONUS * 100 * (G.level(C.s) - 1))}%</b></div>`;
 }
 function newsHTML(n) {
@@ -378,7 +538,7 @@ function vCarreira() {
     if (cur) return '';
     return `<div class="item ${ok ? '' : 'dim'}"><span class="bi">${j.icon}</span><div class="grow"><b>${j.name}</b><small>${ok ? `💵 ${money(j.salary)}/dia` : '🔒 ' + miss.join(', ')}</small></div>${ok ? `<button class="btn" data-act="job" data-id="${j.id}">Trabalhar</button>` : ''}</div>`;
   }).join('');
-  return `${title('🎓', 'Carreira', 'carreira')}
+  return `
   <div class="hero job"><span class="hi">${job.icon}</span><div><small>Seu emprego</small><h3>${job.name}</h3><span class="pill money"><b data-live="salary"></b>/dia</span></div></div>
   <h4 class="sec">📚 Estudos</h4>${courses}
   <h4 class="sec">💼 Outros empregos</h4>${jobs}`;
@@ -644,16 +804,16 @@ function vPerfil() {
 }
 function vRanking() {
   const s = C.s;
-  const me = { n: s.name, w: G.netWorth(s, C.mk), l: G.level(s), a: Object.keys(s.ach).length, c: s.cardMax, p: G.prestige(s), net: G.incomeBreakdown(s, C.mk).net, me: true, home: (G.homeOf(s) || {}).icon || '🏚️' };
-  const fr = s.friends.map((uid) => { const p = C.friends[uid]; return p ? { n: p.name, w: p.nw, l: p.level, a: p.ach, c: p.card || 0, p: p.prestige, net: p.net, t: p.updated, id: uid, home: p.home, online: Date.now() - p.updated < 3 * 60_000 } : { n: 'Carregando…', w: -1, l: 0, a: 0, c: 0, p: 0, id: uid, loading: true }; });
+  const me = { look: s.look, partner: s.love ? { look: s.love.partner.look } : null, n: s.name, w: G.netWorth(s, C.mk), l: G.level(s), a: Object.keys(s.ach).length, c: s.cardMax, p: G.prestige(s), net: G.incomeBreakdown(s, C.mk).net, me: true, home: (G.homeOf(s) || {}).icon || '🏚️' };
+  const fr = s.friends.map((uid) => { const p = C.friends[uid]; return p ? { look: p.look, partner: p.partner, n: p.name, w: p.nw, l: p.level, a: p.ach, c: p.card || 0, p: p.prestige, net: p.net, t: p.updated, id: uid, home: p.home, online: Date.now() - p.updated < 3 * 60_000 } : { n: 'Carregando…', w: -1, l: 0, a: 0, c: 0, p: 0, id: uid, loading: true }; });
   const all = [me, ...fr].sort((a, b) => b.w - a.w);
   const pod = [all[1], all[0], all[2]];
   const medal = ['🥈', '🥇', '🥉'];
   const cls = ['p2', 'p1', 'p3'];
   return `
   <div class="mytag"><div><small>Sua tag de amigo</small><b>${C.cloud ? esc(s.tag || 'gerando…') : 'offline'}</b></div><button class="btn sm" data-act="copytag">Copiar</button></div>
-  <div class="podium">${pod.map((p, i) => p && !p.loading ? `<div class="pcol ${cls[i]} ${p.me ? 'me' : ''}"><div class="pav">${esc(p.n[0] || '?').toUpperCase()}${p.online || p.me ? '<i class="on"></i>' : ''}</div><b>${esc(p.n)}</b><small>${money(p.w)}</small><div class="pbar"><span>${medal[i]}</span></div></div>` : '<div class="pcol empty"><div class="pbar"></div></div>').join('')}</div>
-  <div class="ranklist">${all.map((p, i) => `<div class="rank ${p.me ? 'me' : ''}"><span class="pos">${i + 1}º</span>
+  <div class="podium">${pod.map((p, i) => p && !p.loading ? `<div class="pcol ${cls[i]} ${p.me ? 'me' : ''}"><div class="pav2" ${p.me ? '' : `data-act="friend" data-id="${p.id}"`}>${avatarSVG(p.look, { size: i === 1 ? 110 : 90 })}${p.online || p.me ? '<i class="on"></i>' : ''}</div><b>${esc(p.n)}</b><small>${money(p.w)}</small><div class="pbar"><span>${medal[i]}</span></div></div>` : '<div class="pcol empty"><div class="pbar"></div></div>').join('')}</div>
+  <div class="ranklist">${all.map((p, i) => `<div class="rank ${p.me ? 'me' : ''}" ${p.me || p.loading ? '' : `data-act="friend" data-id="${p.id}"`}><span class="pos">${i + 1}º</span><span class="rav">${p.loading ? '' : avatarSVG(p.look, { size: 52 })}</span>
       <div class="grow"><b>${p.home || ''} ${esc(p.n)}${p.me ? ' (você)' : ''}</b>${p.loading ? '' : `<small>⭐${p.l} · 💳${CARDS[p.c].name} · 🎖️${p.a} · ✨${fmt(p.p)}</small><small class="${p.online || p.me ? 'up' : ''}">${p.me ? '🟢 você' : p.online ? '🟢 jogando agora' : '⚪ visto ' + ago(p.t)} · ${p.net >= 0 ? '+' : ''}${fmt(p.net || 0)}/dia</small>`}</div>
       <div class="right"><b>${p.loading ? '…' : money(p.w)}</b>${p.me ? '' : `<button class="lnk" data-act="delfriend" data-id="${p.id}">remover</button>`}</div></div>`).join('')}</div>
   ${s.friends.length ? '' : '<p class="muted center">Ainda só você aqui! Adicione a família pela tag 👇</p>'}
@@ -719,6 +879,10 @@ function liveValue(key) {
     case 'debt': return money(s.debt);
     case 'debtint': return money(s.debt * LOAN_RATE);
     case 'evtime': return s.event ? '⏳ ' + dur(s.event.exp - Date.now()) : '';
+    case 'triptime': return s.trip ? dur(s.trip.end - Date.now()) : '';
+    case 'resttime': return s.rested ? dur(s.rested - Date.now()) : '';
+    case 'lovetime': return s.love && s.love.act ? '⏱️ ' + dur(s.love.act.end - Date.now()) : '';
+    case 'aff': return s.love ? Math.round(s.love.aff) + ' / 100' : '';
     case 'coursetime': return s.course ? '⏱️ ' + dur(s.course.end - Date.now()) : '';
     case 'nextblock': return dur(mk.msToNextBlock());
     case 'price': return price(mk.price(arg));
@@ -753,6 +917,8 @@ function liveHTML(key) {
 function liveWidth(key) {
   const s = C.s;
   if (key === 'xp') { const L = G.level(s); const a = G.xpForLevel(L), b = G.xpForLevel(L + 1); return (s.xp - a) / (b - a); }
+  if (key === 'aff') return s.love ? s.love.aff / 100 : 0;
+  if (key === 'trip') { if (!s.trip) return 0; return (Date.now() - s.trip.start) / (s.trip.end - s.trip.start); }
   if (key === 'course') { if (!s.course) return 0; return (Date.now() - s.course.start) / (s.course.end - s.course.start); }
   if (key === 'nextcard') { const n = CARDS[s.cardMax + 1]; if (!n) return 1; const p = CARDS[s.cardMax].min; return (G.netWorth(s, C.mk) - p) / (n.min - p); }
   return 0;

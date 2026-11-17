@@ -1,15 +1,18 @@
 // ===== Estado do jogador, economia e ações =====
 import { regime, BLOCK } from './market.js';
+import { CLOTH, CLOTHES, defaultLook, randomLook } from './avatar.js';
 import {
   DAY_MS, BUSINESSES, BIZ_GROWTH, BIZ_MILESTONES, COURSES, JOBS, PROPERTIES, GOODS, GOOD, ALL_GOODS,
   CARDS, LEVEL_BONUS, TRADE_FEE, LOAN_RATE, RENT_NO_HOME, ASSETS, CRYPTOS, UNLOCKS, SECTORS,
+  TRIPS, REST_BONUS, REST_HOURS, LOVE_STAGES, DATES, GIFTS, RING_COST, WEDDINGS, NAMES_F, NAMES_M,
 } from './data.js';
 
 const SAVE_KEY = 'magnata_save_v1';
 
-export function newState(name) {
+export function newState(name, look) {
   const now = Date.now();
-  return {
+  return ensureLife({
+    look: look || null,
     v: 1, name, created: now, last: now,
     cash: 1500, debt: 0, xp: 0,
     job: 'entregador', edu: [], course: null,
@@ -18,13 +21,13 @@ export function newState(name) {
     cardMax: 0, peakNW: 1500, ach: {},
     stats: { earned: 0, trades: 0, tradeProfit: 0, bestTrade: 0, divs: 0, rents: 0, loans: 0 },
     friends: [], log: [],
-  };
+  });
 }
 
 export function load() {
   try {
     const s = JSON.parse(localStorage.getItem(SAVE_KEY));
-    if (s && s.v === 1) return s;
+    if (s && s.v === 1) { ensureLife(s); return s; }
   } catch (e) { }
   return null;
 }
@@ -60,7 +63,11 @@ export const nextMilestone = (lvl) => BIZ_MILESTONES.find((m) => lvl < m);
 export const SECTOR_MULT = { 1: 1.3, 0: 1, '-1': 0.75 };
 
 export function card(s) { return CARDS[s.cardMax]; }
-export const levelMult = (s) => 1 + LEVEL_BONUS * (level(s) - 1);
+export const levelMult = (s) => (1 + LEVEL_BONUS * (level(s) - 1)) * lifeMult(s);
+// Felicidade: relacionamento (se o carinho estiver bom) + descanso pós-viagem
+export function loveBonus(s) { return s.love && s.love.aff >= 30 ? LOVE_STAGES[s.love.stage].bonus : 0; }
+export function restBonus(s) { return s.rested && s.rested > Date.now() ? REST_BONUS : 0; }
+export const lifeMult = (s) => 1 + loveBonus(s) + restBonus(s);
 export function vehicleBonus(s) {
   return [...GOODS.veiculos, ...GOODS.ceumar].filter((g) => s.goods[g.id]).reduce((m, g) => Math.max(m, g.bonus), 0);
 }
@@ -68,7 +75,9 @@ export function homeOf(s) {
   const owned = GOODS.moradia.filter((g) => s.goods[g.id]);
   return owned.length ? owned[owned.length - 1] : null;
 }
-export const prestige = (s) => ALL_GOODS.filter((g) => s.goods[g.id]).reduce((p, g) => p + g.prestige, 0);
+export const styleOf = (s) => Object.keys(s.wardrobe || {}).reduce((t, id) => t + (CLOTH[id] ? CLOTH[id].style : 0), 0);
+export const tripPrestige = (s) => Object.keys(s.trips || {}).reduce((t, id) => { const tr = TRIPS.find((x) => x.id === id); return t + (tr ? Math.max(1, Math.round(Math.log10(tr.cost) ** 2 - 10)) : 0); }, 0);
+export const prestige = (s) => ALL_GOODS.filter((g) => s.goods[g.id]).reduce((p, g) => p + g.prestige, 0) + styleOf(s) + tripPrestige(s) + (s.love && s.love.wedding ? (WEDDINGS.find((w) => w.id === s.love.wedding) || { prestige: 0 }).prestige : 0);
 export function offlineHours(s) {
   const home = homeOf(s);
   return card(s).hours + (home ? home.hours : 0);
@@ -140,6 +149,7 @@ export function accrue(s, mk, dt) {
   s.stats.earned += Math.max(0, ib.inc) * days;
   s.stats.divs += ib.divs * days;
   s.stats.rents += ib.rent * days;
+  if (s.love) s.love.aff = Math.max(0, s.love.aff - 0.05 * days); // o carinho esfria se ninguém cuida
   if (s.cash < 0 && s.debt === 0 && s.poup > 0) { const t = Math.min(s.poup, -s.cash); s.poup -= t; s.cash += t; }
   return ib.net * days;
 }
@@ -350,6 +360,14 @@ export const ACHIEVEMENTS = [
   { id: 'trilhao', icon: '👑', name: 'Trilionário', desc: 'Patrimônio de R$ 1 trilhão', test: (s) => s.peakNW >= 1e12 },
   { id: 'evento5', icon: '📨', name: 'Faro para negócios', desc: 'Aceite 5 oportunidades', test: (s) => (s.stats.events || 0) >= 5 },
   { id: 'evento25', icon: '🦊', name: 'Raposa dos negócios', desc: 'Aceite 25 oportunidades', test: (s) => (s.stats.events || 0) >= 25 },
+  { id: 'amor1', icon: '💘', name: 'Primeiro encontro', desc: 'Saia com alguém', test: (s) => !!s.love && s.love.stage >= 1 },
+  { id: 'amor2', icon: '💑', name: 'Namorando', desc: 'Comece um namoro', test: (s) => !!s.love && s.love.stage >= 2 },
+  { id: 'casado', icon: '💒', name: 'Felizes para sempre', desc: 'Case-se', test: (s) => !!s.love && s.love.stage >= 4 },
+  { id: 'viagem1', icon: '🧳', name: 'Pé na estrada', desc: 'Faça sua primeira viagem', test: (s) => Object.keys(s.trips || {}).length >= 1 },
+  { id: 'viagem5', icon: '🗺️', name: 'Viajante', desc: 'Conheça 5 destinos', test: (s) => Object.keys(s.trips || {}).length >= 5 },
+  { id: 'passaporte', icon: '🛂', name: 'Passaporte lotado', desc: 'Conheça todos os destinos', test: (s) => Object.keys(s.trips || {}).length >= TRIPS.length },
+  { id: 'estilo1', icon: '👗', name: 'Estiloso', desc: 'Tenha 100 de estilo', test: (s) => styleOf(s) >= 100 },
+  { id: 'estilo2', icon: '🕴️', name: 'Ícone da moda', desc: 'Tenha 1.000 de estilo', test: (s) => styleOf(s) >= 1000 },
   { id: 'nivel10', icon: '⭐', name: 'Experiente', desc: 'Alcance o nível 10', test: (s) => level(s) >= 10 },
   { id: 'nivel25', icon: '🌟', name: 'Lenda', desc: 'Alcance o nível 25', test: (s) => level(s) >= 25 },
 ];
@@ -454,4 +472,133 @@ export function eventTick(s, mk) {
     });
   }
   return out;
+}
+
+// ---------- Vida: visual, guarda-roupa, viagens e amor ----------
+export function ensureLife(s) {
+  s.wardrobe = s.wardrobe || {};
+  for (const c of CLOTHES) if (c.cost === 0) s.wardrobe[c.id] = 1;
+  s.trips = s.trips || {};
+  if (s.love === undefined) s.love = null;
+  return s;
+}
+export function setLook(s, patch) {
+  s.look = { ...(s.look || defaultLook()), ...patch };
+  return null;
+}
+export function buyCloth(s, id) {
+  const c = CLOTH[id];
+  if (!c) return 'Item inválido';
+  if (!s.wardrobe[id]) {
+    const e = spend(s, c.cost, true); if (e) return e;
+    s.wardrobe[id] = Date.now();
+    addXP(s, 5 + Math.min(80, c.style));
+  }
+  s.look = s.look || defaultLook();
+  s.look[c.slot] = id;
+  return null;
+}
+export function takeOff(s, slot) {
+  const def = { top: 't_branca', bottom: 'b_jeans', shoes: 's_tenis' };
+  s.look[slot] = def[slot] || null;
+  return null;
+}
+
+export function startTrip(s, id, withPartner) {
+  const t = TRIPS.find((x) => x.id === id);
+  if (s.trip) return 'Você já está viajando!';
+  if (withPartner && !s.love) return 'Você não tem companhia';
+  const e = spend(s, t.cost * (withPartner ? 2 : 1), true); if (e) return e;
+  s.trip = { id, start: Date.now(), end: Date.now() + t.days * 60_000, partner: !!withPartner };
+  return null;
+}
+export function checkTrip(s) {
+  if (!s.trip || Date.now() < s.trip.end) return null;
+  const t = TRIPS.find((x) => x.id === s.trip.id);
+  const first = !s.trips[t.id];
+  s.trips[t.id] = (s.trips[t.id] || 0) + 1;
+  s.rested = Date.now() + REST_HOURS * 3600_000;
+  addXP(s, (first ? 40 : 10) + Math.round(Math.log10(t.cost) * 6));
+  if (s.trip.partner && s.love) s.love.aff = Math.min(100, s.love.aff + 25);
+  const r = { trip: t, first, partner: s.trip.partner };
+  s.trip = null;
+  return r;
+}
+
+// Amor
+export function findCandidate(s, pref) {
+  const sex = pref === 'a' ? (Math.random() < 0.5 ? 'f' : 'm') : pref;
+  const names = sex === 'f' ? NAMES_F : NAMES_M;
+  s.lovePref = pref;
+  s.candidate = { name: names[Math.floor(Math.random() * names.length)], sex, look: randomLook(sex), compat: 55 + Math.floor(Math.random() * 45) };
+  return null;
+}
+export function askOut(s) {
+  const c = s.candidate;
+  if (!c) return 'Procure alguém primeiro';
+  if (s.love) return 'Você já tem alguém!';
+  const d = DATES[0];
+  const e = spend(s, d.cost); if (e) return e;
+  if (Math.random() * 100 > c.compat) { s.candidate = null; return { refused: c.name }; }
+  s.love = { partner: { name: c.name, sex: c.sex, look: c.look }, stage: 0, aff: 15, since: Date.now(), act: { id: d.id, end: Date.now() + d.mins * 60_000, aff: d.aff } };
+  s.candidate = null;
+  return null;
+}
+export function doDate(s, id) {
+  const L = s.love; if (!L) return 'Você não tem companhia';
+  if (L.act) return 'Vocês já estão num programa juntos';
+  const d = DATES.find((x) => x.id === id);
+  const e = spend(s, d.cost); if (e) return e;
+  L.act = { id, end: Date.now() + d.mins * 60_000, aff: d.aff };
+  return null;
+}
+export function giveGift(s, id) {
+  const L = s.love; if (!L) return 'Você não tem companhia';
+  const g = GIFTS.find((x) => x.id === id);
+  const e = spend(s, g.cost, true); if (e) return e;
+  L.aff = Math.min(100, L.aff + g.aff);
+  addXP(s, 3);
+  return null;
+}
+export function nextStep(s) {
+  const L = s.love; if (!L || L.act) return 'Agora não dá';
+  if (L.stage === 1) { if (L.aff < 40) return 'Precisa de pelo menos 40 de carinho ❤️'; L.stage = 2; addXP(s, 60); return null; }
+  if (L.stage === 2) {
+    if (L.aff < 60) return 'Precisa de pelo menos 60 de carinho ❤️';
+    const e = spend(s, RING_COST, true); if (e) return e;
+    L.stage = 3; addXP(s, 100); return null;
+  }
+  return 'Nada a fazer agora';
+}
+export function marry(s, id) {
+  const L = s.love; if (!L || L.stage !== 3 || L.act) return 'Agora não dá';
+  if (L.aff < 75) return 'Precisa de pelo menos 75 de carinho ❤️';
+  const w = WEDDINGS.find((x) => x.id === id);
+  const e = spend(s, w.cost, true); if (e) return e;
+  L.act = { id: 'wedding', wedding: id, end: Date.now() + w.mins * 60_000, aff: 30 };
+  return null;
+}
+export function breakUp(s) {
+  if (!s.love) return null;
+  const married = s.love.stage === 4;
+  if (married) s.cash -= Math.max(0, s.cash) * 0.25; // divórcio custa caro
+  s.love = null;
+  return null;
+}
+export function checkLove(s) {
+  const L = s.love; if (!L) return null;
+  if (L.aff <= 0 && !L.act) {
+    const name = L.partner.name;
+    s.love = null;
+    return { broke: name };
+  }
+  if (L.act && Date.now() >= L.act.end) {
+    const a = L.act; L.act = null;
+    L.aff = Math.min(100, L.aff + a.aff);
+    addXP(s, 8);
+    if (a.id === 'wedding') { L.stage = 4; L.wedding = a.wedding; L.married = Date.now(); addXP(s, 200); return { wedding: true }; }
+    if (L.stage === 0) { L.stage = 1; return { firstDate: true }; }
+    return { date: a.id };
+  }
+  return null;
 }

@@ -201,3 +201,60 @@ export const LEVEL_BONUS = 0.03; // +3% de renda por nível
 
 export const TRADE_FEE = 0.005; // corretagem 0,5%
 export const LOAN_RATE = 0.0012; // juros do empréstimo por dia
+
+// ===== Vida: viagens e amor =====
+// days = minutos reais (1 dia = 1 minuto)
+export const TRIPS = [
+  { id: 'praia', name: 'Praia no Nordeste', icon: '🏖️', days: 3, cost: 2500 },
+  { id: 'serra', name: 'Serra Gaúcha', icon: '🍷', days: 4, cost: 6000 },
+  { id: 'rio', name: 'Rio de Janeiro', icon: '🌴', days: 5, cost: 9000 },
+  { id: 'amazonia', name: 'Amazônia', icon: '🦜', days: 6, cost: 18000 },
+  { id: 'baires', name: 'Buenos Aires', icon: '💃', days: 5, cost: 30000 },
+  { id: 'caribe', name: 'Caribe', icon: '🏝️', days: 7, cost: 70000 },
+  { id: 'florida', name: 'Parques na Flórida', icon: '🎢', days: 10, cost: 140000 },
+  { id: 'paris', name: 'Paris', icon: '🗼', days: 8, cost: 220000 },
+  { id: 'italia', name: 'Itália', icon: '🍝', days: 10, cost: 320000 },
+  { id: 'egito', name: 'Egito', icon: '🐪', days: 9, cost: 400000 },
+  { id: 'japao', name: 'Japão', icon: '🗾', days: 12, cost: 550000 },
+  { id: 'maldivas', name: 'Maldivas', icon: '🐠', days: 10, cost: 1.4e6 },
+  { id: 'dubai', name: 'Dubai', icon: '🌇', days: 7, cost: 3e6 },
+  { id: 'safari', name: 'Safári na África', icon: '🦁', days: 12, cost: 5e6 },
+  { id: 'antartida', name: 'Antártida', icon: '🐧', days: 15, cost: 2e7 },
+  { id: 'mundo', name: 'Volta ao Mundo', icon: '🌍', days: 60, cost: 1.5e8 },
+  { id: 'espaco', name: 'Viagem ao Espaço', icon: '🚀', days: 10, cost: 3e9 },
+];
+export const REST_BONUS = 0.10; // +10% de renda depois de viajar
+export const REST_HOURS = 3;
+
+export const LOVE_STAGES = [
+  { name: 'Solteiro(a)', icon: '🙂', bonus: 0 },
+  { name: 'Ficando', icon: '😊', bonus: 0.02 },
+  { name: 'Namorando', icon: '💑', bonus: 0.05 },
+  { name: 'Noivos', icon: '💍', bonus: 0.08 },
+  { name: 'Casados', icon: '💒', bonus: 0.12 },
+];
+export const DATES = [
+  { id: 'cafe', name: 'Café e passeio no parque', icon: '☕', mins: 2, cost: 80, aff: 8 },
+  { id: 'cinema', name: 'Cinema e pizza', icon: '🍿', mins: 3, cost: 350, aff: 12 },
+  { id: 'show', name: 'Show da banda favorita', icon: '🎸', mins: 4, cost: 2500, aff: 18 },
+  { id: 'jantar', name: 'Jantar à luz de velas', icon: '🕯️', mins: 4, cost: 15000, aff: 24 },
+  { id: 'balao', name: 'Passeio de balão', icon: '🎈', mins: 5, cost: 120000, aff: 32 },
+  { id: 'iatepasseio', name: 'Pôr do sol num iate', icon: '🛥️', mins: 6, cost: 1.5e6, aff: 45 },
+];
+export const GIFTS = [
+  { id: 'chocolate', name: 'Caixa de bombons', icon: '🍫', cost: 60, aff: 3 },
+  { id: 'flores', name: 'Buquê de flores', icon: '💐', cost: 200, aff: 5 },
+  { id: 'perfume', name: 'Perfume importado', icon: '🧴', cost: 3000, aff: 9 },
+  { id: 'pelucia', name: 'Urso de pelúcia gigante', icon: '🧸', cost: 900, aff: 7 },
+  { id: 'joia', name: 'Joia exclusiva', icon: '💎', cost: 80000, aff: 18 },
+  { id: 'carrop', name: 'Um carro de presente', icon: '🎁', cost: 1.2e6, aff: 35 },
+];
+export const RING_COST = 25000;
+export const WEDDINGS = [
+  { id: 'simples', name: 'Casamento simples', icon: '⛪', cost: 40000, mins: 5, prestige: 20 },
+  { id: 'festao', name: 'Festão com 300 convidados', icon: '🎉', cost: 600000, mins: 8, prestige: 120 },
+  { id: 'praia', name: 'Casamento na praia paradisíaca', icon: '🏝️', cost: 8e6, mins: 10, prestige: 500 },
+  { id: 'castelo', name: 'Casamento real num castelo', icon: '🏰', cost: 2e8, mins: 15, prestige: 3000 },
+];
+export const NAMES_F = ['Ana', 'Bia', 'Carla', 'Duda', 'Elisa', 'Fernanda', 'Gabi', 'Helena', 'Isa', 'Júlia', 'Larissa', 'Mari', 'Nina', 'Paula', 'Rafa', 'Sofia', 'Taís', 'Vivi', 'Yasmin', 'Lara', 'Clara', 'Bruna'];
+export const NAMES_M = ['Arthur', 'Bruno', 'Caio', 'Davi', 'Enzo', 'Felipe', 'Gui', 'Heitor', 'Igor', 'João', 'Léo', 'Matheus', 'Nico', 'Otávio', 'Pedro', 'Rafa', 'Samuel', 'Theo', 'Vitor', 'Lucas', 'Miguel', 'Diego'];
