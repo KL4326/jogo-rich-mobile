@@ -2,6 +2,10 @@
   "appId": "com.familia.magnata",
   "appName": "Magnata",
   "webDir": "www",
+  "server": {
+    "url": "https://kl4326.github.io/jogo-rich-mobile/",
+    "errorPath": "offline.html"
+  },
   "android": {
     "backgroundColor": "#0a0f1f"
   }

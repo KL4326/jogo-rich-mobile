@@ -590,6 +590,7 @@ function vAjustes() {
     <div class="row-flat"><span>Dividendos recebidos</span><b>${money(s.stats.divs)}</b></div>
     <div class="row-flat"><span>Maior patrimônio</span><b>${money(s.peakNW)}</b></div>
   </section>
+  <p class="muted" style="text-align:center">Versão do jogo: ${esc(window.GAME_VERSION || '?')} · atualiza sozinho</p>
   <section class="panel danger"><h4>⚠️ Zona de perigo</h4><button class="btn sell full" data-act="reset">Apagar progresso e recomeçar</button></section>`;
 }
 

@@ -3,6 +3,7 @@ name: Gerar APK
 on:
   push:
     branches: ['**']
+    paths: ['android/**', 'capacitor.config.json', 'package.json', 'package-lock.json', '.github/workflows/build-apk.yml']
   workflow_dispatch:
 
 permissions:
@@ -49,6 +50,6 @@ jobs:
           name: Magnata v1.0.${{ github.run_number }}
           body: |
             📱 Baixe o arquivo **Magnata.apk** abaixo pelo celular e instale.
-            Versões novas instalam por cima e mantêm o progresso.
+            O jogo se atualiza sozinho pela internet — só é preciso reinstalar se esta página disser que há um APK novo.
           files: Magnata.apk
           make_latest: true

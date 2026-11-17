@@ -1,0 +1,35 @@
+name: Publicar jogo (site)
+
+on:
+  push:
+    branches: [ccr-35c0fc41-fbbo39, main]
+    paths: ['www/**', '.github/workflows/site.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Marcar versão
+        run: echo "{\"v\":\"${{ github.run_number }}-${GITHUB_SHA::7}\"}" > www/version.json
+      - uses: actions/configure-pages@v5
+        with:
+          enablement: true
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: www
+      - id: deployment
+        uses: actions/deploy-pages@v4

@@ -8,8 +8,8 @@ Nada de ficar tocando na tela: o dinheiro vem das suas **decisões**.
 2. Baixe o arquivo `Magnata.apk` da versão mais recente.
 3. Toque no arquivo e permita "instalar apps de fontes desconhecidas" quando o Android pedir.
 
-Toda vez que o código muda, o GitHub gera um APK novo automaticamente (aba **Actions**).
-As atualizações instalam por cima e **mantêm o progresso**.
+O app abre o jogo hospedado em https://kl4326.github.io/jogo-rich-mobile/ — toda mudança no jogo chega sozinha, sem reinstalar. Também dá para jogar direto nesse link pelo navegador (inclusive iPhone).
+Um APK novo só é necessário quando a parte Android muda (raro).
 
 ## O que tem no jogo
 - **Carreira**: cursos (levam tempo real) liberam empregos melhores.

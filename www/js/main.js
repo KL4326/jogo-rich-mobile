@@ -72,8 +72,28 @@ function start() {
   setInterval(UI.slowRefresh, 3000);
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) G.save(ctx.s);
-    else { mk.update(); offlineProgress(); UI.render(); }
+    else { mk.update(); offlineProgress(); UI.render(); checkUpdate(); }
   });
+  checkUpdate();
+  setInterval(checkUpdate, 10 * 60_000);
+}
+
+// ---------- atualização automática ----------
+let loadedVersion = null;
+async function checkUpdate() {
+  try {
+    const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
+    const { v } = await r.json();
+    if (loadedVersion === null) { loadedVersion = v; window.GAME_VERSION = v; return; }
+    if (v !== loadedVersion) {
+      G.save(ctx.s);
+      UI.toast('🔄 Nova versão do jogo! Atualizando...', 'gold');
+      setTimeout(() => location.reload(), 1500);
+    }
+  } catch (e) { /* sem internet */ }
+}
+if ('serviceWorker' in navigator && location.protocol === 'https:') {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
 }
 
 function onboarding() {
