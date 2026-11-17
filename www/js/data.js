@@ -206,7 +206,7 @@ export const CARDS = [
 ];
 
 // Níveis: recursos liberados
-export const UNLOCKS = { bolsa: 2, renda: 1, credito: 3, imoveis: 4, cripto: 6 };
+export const UNLOCKS = { bolsa: 2, renda: 1, credito: 3, imoveis: 4, cripto: 6, cassino: 3 };
 export const LEVEL_BONUS = 0.03; // +3% de renda por nível
 
 export const TRADE_FEE = 0.005; // corretagem 0,5%
@@ -214,24 +214,86 @@ export const LOAN_RATE = 0.0012; // juros do empréstimo por dia
 
 // ===== Vida: viagens e amor =====
 // days = minutos reais (1 dia = 1 minuto)
+export const TRIP_CATS = [
+  { id: 'cidades', name: 'Cidades', icon: '🏙️' },
+  { id: 'estados', name: 'Estados', icon: '🗺️' },
+  { id: 'paises', name: 'Países', icon: '🌍' },
+  { id: 'pontos', name: 'Pontos turísticos', icon: '🏛️' },
+];
 export const TRIPS = [
-  { id: 'praia', name: 'Praia no Nordeste', icon: '🏖️', days: 3, cost: 2500 },
-  { id: 'serra', name: 'Serra Gaúcha', icon: '🍷', days: 4, cost: 6000 },
-  { id: 'rio', name: 'Rio de Janeiro', icon: '🌴', days: 5, cost: 9000 },
-  { id: 'amazonia', name: 'Amazônia', icon: '🦜', days: 6, cost: 18000 },
-  { id: 'baires', name: 'Buenos Aires', icon: '💃', days: 5, cost: 30000 },
-  { id: 'caribe', name: 'Caribe', icon: '🏝️', days: 7, cost: 70000 },
-  { id: 'florida', name: 'Parques na Flórida', icon: '🎢', days: 10, cost: 140000 },
-  { id: 'paris', name: 'Paris', icon: '🗼', days: 8, cost: 220000 },
-  { id: 'italia', name: 'Itália', icon: '🍝', days: 10, cost: 320000 },
-  { id: 'egito', name: 'Egito', icon: '🐪', days: 9, cost: 400000 },
-  { id: 'japao', name: 'Japão', icon: '🗾', days: 12, cost: 550000 },
-  { id: 'maldivas', name: 'Maldivas', icon: '🐠', days: 10, cost: 1.4e6 },
-  { id: 'dubai', name: 'Dubai', icon: '🌇', days: 7, cost: 3e6 },
-  { id: 'safari', name: 'Safári na África', icon: '🦁', days: 12, cost: 5e6 },
-  { id: 'antartida', name: 'Antártida', icon: '🐧', days: 15, cost: 2e7 },
-  { id: 'mundo', name: 'Volta ao Mundo', icon: '🌍', days: 60, cost: 1.5e8 },
-  { id: 'espaco', name: 'Viagem ao Espaço', icon: '🚀', days: 10, cost: 3e9 },
+  // Cidades
+  { id: 'praia', cat: 'cidades', name: 'Porto de Galinhas (PE)', icon: '🏖️', days: 3, cost: 2500 },
+  { id: 'serra', cat: 'cidades', name: 'Gramado (RS)', icon: '🍫', days: 4, cost: 6000 },
+  { id: 'rio', cat: 'cidades', name: 'Rio de Janeiro (RJ)', icon: '🌴', days: 5, cost: 9000 },
+  { id: 'floripa', cat: 'cidades', name: 'Florianópolis (SC)', icon: '🏄', days: 4, cost: 8000 },
+  { id: 'salvador', cat: 'cidades', name: 'Salvador (BA)', icon: '🥁', days: 4, cost: 7000 },
+  { id: 'amazonia', cat: 'cidades', name: 'Manaus (AM)', icon: '🦜', days: 6, cost: 18000 },
+  { id: 'bonito', cat: 'cidades', name: 'Bonito (MS)', icon: '🐠', days: 5, cost: 15000 },
+  { id: 'jeri', cat: 'cidades', name: 'Jericoacoara (CE)', icon: '🪁', days: 5, cost: 12000 },
+  { id: 'baires', cat: 'cidades', name: 'Buenos Aires', icon: '💃', days: 5, cost: 30000 },
+  { id: 'lisboa', cat: 'cidades', name: 'Lisboa', icon: '🚋', days: 6, cost: 90000 },
+  { id: 'caribe', cat: 'cidades', name: 'Cancún', icon: '🏝️', days: 7, cost: 70000 },
+  { id: 'florida', cat: 'cidades', name: 'Orlando', icon: '🎢', days: 10, cost: 140000 },
+  { id: 'paris', cat: 'cidades', name: 'Paris', icon: '🥐', days: 8, cost: 220000 },
+  { id: 'nova_york', cat: 'cidades', name: 'Nova York', icon: '🗽', days: 7, cost: 260000 },
+  { id: 'londres', cat: 'cidades', name: 'Londres', icon: '💂', days: 7, cost: 240000 },
+  { id: 'toquio', cat: 'cidades', name: 'Tóquio', icon: '🍣', days: 10, cost: 480000 },
+  { id: 'dubai', cat: 'cidades', name: 'Dubai', icon: '🌇', days: 7, cost: 3e6 },
+  // Estados do Brasil
+  { id: 'e_ba', cat: 'estados', name: 'Bahia', icon: '🥥', days: 8, cost: 20000 },
+  { id: 'e_mg', cat: 'estados', name: 'Minas Gerais', icon: '🧀', days: 8, cost: 16000 },
+  { id: 'e_sc', cat: 'estados', name: 'Santa Catarina', icon: '🌊', days: 8, cost: 22000 },
+  { id: 'e_rs', cat: 'estados', name: 'Rio Grande do Sul', icon: '🧉', days: 8, cost: 20000 },
+  { id: 'e_pe', cat: 'estados', name: 'Pernambuco', icon: '🎭', days: 7, cost: 18000 },
+  { id: 'e_ce', cat: 'estados', name: 'Ceará', icon: '☀️', days: 7, cost: 17000 },
+  { id: 'e_rn', cat: 'estados', name: 'Rio Grande do Norte', icon: '🏜️', days: 6, cost: 15000 },
+  { id: 'e_al', cat: 'estados', name: 'Alagoas', icon: '🐚', days: 6, cost: 16000 },
+  { id: 'e_pr', cat: 'estados', name: 'Paraná', icon: '🌲', days: 7, cost: 14000 },
+  { id: 'e_ma', cat: 'estados', name: 'Maranhão', icon: '🏝️', days: 7, cost: 19000 },
+  { id: 'e_am', cat: 'estados', name: 'Amazonas', icon: '🛶', days: 10, cost: 40000 },
+  { id: 'e_mt', cat: 'estados', name: 'Mato Grosso (Pantanal)', icon: '🐊', days: 9, cost: 35000 },
+  // Países
+  { id: 'p_ar', cat: 'paises', name: 'Argentina', icon: '🥩', days: 8, cost: 45000 },
+  { id: 'p_cl', cat: 'paises', name: 'Chile', icon: '🏔️', days: 8, cost: 55000 },
+  { id: 'p_pt', cat: 'paises', name: 'Portugal', icon: '🍷', days: 10, cost: 120000 },
+  { id: 'p_es', cat: 'paises', name: 'Espanha', icon: '🥘', days: 10, cost: 150000 },
+  { id: 'italia', cat: 'paises', name: 'Itália', icon: '🍝', days: 10, cost: 320000 },
+  { id: 'p_fr', cat: 'paises', name: 'França', icon: '🧀', days: 10, cost: 300000 },
+  { id: 'p_us', cat: 'paises', name: 'Estados Unidos', icon: '🍔', days: 12, cost: 350000 },
+  { id: 'p_mx', cat: 'paises', name: 'México', icon: '🌮', days: 9, cost: 130000 },
+  { id: 'egito', cat: 'paises', name: 'Egito', icon: '🐪', days: 9, cost: 400000 },
+  { id: 'p_gr', cat: 'paises', name: 'Grécia', icon: '🏺', days: 10, cost: 380000 },
+  { id: 'japao', cat: 'paises', name: 'Japão', icon: '🗾', days: 12, cost: 550000 },
+  { id: 'p_th', cat: 'paises', name: 'Tailândia', icon: '🐘', days: 12, cost: 420000 },
+  { id: 'p_au', cat: 'paises', name: 'Austrália', icon: '🦘', days: 14, cost: 900000 },
+  { id: 'p_ca', cat: 'paises', name: 'Canadá', icon: '🍁', days: 12, cost: 600000 },
+  { id: 'p_is', cat: 'paises', name: 'Islândia', icon: '🌋', days: 9, cost: 1.1e6 },
+  { id: 'maldivas', cat: 'paises', name: 'Maldivas', icon: '🐠', days: 10, cost: 1.4e6 },
+  { id: 'safari', cat: 'paises', name: 'África do Sul (safári)', icon: '🦁', days: 12, cost: 5e6 },
+  // Pontos turísticos famosos
+  { id: 't_cristo', cat: 'pontos', name: 'Cristo Redentor', icon: '⛰️', days: 3, cost: 12000 },
+  { id: 't_iguacu', cat: 'pontos', name: 'Cataratas do Iguaçu', icon: '💦', days: 4, cost: 15000 },
+  { id: 't_lencois', cat: 'pontos', name: 'Lençóis Maranhenses', icon: '🏜️', days: 5, cost: 20000 },
+  { id: 't_noronha', cat: 'pontos', name: 'Fernando de Noronha', icon: '🐬', days: 6, cost: 60000 },
+  { id: 't_machu', cat: 'pontos', name: 'Machu Picchu', icon: '🦙', days: 7, cost: 90000 },
+  { id: 't_eiffel', cat: 'pontos', name: 'Torre Eiffel', icon: '🗼', days: 5, cost: 250000 },
+  { id: 't_coliseu', cat: 'pontos', name: 'Coliseu', icon: '🏟️', days: 5, cost: 260000 },
+  { id: 't_bigben', cat: 'pontos', name: 'Big Ben', icon: '🕰️', days: 5, cost: 250000 },
+  { id: 't_liberdade', cat: 'pontos', name: 'Estátua da Liberdade', icon: '🗽', days: 5, cost: 280000 },
+  { id: 't_chichen', cat: 'pontos', name: 'Chichén Itzá', icon: '🛕', days: 5, cost: 150000 },
+  { id: 't_santorini', cat: 'pontos', name: 'Santorini', icon: '🏝️', days: 6, cost: 420000 },
+  { id: 't_piramides', cat: 'pontos', name: 'Pirâmides de Gizé', icon: '🔺', days: 6, cost: 450000 },
+  { id: 't_petra', cat: 'pontos', name: 'Petra', icon: '🏜️', days: 6, cost: 480000 },
+  { id: 't_fuji', cat: 'pontos', name: 'Monte Fuji', icon: '🗻', days: 6, cost: 600000 },
+  { id: 't_taj', cat: 'pontos', name: 'Taj Mahal', icon: '🕌', days: 7, cost: 650000 },
+  { id: 't_muralha', cat: 'pontos', name: 'Grande Muralha da China', icon: '🧱', days: 8, cost: 700000 },
+  { id: 't_grandcanyon', cat: 'pontos', name: 'Grand Canyon', icon: '🏞️', days: 6, cost: 500000 },
+  { id: 't_opera', cat: 'pontos', name: 'Ópera de Sydney', icon: '🎶', days: 8, cost: 950000 },
+  { id: 't_burj', cat: 'pontos', name: 'Burj Khalifa', icon: '🏙️', days: 5, cost: 3.2e6 },
+  { id: 't_aurora', cat: 'pontos', name: 'Aurora Boreal na Lapônia', icon: '🌌', days: 7, cost: 2e6 },
+  { id: 'antartida', cat: 'pontos', name: 'Antártida', icon: '🐧', days: 15, cost: 2e7 },
+  { id: 'mundo', cat: 'pontos', name: 'Volta ao Mundo', icon: '🌍', days: 60, cost: 1.5e8 },
+  { id: 'espaco', cat: 'pontos', name: 'Viagem ao Espaço', icon: '🚀', days: 10, cost: 3e9 },
 ];
 export const REST_BONUS = 0.10; // +10% de renda depois de viajar
 export const REST_HOURS = 3;
@@ -243,21 +305,28 @@ export const LOVE_STAGES = [
   { name: 'Noivos', icon: '💍', bonus: 0.08 },
   { name: 'Casados', icon: '💒', bonus: 0.12 },
 ];
+// Programas a dois: ocupam tempo. Quanto mais caro, mais carinho por minuto. Repetir o último programa rende 40% menos.
 export const DATES = [
-  { id: 'cafe', name: 'Café e passeio no parque', icon: '☕', mins: 2, cost: 80, aff: 8 },
-  { id: 'cinema', name: 'Cinema e pizza', icon: '🍿', mins: 3, cost: 350, aff: 12 },
-  { id: 'show', name: 'Show da banda favorita', icon: '🎸', mins: 4, cost: 2500, aff: 18 },
-  { id: 'jantar', name: 'Jantar à luz de velas', icon: '🕯️', mins: 4, cost: 15000, aff: 24 },
-  { id: 'balao', name: 'Passeio de balão', icon: '🎈', mins: 5, cost: 120000, aff: 32 },
-  { id: 'iatepasseio', name: 'Pôr do sol num iate', icon: '🛥️', mins: 6, cost: 1.5e6, aff: 45 },
+  { id: 'cafe', name: 'Café e passeio no parque', icon: '☕', mins: 2, cost: 80, aff: 6 },
+  { id: 'cinema', name: 'Cinema e pizza', icon: '🍿', mins: 3, cost: 350, aff: 10 },
+  { id: 'show', name: 'Show da banda favorita', icon: '🎸', mins: 4, cost: 2500, aff: 17 },
+  { id: 'jantar', name: 'Jantar à luz de velas', icon: '🕯️', mins: 4, cost: 15000, aff: 25 },
+  { id: 'spa', name: 'Dia de spa a dois', icon: '💆', mins: 4, cost: 45000, aff: 30 },
+  { id: 'balao', name: 'Passeio de balão', icon: '🎈', mins: 5, cost: 120000, aff: 38 },
+  { id: 'iatepasseio', name: 'Pôr do sol num iate', icon: '🛥️', mins: 6, cost: 1.5e6, aff: 55 },
+  { id: 'paris_jantar', name: 'Jantar no topo de um arranha-céu', icon: '🌃', mins: 6, cost: 2e7, aff: 75 },
 ];
+export const REPEAT_PENALTY = 0.6;
+// Presentes: instantâneos, mas cada um tem um tempo de espera (cd, em minutos) para dar de novo
 export const GIFTS = [
-  { id: 'chocolate', name: 'Caixa de bombons', icon: '🍫', cost: 60, aff: 3 },
-  { id: 'flores', name: 'Buquê de flores', icon: '💐', cost: 200, aff: 5 },
-  { id: 'perfume', name: 'Perfume importado', icon: '🧴', cost: 3000, aff: 9 },
-  { id: 'pelucia', name: 'Urso de pelúcia gigante', icon: '🧸', cost: 900, aff: 7 },
-  { id: 'joia', name: 'Joia exclusiva', icon: '💎', cost: 80000, aff: 18 },
-  { id: 'carrop', name: 'Um carro de presente', icon: '🎁', cost: 1.2e6, aff: 35 },
+  { id: 'chocolate', name: 'Caixa de bombons', icon: '🍫', cost: 60, aff: 4, cd: 20 },
+  { id: 'flores', name: 'Buquê de flores', icon: '💐', cost: 250, aff: 7, cd: 30 },
+  { id: 'pelucia', name: 'Urso de pelúcia gigante', icon: '🧸', cost: 900, aff: 10, cd: 45 },
+  { id: 'perfume', name: 'Perfume importado', icon: '🧴', cost: 3000, aff: 14, cd: 60 },
+  { id: 'bolsa', name: 'Bolsa de grife', icon: '👜', cost: 15000, aff: 19, cd: 90 },
+  { id: 'joia', name: 'Joia exclusiva', icon: '💎', cost: 80000, aff: 26, cd: 120 },
+  { id: 'carrop', name: 'Um carro de presente', icon: '🚗', cost: 1.2e6, aff: 45, cd: 360 },
+  { id: 'mansaop', name: 'Uma mansão de presente', icon: '🏰', cost: 5e7, aff: 80, cd: 1440 },
 ];
 export const RING_COST = 25000;
 export const WEDDINGS = [

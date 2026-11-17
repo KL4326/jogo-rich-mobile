@@ -1,6 +1,6 @@
 // ===== Interface (visual de jogo) =====
 import {
-  OWN_TIERS, TRIPS, LOVE_STAGES, DATES, GIFTS, RING_COST, WEDDINGS,
+  OWN_TIERS, TRIP_CATS, TRIPS, LOVE_STAGES, DATES, GIFTS, RING_COST, WEDDINGS,
   DAY_MS, SECTORS, SECTOR, STOCKS, CRYPTOS, ASSETS, BUSINESSES, COURSES, JOBS, PROPERTIES, GOODS, CARDS, UNLOCKS, TRADE_FEE, LOAN_RATE, LEVEL_BONUS, RENT_NO_HOME,
 } from './data.js';
 import * as G from './game.js';
@@ -220,6 +220,37 @@ const handlers = {
   breakup: () => confirmBox(C.s.love && C.s.love.stage >= 4 ? 'Pedir divórcio? Você perde 25% do dinheiro.' : 'Terminar o relacionamento?', () => { G.breakUp(C.s); C.afterAction(); render(); toast('💔 Fim do relacionamento.', 'err'); }),
   trip: (d, el) => { if (act(() => G.startTrip(C.s, d.id, d.partner === '1'), null, el)) { toast('✈️ Boa viagem!', 'gold'); render(); } },
   friend: (d) => friendView(d.id),
+  betq: (d) => { const inp = $('#bet'); if (!inp) return; inp.value = d.p ? Math.floor(Math.max(0, C.s.cash) * +d.p) : d.v; ui.bet = +inp.value; },
+  rbet: (d) => { ui.rbet = d.k; keepScroll(render); },
+  spin: (d, el) => {
+    if (ui.busy) return;
+    const r = G.playSlots(C.s, readBet());
+    if (typeof r === 'string') return toast('⚠️ ' + r, 'err');
+    ui.busy = true; ui.lastReels = r.reels; refresh();
+    const reels = [0, 1, 2].map((i) => $('#reel' + i));
+    reels.forEach((x) => x.classList.add('spinning'));
+    let k = 0;
+    animate(1100, () => { k++; reels.forEach((x, i) => { if (k < 8 + i * 4) x.textContent = G.SLOT_SYMS[Math.floor(Math.random() * 7)]; else { x.textContent = G.SLOT_SYMS[r.reels[i]]; x.classList.remove('spinning'); } }); }, () => casinoResult(r, el));
+  },
+  roulette: (d, el) => {
+    if (ui.busy) return;
+    const num = ui.rbet === 'num' ? parseInt(($('#rnum') || {}).value, 10) : null;
+    if (ui.rbet === 'num') ui.rnum = num;
+    const r = G.playRoulette(C.s, readBet(), ui.rbet || 'red', num);
+    if (typeof r === 'string') return toast('⚠️ ' + r, 'err');
+    ui.busy = true; ui.lastNum = r.n; refresh();
+    const w = $('#wheel'); w.className = 'wheel spinning';
+    animate(1400, () => { w.textContent = Math.floor(Math.random() * 37); }, () => { w.textContent = r.n; w.className = 'wheel ' + (r.n === 0 ? 'green' : G.isRed(r.n) ? 'red' : 'black'); setTimeout(() => casinoResult(r, el), 400); });
+  },
+  scratch: (d, el) => {
+    if (ui.busy) return;
+    const r = G.playScratch(C.s, readBet());
+    if (typeof r === 'string') return toast('⚠️ ' + r, 'err');
+    ui.busy = true; ui.lastScratch = r.mult; refresh();
+    $('#prize').textContent = r.mult ? '🎉 ' + r.mult + 'x' : '😢 Nada';
+    const cv = $('#cover'); cv.textContent = 'RASPE AQUI'; cv.classList.add('scratching');
+    setTimeout(() => casinoResult(r, el), 1100);
+  },
   confirmyes: () => { const f = pendingConfirm; closeModal(); f && f(); },
 };
 const keepScroll = (fn) => { const sc = $('#view').scrollTop; fn(); $('#view').scrollTop = sc; };
@@ -260,6 +291,7 @@ const INFO = {
   bens: `<h3>🛍️ Coleção de bens</h3><p>🚗🛥️ <b>Carros, barcos e aeronaves</b> aumentam seu salário (vale o melhor que você tiver).</p><p>🏠 <b>Moradia</b> acaba com o aluguel de ${money(RENT_NO_HOME)}/dia e aumenta as horas que você ganha com o jogo fechado.</p><p>💍🖼️ <b>Luxo e Coleção</b> dão muito prestígio ✨ para se exibir no ranking.</p><p>Bens têm uma pequena manutenção diária e, se vender, você recebe só parte do valor.</p>`,
   visual: `<h3>👗 Visual</h3><p>Mude sua aparência de graça quando quiser. Na loja, compre roupas, calçados e acessórios — tudo que você compra fica no guarda-roupa e soma <b>estilo</b> ✨, que entra no seu prestígio do ranking.</p>`,
   amor: `<h3>❤️ Amor</h3><p>Procure alguém e chame pra sair. Programas a dois e presentes aumentam o <b>carinho</b> ❤️, que esfria com o tempo — não esqueça do seu amor!</p><p>Etapas: Ficando (+2%) → Namorando (+5%) → Noivos (+8%) → Casados (+12% de renda), valendo enquanto o carinho estiver acima de 30.</p><p>Se o carinho chegar a zero, a pessoa vai embora.</p>`,
+  cassino: `<h3>🎰 Cassino</h3><p>Aposte o dinheiro do jogo no caça-níquel, na roleta ou na raspadinha. Dá para ganhar prêmios grandes — mas, como na vida real, <b>a casa sempre leva vantagem</b> no longo prazo.</p><p>O placar mostra quanto você já apostou, ganhou e o resultado final. Jogue com responsabilidade! 😉</p>`,
   viagens: `<h3>✈️ Viagens</h3><p>Cada dia de viagem dura 1 minuto. Ao voltar você fica <b>descansado</b>: +10% de renda por 3 horas. Cada destino novo carimba seu passaporte e dá prestígio ✨.</p><p>Viajar com seu amor custa o dobro, mas dá +25 de carinho ❤️.</p>`,
   carreira: `<h3>💼 Carreira</h3><p>Estude para desbloquear empregos melhores. Os cursos levam <b>tempo de verdade</b> — deixe estudando e volte depois!</p><p>Alguns empregos também pedem um nível mínimo.</p>`,
 };
@@ -353,8 +385,8 @@ function scene() {
 
 function vVida() {
   const sub = ui.sub.vida;
-  const head = subtabs([['carreira', '🎓', 'Carreira'], ['visual', '👗', 'Visual'], ['amor', '❤️', 'Amor'], ['viagens', '✈️', 'Viagens']]);
-  const body = sub === 'visual' ? vVisual() : sub === 'amor' ? vAmor() : sub === 'viagens' ? vViagens() : vCarreira();
+  const head = subtabs([['carreira', '🎓', 'Carreira'], ['visual', '👗', 'Visual'], ['amor', '❤️', 'Amor'], ['viagens', '✈️', 'Viagens'], ['cassino', '🎰', 'Cassino']]);
+  const body = sub === 'visual' ? vVisual() : sub === 'amor' ? vAmor() : sub === 'viagens' ? vViagens() : sub === 'cassino' ? vCassino() : vCarreira();
   return title('👤', 'Minha Vida', sub === 'carreira' ? 'carreira' : sub) + head + body;
 }
 
@@ -470,25 +502,77 @@ function vAmor() {
   ${next}
   ${pillTabs('lov', tabs, lt)}
   ${lt === 'casamento' ? weddings : ''}
-  ${lt !== 'programas' ? '' : DATES.map((d) => `<div class="item ${L.act ? 'dim' : ''}"><span class="bi">${d.icon}</span><div class="grow"><b>${d.name}</b><small>⏱️ ${d.mins} dias · ❤️ +${d.aff}</small></div>${L.act ? '' : costBtn('date', { id: d.id }, d.cost)}</div>`).join('')}
-  ${lt !== 'presentes' ? '' : `<div class="gifts">${GIFTS.map((g) => `<button class="gift" data-act="gift" data-id="${g.id}" data-cost="${g.cost}"><span>${g.icon}</span><b>${g.name}</b><small>❤️ +${g.aff}</small><em>${money(g.cost)}</em></button>`).join('')}</div>`}
+  ${lt !== 'programas' ? '' : DATES.map((d) => `<div class="item ${L.act ? 'dim' : ''}"><span class="bi">${d.icon}</span><div class="grow"><b>${d.name}</b><small>⏱️ ${d.mins} dias · ❤️ +${L.lastDate === d.id ? `${Math.round(d.aff * 0.6)} <span class="down">(repetido)</span>` : d.aff}</small></div>${L.act ? '' : costBtn('date', { id: d.id }, d.cost)}</div>`).join('')}
+  ${lt !== 'presentes' ? '' : `<p class="hint small">🎁 Cada presente só pode ser dado de novo depois de um tempo. Os mais caros valem bem mais!</p><div class="gifts">${GIFTS.map((g) => { const wait = ((L.cd || {})[g.id] || 0) > Date.now(); return `<button class="gift ${wait ? 'wait' : ''}" data-act="gift" data-id="${g.id}" ${wait ? '' : `data-cost="${g.cost}"`}><span>${g.icon}</span><b>${g.name}</b><small>❤️ +${g.aff}</small>${wait ? `<em class="cdt" data-live="giftcd:${g.id}"></em>` : `<em>${money(g.cost)}</em><i class="cdinfo">espera ${g.cd >= 60 ? g.cd / 60 + 'h' : g.cd + ' min'}</i>`}</button>`; }).join('')}</div>`}
   <button class="lnk center-block" data-act="breakup">${L.stage >= 4 ? 'Pedir divórcio (custa 25% do dinheiro)' : 'Terminar relacionamento'}</button>`;
 }
 
 function vViagens() {
   const s = C.s;
   const trip = s.trip ? TRIPS.find((x) => x.id === s.trip.id) : null;
-  const visited = Object.keys(s.trips).length;
+  const visited = G.tripsVisited(s);
   const L = s.love;
+  const cat = ui.tcat || 'cidades';
+  const list = TRIPS.filter((t) => t.cat === cat);
+  const vis = list.filter((t) => s.trips[t.id]).length;
   return `
   ${trip ? `<div class="box studying"><span class="bi big">${trip.icon}</span><div class="grow"><b>Viajando: ${trip.name}</b><div class="bar"><i data-live-w="trip"></i></div></div><span class="timer" data-live="triptime"></span></div>` : ''}
   ${G.restBonus(s) ? `<div class="pill money restpill">😌 Descansado: +${Math.round(G.restBonus(s) * 100)}% de renda por mais <b data-live="resttime"></b></div>` : ''}
   <div class="passport"><span>🛂</span><div><small>Passaporte</small><b>${visited} / ${TRIPS.length} destinos</b></div><div class="stamps">${TRIPS.filter((t) => s.trips[t.id]).map((t) => `<span>${t.icon}</span>`).join('')}</div></div>
-  ${TRIPS.map((t) => {
+  <div class="subtabs vistabs">${TRIP_CATS.map((c) => `<button class="${cat === c.id ? 'on' : ''}" data-act="pt" data-g="tcat" data-t="${c.id}"><span>${c.icon}</span>${c.name}</button>`).join('')}</div>
+  <p class="catcount">${vis} de ${list.length} conhecidos</p>
+  ${list.map((t) => {
     const n = s.trips[t.id] || 0;
     return `<div class="item trip ${n ? 'done' : ''}"><span class="bi">${t.icon}${n ? '<i class="stamp">✓</i>' : ''}</span><div class="grow"><b>${t.name}</b><small>🗓️ ${t.days} dias${n ? ` · visitado ${n}x` : ''}</small></div>
       ${trip ? '' : `<div class="col">${costBtn('trip', { id: t.id }, t.cost)}${L ? `<button class="btn pink sm" data-act="trip" data-id="${t.id}" data-partner="1" data-cost="${t.cost * 2}">+ ${esc(L.partner.name)} ❤️</button>` : ''}</div>`}</div>`;
   }).join('')}`;
+}
+
+// ---------- CASSINO ----------
+function vCassino() {
+  const s = C.s;
+  if (G.level(s) < UNLOCKS.cassino) return lockBox(UNLOCKS.cassino, 'Cassino');
+  const c = s.casino || { bet: 0, won: 0, n: 0 };
+  const res = c.won - c.bet;
+  const t = ui.cas || 'slots';
+  let game = '';
+  if (t === 'slots') {
+    const r = ui.lastReels || [6, 6, 6];
+    game = `<div class="slotm"><div class="slottop">🎰 MAGNATA SLOTS</div><div class="reels">${r.map((x, i) => `<span id="reel${i}">${G.SLOT_SYMS[x]}</span>`).join('')}</div>
+      <button class="btn gold full big" id="spinbtn" data-act="spin"><em>GIRAR!</em></button></div>
+      <div class="paytable">${G.SLOT_SYMS.map((sym, i) => `<span>${sym}${sym}${sym}<b>${G.SLOT_PAY[i]}x</b></span>`).join('')}<span>🍒🍒<b>2x</b></span></div>`;
+  } else if (t === 'roleta') {
+    const k = ui.rbet || 'red';
+    const n = ui.lastNum;
+    game = `<div class="wheelbox"><div class="wheel ${n === undefined ? '' : n === 0 ? 'green' : G.isRed(n) ? 'red' : 'black'}" id="wheel">${n === undefined ? '?' : n}</div></div>
+      <div class="rbets">${G.ROULETTE_BETS.map((b) => `<button class="chipbtn ${k === b.id ? 'on' : ''}" data-act="rbet" data-k="${b.id}">${b.name} <small>${b.pay}x</small></button>`).join('')}</div>
+      ${k === 'num' ? `<input id="rnum" type="number" inputmode="numeric" min="0" max="36" placeholder="Número de 0 a 36" value="${ui.rnum ?? ''}">` : ''}
+      <button class="btn gold full big" id="spinbtn" data-act="roulette"><em>GIRAR A ROLETA</em></button>`;
+  } else {
+    game = `<div class="scratch" id="scratch"><div class="prize" id="prize">${ui.lastScratch === undefined ? '🎟️' : ui.lastScratch ? '🎉 ' + ui.lastScratch + 'x' : '😢 Nada'}</div><div class="cover" id="cover">${ui.lastScratch === undefined ? 'RASPE AQUI' : ''}</div></div>
+      <button class="btn gold full big" id="spinbtn" data-act="scratch"><em>COMPRAR E RASPAR</em></button>
+      <div class="paytable"><span>100x<b>0,1%</b></span><span>10x<b>0,9%</b></span><span>5x<b>4%</b></span><span>2x<b>10%</b></span><span>1x<b>25%</b></span></div>`;
+  }
+  return `
+  <div class="casinohead"><div><small>Apostado</small><b>${money(c.bet)}</b></div><div><small>Ganho</small><b>${money(c.won)}</b></div><div><small>Resultado</small><b class="${res >= 0 ? 'up' : 'down'}">${res >= 0 ? '+' : ''}${money(res)}</b></div></div>
+  ${pillTabs('cas', [['slots', '🎰', 'Caça-níquel'], ['roleta', '🎡', 'Roleta'], ['rasp', '🎟️', 'Raspadinha']], t)}
+  <div class="betbox"><b>💰 Sua aposta</b><input id="bet" type="number" inputmode="numeric" min="1" value="${ui.bet || 100}">
+    <div class="quick">${[[100, '100'], [1000, '1 mil'], [10000, '10 mil'], [100000, '100 mil']].map(([v, n]) => `<button class="chipbtn" data-act="betq" data-v="${v}">${n}</button>`).join('')}<button class="chipbtn" data-act="betq" data-p="0.1">10%</button><button class="chipbtn" data-act="betq" data-p="0.5">50%</button></div></div>
+  ${game}
+  <p class="muted center small">🎲 A casa sempre leva vantagem no longo prazo. Aposte só o que pode perder 😉</p>`;
+}
+const readBet = () => { const v = Math.floor(parseFloat(($('#bet') || {}).value) || 0); ui.bet = v; return v; };
+function casinoResult(r, el) {
+  G.payout(C.s, r.win, r.mult);
+  ui.busy = false;
+  if (r.win > 0) { toast(`🎉 Ganhou ${money(r.win)}! (${r.mult}x)`, 'gold'); burst(el, '🪙', 10); if (r.mult >= 10) confetti(); }
+  else toast('😬 Não foi dessa vez…', 'err');
+  C.afterAction();
+  keepScroll(render);
+}
+function animate(ms, step, done) {
+  const t0 = Date.now();
+  const iv = setInterval(() => { step(); if (Date.now() - t0 > ms) { clearInterval(iv); done(); } }, 70);
 }
 
 export function openCreator() {
@@ -970,6 +1054,7 @@ function liveValue(key) {
     case 'resttime': return s.rested ? dur(s.rested - Date.now()) : '';
     case 'lovetime': return s.love && s.love.act ? '⏱️ ' + dur(s.love.act.end - Date.now()) : '';
     case 'aff': return s.love ? Math.round(s.love.aff) + ' / 100' : '';
+    case 'giftcd': { const t = ((s.love || {}).cd || {})[arg] || 0; return t > Date.now() ? '⏳ ' + dur(t - Date.now()) : '✅ pronto'; }
     case 'coursetime': return s.course ? '⏱️ ' + dur(s.course.end - Date.now()) : '';
     case 'nextblock': return dur(mk.msToNextBlock());
     case 'price': return price(mk.price(arg));

@@ -647,3 +647,48 @@ details.appear[open] summary { margin-bottom: 8px; }
 #creator .closet { grid-template-columns: repeat(3, 1fr); gap: 8px; }
 #creator .citem b { font-size: 12px; }
 #creator .cprev { height: 100px; }
+
+/* presentes com espera */
+.gift { position: relative; }
+.gift.wait { opacity: .6; filter: grayscale(.5); }
+.gift .cdt { font-size: 12px !important; color: var(--ink2) !important; font-family: 'Fredoka' !important; font-weight: 700; }
+.gift .cdinfo { font-style: normal; font-size: 10px; color: var(--ink2); font-weight: 600; }
+.catcount { color: #ffffffcc; font-weight: 700; font-size: 13px; margin: -4px 4px 10px; }
+
+/* cassino */
+.casinohead { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; background: linear-gradient(135deg, #2a0f3d, #4a1460); border: 3px solid #ffc93c; border-radius: 20px; padding: 10px; margin-bottom: 12px; box-shadow: 0 5px 0 #a86a00, 0 0 24px #ffc93c44; color: #fff; text-align: center; }
+.casinohead small { display: block; opacity: .75; font-weight: 600; }
+.casinohead b { font-family: var(--display); font-weight: 400; font-size: 15px; }
+.casinohead .up { color: #7dffb5; } .casinohead .down { color: #ff8fa0; }
+.betbox { background: var(--card); border-radius: 20px; padding: 12px 14px; margin-bottom: 12px; box-shadow: 0 5px 0 var(--edge); display: flex; flex-direction: column; gap: 8px; }
+.betbox input { text-align: center; font-family: var(--display); font-size: 22px; }
+.betbox .quick { margin-top: 0; }
+.btn.big { padding: 14px; }
+.btn.big em { font-style: normal; font-family: var(--display); font-size: 20px; letter-spacing: 1px; }
+.slotm { background: linear-gradient(180deg, #c81d3a, #8e0f26); border: 4px solid #ffc93c; border-radius: 26px; padding: 14px; margin-bottom: 12px; box-shadow: 0 6px 0 #5a0816, 0 0 30px #ff5d7344; }
+.slottop { text-align: center; font-family: var(--display); color: #ffe27a; font-size: 20px; letter-spacing: 2px; text-shadow: 0 2px 0 #0006; margin-bottom: 10px; }
+.reels { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
+.reels span { display: grid; place-items: center; height: 92px; font-size: 52px; background: linear-gradient(180deg, #e9e9e9, #fff 30%, #fff 70%, #dcdcdc); border-radius: 16px; box-shadow: inset 0 4px 8px #0003; }
+.reels span.spinning { filter: blur(1.5px); animation: shake .1s infinite; }
+@keyframes shake { 50% { transform: translateY(4px); } }
+.paytable { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-bottom: 10px; }
+.paytable span { background: #ffffff1f; color: #fff; border-radius: 10px; padding: 4px 8px; font-size: 13px; display: flex; gap: 5px; align-items: center; }
+.paytable b { color: #ffe27a; }
+.wheelbox { display: flex; justify-content: center; margin: 4px 0 14px; }
+.wheel { width: 150px; height: 150px; border-radius: 50%; display: grid; place-items: center; font-family: var(--display); font-size: 56px; color: #fff; background: conic-gradient(#c81d3a 0 10deg, #1d1d1d 10deg 20deg, #c81d3a 20deg 30deg, #1d1d1d 30deg 40deg, #c81d3a 40deg 50deg, #1d1d1d 50deg 60deg, #c81d3a 60deg 70deg, #1d1d1d 70deg 80deg, #2bc46f 80deg 90deg, #c81d3a 90deg 100deg, #1d1d1d 100deg 110deg, #c81d3a 110deg 120deg, #1d1d1d 120deg 130deg, #c81d3a 130deg 140deg, #1d1d1d 140deg 150deg, #c81d3a 150deg 160deg, #1d1d1d 160deg 170deg, #c81d3a 170deg 180deg, #1d1d1d 180deg 190deg, #c81d3a 190deg 200deg, #1d1d1d 200deg 210deg, #c81d3a 210deg 220deg, #1d1d1d 220deg 230deg, #c81d3a 230deg 240deg, #1d1d1d 240deg 250deg, #c81d3a 250deg 260deg, #1d1d1d 260deg 270deg, #c81d3a 270deg 280deg, #1d1d1d 280deg 290deg, #c81d3a 290deg 300deg, #1d1d1d 300deg 310deg, #c81d3a 310deg 320deg, #1d1d1d 320deg 330deg, #c81d3a 330deg 340deg, #1d1d1d 340deg 350deg, #c81d3a 350deg 360deg); border: 8px solid #ffc93c; box-shadow: 0 6px 0 #a86a00, inset 0 0 0 30px #0007; text-shadow: 0 3px 0 #0008; }
+.wheel.spinning { animation: wspin .5s linear infinite; }
+@keyframes wspin { to { transform: rotate(360deg); } }
+.wheel.red { box-shadow: 0 6px 0 #a86a00, inset 0 0 0 40px #c81d3a; }
+.wheel.black { box-shadow: 0 6px 0 #a86a00, inset 0 0 0 40px #1d1d1d; }
+.wheel.green { box-shadow: 0 6px 0 #a86a00, inset 0 0 0 40px #1a944f; }
+.rbets { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-bottom: 10px; }
+.rbets small { color: var(--gold-d); font-weight: 700; }
+.rbets .chipbtn.on small { color: #ffe27a; }
+#rnum { margin-bottom: 10px; text-align: center; }
+.scratch { position: relative; height: 150px; border-radius: 22px; overflow: hidden; margin-bottom: 12px; background: linear-gradient(135deg, #fff6c9, #ffe27a); border: 4px dashed #e09a12; box-shadow: 0 5px 0 var(--gold-d); }
+.scratch .prize { position: absolute; inset: 0; display: grid; place-items: center; font-family: var(--display); font-size: 40px; color: #6b3d00; }
+.scratch .cover { position: absolute; inset: 0; display: grid; place-items: center; font-family: var(--display); font-size: 26px; letter-spacing: 2px; color: #fff; background: repeating-linear-gradient(45deg, #9aa0a8 0 12px, #b8bec8 12px 24px); transition: clip-path 1s ease-in; clip-path: inset(0 0 0 0); }
+.scratch .cover:empty { display: none; }
+.scratch .cover.scratching { clip-path: inset(0 0 0 100%); }
+.hint { font-size: 13px; color: #fff; background: #ffffff1a; border: 2px dashed #ffffff40; border-radius: 14px; padding: 10px 12px; margin: 0 0 12px; font-weight: 600; line-height: 1.4; }
+.sheet .hint, .box .hint { color: var(--ink); background: var(--card2); border-color: var(--edge); }

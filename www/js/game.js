@@ -4,7 +4,7 @@ import { CLOTH, CLOTHES, defaultLook, randomLook } from './avatar.js';
 import {
   DAY_MS, BUSINESSES, BIZ_GROWTH, BIZ_MILESTONES, COURSES, JOBS, PROPERTIES, GOODS, GOOD, ALL_GOODS,
   CARDS, LEVEL_BONUS, TRADE_FEE, LOAN_RATE, RENT_NO_HOME, ASSETS, CRYPTOS, UNLOCKS, SECTORS,
-  OWN_TIERS, TRIPS, REST_BONUS, REST_HOURS, LOVE_STAGES, DATES, GIFTS, RING_COST, WEDDINGS, NAMES_F, NAMES_M,
+  OWN_TIERS, TRIPS, REST_BONUS, REST_HOURS, LOVE_STAGES, DATES, GIFTS, REPEAT_PENALTY, RING_COST, WEDDINGS, NAMES_F, NAMES_M,
 } from './data.js';
 
 const SAVE_KEY = 'magnata_save_v1';
@@ -374,11 +374,15 @@ export const ACHIEVEMENTS = [
   { id: 'amor1', icon: '💘', name: 'Primeiro encontro', desc: 'Saia com alguém', test: (s) => !!s.love && s.love.stage >= 1 },
   { id: 'amor2', icon: '💑', name: 'Namorando', desc: 'Comece um namoro', test: (s) => !!s.love && s.love.stage >= 2 },
   { id: 'casado', icon: '💒', name: 'Felizes para sempre', desc: 'Case-se', test: (s) => !!s.love && s.love.stage >= 4 },
-  { id: 'viagem1', icon: '🧳', name: 'Pé na estrada', desc: 'Faça sua primeira viagem', test: (s) => Object.keys(s.trips || {}).length >= 1 },
-  { id: 'viagem5', icon: '🗺️', name: 'Viajante', desc: 'Conheça 5 destinos', test: (s) => Object.keys(s.trips || {}).length >= 5 },
-  { id: 'passaporte', icon: '🛂', name: 'Passaporte lotado', desc: 'Conheça todos os destinos', test: (s) => Object.keys(s.trips || {}).length >= TRIPS.length },
+  { id: 'viagem1', icon: '🧳', name: 'Pé na estrada', desc: 'Faça sua primeira viagem', test: (s) => tripsVisited(s) >= 1 },
+  { id: 'viagem5', icon: '🗺️', name: 'Viajante', desc: 'Conheça 5 destinos', test: (s) => tripsVisited(s) >= 5 },
+  { id: 'passaporte', icon: '🛂', name: 'Passaporte lotado', desc: 'Conheça todos os destinos', test: (s) => tripsVisited(s) >= TRIPS.length },
   { id: 'estilo1', icon: '👗', name: 'Estiloso', desc: 'Tenha 100 de estilo', test: (s) => styleOf(s) >= 100 },
   { id: 'estilo2', icon: '🕴️', name: 'Ícone da moda', desc: 'Tenha 1.000 de estilo', test: (s) => styleOf(s) >= 1000 },
+  { id: 'viagem20', icon: '🌎', name: 'Cidadão do mundo', desc: 'Conheça 20 destinos', test: (s) => tripsVisited(s) >= 20 },
+  { id: 'cassino1', icon: '🎰', name: 'Apostador', desc: 'Jogue no cassino', test: (s) => !!s.casino && s.casino.n >= 1 },
+  { id: 'jackpot', icon: '7️⃣', name: 'JACKPOT!', desc: 'Tire 7️⃣7️⃣7️⃣ no caça-níquel', test: (s) => !!s.casino && !!s.casino.jackpot },
+  { id: 'sortudo', icon: '🍀', name: 'Sortudo', desc: 'Ganhe 30x a aposta numa jogada', test: (s) => !!s.casino && s.casino.bestMult >= 30 },
   { id: 'nivel10', icon: '⭐', name: 'Experiente', desc: 'Alcance o nível 10', test: (s) => level(s) >= 10 },
   { id: 'nivel25', icon: '🌟', name: 'Lenda', desc: 'Alcance o nível 25', test: (s) => level(s) >= 25 },
 ];
@@ -560,7 +564,7 @@ export function askOut(s) {
   const d = DATES[0];
   const e = spend(s, d.cost); if (e) return e;
   if (Math.random() * 100 > c.compat) { s.candidate = null; return { refused: c.name }; }
-  s.love = { partner: { name: c.name, sex: c.sex, look: c.look }, stage: 0, aff: 15, since: Date.now(), act: { id: d.id, end: Date.now() + d.mins * 60_000, aff: d.aff } };
+  s.love = { partner: { name: c.name, sex: c.sex, look: c.look }, stage: 0, aff: 15, since: Date.now(), lastDate: d.id, act: { id: d.id, end: Date.now() + d.mins * 60_000, aff: d.aff } };
   s.candidate = null;
   return null;
 }
@@ -569,13 +573,18 @@ export function doDate(s, id) {
   if (L.act) return 'Vocês já estão num programa juntos';
   const d = DATES.find((x) => x.id === id);
   const e = spend(s, d.cost); if (e) return e;
-  L.act = { id, end: Date.now() + d.mins * 60_000, aff: d.aff };
+  const aff = d.aff * (L.lastDate === id ? REPEAT_PENALTY : 1);
+  L.lastDate = id;
+  L.act = { id, end: Date.now() + d.mins * 60_000, aff };
   return null;
 }
 export function giveGift(s, id) {
   const L = s.love; if (!L) return 'Você não tem companhia';
   const g = GIFTS.find((x) => x.id === id);
+  L.cd = L.cd || {};
+  if ((L.cd[id] || 0) > Date.now()) return 'Você deu esse presente há pouco tempo… espere um pouco 😉';
   const e = spend(s, g.cost, true); if (e) return e;
+  L.cd[id] = Date.now() + g.cd * 60_000;
   L.aff = Math.min(100, L.aff + g.aff);
   addXP(s, 3);
   return null;
@@ -621,4 +630,61 @@ export function checkLove(s) {
     return { date: a.id };
   }
   return null;
+}
+
+export const tripsVisited = (s) => TRIPS.filter((t) => (s.trips || {})[t.id]).length;
+
+// ---------- Cassino (a casa sempre leva vantagem) ----------
+export const SLOT_SYMS = ['🍒', '🍋', '🍇', '🔔', '⭐', '💎', '7️⃣'];
+const SLOT_W = [30, 25, 20, 12, 8, 4, 1];
+export const SLOT_PAY = [6, 10, 16, 26, 52, 130, 700]; // 3 iguais; 2 cerejas = 2x  (retorno ~90%)
+const RED = new Set([1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36]);
+export const isRed = (n) => RED.has(n);
+function bet(s, amt) {
+  amt = Math.floor(amt);
+  if (!(amt >= 1)) return 'Aposta inválida';
+  if (amt > s.cash) return 'Dinheiro insuficiente';
+  s.cash -= amt;
+  s.casino = s.casino || { bet: 0, won: 0, n: 0, bestMult: 0 };
+  s.casino.bet += amt; s.casino.n++;
+  return null;
+}
+// O prêmio é creditado depois da animação
+export function payout(s, amt, mult) {
+  if (amt > 0) { s.cash += amt; s.casino.won += amt; s.casino.bestMult = Math.max(s.casino.bestMult || 0, mult); }
+}
+function wpick() { let r = Math.random() * 100; for (let i = 0; i < SLOT_W.length; i++) { r -= SLOT_W[i]; if (r < 0) return i; } return 0; }
+export function playSlots(s, amt) {
+  const e = bet(s, amt); if (e) return e;
+  const r = [wpick(), wpick(), wpick()];
+  let mult = 0;
+  if (r[0] === r[1] && r[1] === r[2]) mult = SLOT_PAY[r[0]];
+  else if (r.filter((x) => x === 0).length === 2) mult = 2;
+  if (mult === 700) s.casino.jackpot = Date.now();
+  return { reels: r, mult, win: Math.floor(amt) * mult };
+}
+export const ROULETTE_BETS = [
+  { id: 'red', name: '🔴 Vermelho', pay: 2, test: (n) => isRed(n) },
+  { id: 'black', name: '⚫ Preto', pay: 2, test: (n) => n > 0 && !isRed(n) },
+  { id: 'even', name: 'Par', pay: 2, test: (n) => n > 0 && n % 2 === 0 },
+  { id: 'odd', name: 'Ímpar', pay: 2, test: (n) => n % 2 === 1 },
+  { id: 'low', name: '1 a 18', pay: 2, test: (n) => n >= 1 && n <= 18 },
+  { id: 'high', name: '19 a 36', pay: 2, test: (n) => n >= 19 },
+  { id: 'num', name: 'Número exato', pay: 36, test: null },
+];
+export function playRoulette(s, amt, kind, num) {
+  const b = ROULETTE_BETS.find((x) => x.id === kind);
+  if (!b) return 'Escolha uma aposta';
+  if (kind === 'num' && !(num >= 0 && num <= 36)) return 'Escolha um número de 0 a 36';
+  const e = bet(s, amt); if (e) return e;
+  const n = Math.floor(Math.random() * 37);
+  const ok = kind === 'num' ? n === num : b.test(n);
+  return { n, mult: ok ? b.pay : 0, win: ok ? Math.floor(amt) * b.pay : 0 };
+}
+const SCRATCH = [[0.001, 100], [0.009, 10], [0.04, 5], [0.10, 2], [0.25, 1]];
+export function playScratch(s, amt) {
+  const e = bet(s, amt); if (e) return e;
+  let r = Math.random(), mult = 0;
+  for (const [p, m] of SCRATCH) { if (r < p) { mult = m; break; } r -= p; }
+  return { mult, win: Math.floor(amt) * mult };
 }
