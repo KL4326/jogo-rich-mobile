@@ -4,7 +4,7 @@ import { CLOTH, CLOTHES, defaultLook, randomLook } from './avatar.js';
 import {
   DAY_MS, BUSINESSES, BIZ_GROWTH, BIZ_MILESTONES, COURSES, JOBS, PROPERTIES, GOODS, GOOD, ALL_GOODS,
   CARDS, LEVEL_BONUS, TRADE_FEE, LOAN_RATE, RENT_NO_HOME, ASSETS, CRYPTOS, UNLOCKS, SECTORS,
-  TRIPS, REST_BONUS, REST_HOURS, LOVE_STAGES, DATES, GIFTS, RING_COST, WEDDINGS, NAMES_F, NAMES_M,
+  OWN_TIERS, TRIPS, REST_BONUS, REST_HOURS, LOVE_STAGES, DATES, GIFTS, RING_COST, WEDDINGS, NAMES_F, NAMES_M,
 } from './data.js';
 
 const SAVE_KEY = 'magnata_save_v1';
@@ -106,7 +106,7 @@ export function incomeBreakdown(s, mk) {
   let divs = 0;
   for (const a of ASSETS) {
     const h = s.port[a.sym];
-    if (h && h.q > 0 && a.div) divs += h.q * mk.price(a.sym) * a.div;
+    if (h && h.q > 0) { const t = ownTier(ownPct(s, a.sym)); const d = ((a.div || 0) + (t ? t.extra : 0)) * (t ? t.mult : 1); if (d) divs += h.q * mk.price(a.sym) * d; }
   }
   const cdi = mk.cdi();
   const juros = s.poup * cdi * 0.7 + s.cdb.reduce((t, x) => t + x.amt, 0) * cdi * 1.1 + s.tes.reduce((t, x) => t + x.amt, 0) * cdi * 1.3;
@@ -206,12 +206,20 @@ export function buyBiz(s, id, n) {
   return null;
 }
 
+export function ownPct(s, sym) {
+  const a = ASSETS.find((x) => x.sym === sym);
+  const h = s.port[sym];
+  return a && a.shares && h ? h.q / a.shares : 0;
+}
+export function ownTier(pct) { let t = null; for (const x of OWN_TIERS) if (pct >= x.min - 1e-12) t = x; return t; }
+export const controlled = (s) => ASSETS.filter((a) => a.shares && ownPct(s, a.sym) >= 0.51 - 1e-12).length;
 export function trade(s, mk, sym, qty, side) {
   const a = ASSETS.find((x) => x.sym === sym);
   const price = mk.price(sym);
   const h = s.port[sym] || (s.port[sym] = { q: 0, cost: 0 });
   if (!(qty > 0)) return 'Quantidade inválida';
   if (side === 'buy') {
+    if (a.shares && h.q + qty > a.shares + 1e-6) return `Só restam ${Math.floor(a.shares - h.q).toLocaleString('pt-BR')} ações à venda`;
     const total = qty * price * (1 + TRADE_FEE);
     const e = spend(s, total); if (e) return e;
     h.cost += total; h.q += qty;
@@ -339,6 +347,9 @@ export const ACHIEVEMENTS = [
   { id: 'acao1', icon: '📈', name: 'Investidor iniciante', desc: 'Compre sua primeira ação', test: (s) => s.stats.trades >= 1 },
   { id: 'lucro1', icon: '💹', name: 'Comprou barato, vendeu caro', desc: 'Lucre R$ 1 mil em uma única venda', test: (s) => s.stats.bestTrade >= 1000 },
   { id: 'lucro2', icon: '🐂', name: 'Lobo da Bolsa', desc: 'Lucre R$ 1 mi em uma única venda', test: (s) => s.stats.bestTrade >= 1e6 },
+  { id: 'acionista10', icon: '🪑', name: 'Conselheiro', desc: 'Tenha 10% de uma empresa da bolsa', test: (s) => ASSETS.some((a) => a.shares && ownPct(s, a.sym) >= 0.1) },
+  { id: 'controlador', icon: '👑', name: 'Dono da empresa', desc: 'Tenha 51% de uma empresa da bolsa', test: (s) => controlled(s) >= 1 },
+  { id: 'controlador5', icon: '🏛️', name: 'Holding bilionária', desc: 'Controle 5 empresas da bolsa', test: (s) => controlled(s) >= 5 },
   { id: 'trader', icon: '🧾', name: 'Day trader', desc: 'Faça 100 operações', test: (s) => s.stats.trades >= 100 },
   { id: 'diversif', icon: '🧺', name: 'Não coloque os ovos na mesma cesta', desc: 'Tenha ações de 5 setores diferentes', test: (s) => sectorsHeld(s) >= 5 },
   { id: 'cripto', icon: '🪙', name: 'To the moon', desc: 'Compre uma criptomoeda', test: hasCrypto },

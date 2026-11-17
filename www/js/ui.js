@@ -1,10 +1,10 @@
 // ===== Interface (visual de jogo) =====
 import {
-  TRIPS, LOVE_STAGES, DATES, GIFTS, RING_COST, WEDDINGS,
+  OWN_TIERS, TRIPS, LOVE_STAGES, DATES, GIFTS, RING_COST, WEDDINGS,
   DAY_MS, SECTORS, SECTOR, STOCKS, CRYPTOS, ASSETS, BUSINESSES, COURSES, JOBS, PROPERTIES, GOODS, CARDS, UNLOCKS, TRADE_FEE, LOAN_RATE, LEVEL_BONUS, RENT_NO_HOME,
 } from './data.js';
 import * as G from './game.js';
-import { avatarSVG, defaultLook, SKINS, HAIR_COLORS, EYE_COLORS, HAIRS, CLOTHES, SLOTS, SETS, CLOTH } from './avatar.js';
+import { avatarSVG, defaultLook, SKINS, HAIR_COLORS, EYE_COLORS, HAIRS, BEARDS, CLOTHES, SLOTS, SETS, CLOTH } from './avatar.js';
 import { townSVG } from './town.js';
 import { tickToMs } from './market.js';
 
@@ -26,6 +26,12 @@ export function fmt(n, dec) {
 export const money = (n, dec) => 'R$ ' + fmt(n, dec);
 const price = (n) => 'R$ ' + (n >= 1000 ? fmt(n) : n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: n < 1 ? 4 : 2 }));
 const pct = (x, d = 1) => (x >= 0 ? '+' : '') + (x * 100).toLocaleString('pt-BR', { minimumFractionDigits: d, maximumFractionDigits: d }) + '%';
+export function fmtOwn(p) {
+  const v = p * 100;
+  if (!v) return '0%';
+  const t = v >= 10 ? v.toFixed(1) : v >= 0.01 ? v.toFixed(2) : v < 0.0001 ? '<0,0001' : v.toFixed(4);
+  return t.replace('.', ',') + '%';
+}
 const esc = (t) => String(t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 function dur(ms) {
   ms = Math.max(0, ms);
@@ -188,7 +194,7 @@ const handlers = {
   },
   logout: () => confirmBox('Sair da conta? Seu progresso fica salvo na nuvem.', () => C.logout()),
   look: (d) => {
-    const v = ['skin', 'hairColor', 'eyes'].includes(d.k) ? +d.v : d.v;
+    const v = ['skin', 'hairColor', 'eyes'].includes(d.k) ? +d.v : d.k === 'beard' ? (d.v || null) : d.v;
     const patch = { [d.k]: v };
     if (d.k === 'sex' && v !== C.s.look.sex) { patch.hair = v === 'f' ? 'longo' : 'curto'; }
     G.setLook(C.s, patch); C.afterAction();
@@ -354,6 +360,7 @@ function appearanceHTML(L) {
     <div class="lookrow"><span>Pele</span>${swatches('skin', SKINS, L.skin)}</div>
     <div class="lookrow col"><span>Cabelo</span><div class="hairs">${HAIRS.map((h) => `<button class="chipbtn ${L.hair === h.id ? 'on' : ''}" data-act="look" data-k="hair" data-v="${h.id}">${h.name}</button>`).join('')}</div></div>
     <div class="lookrow"><span>Cor</span>${swatches('hairColor', HAIR_COLORS, L.hairColor)}</div>
+    <div class="lookrow col"><span>Barba e bigode</span><div class="hairs">${BEARDS.map((b) => `<button class="chipbtn ${(L.beard || null) === b.id ? 'on' : ''}" data-act="look" data-k="beard" data-v="${b.id || ''}">${b.name}</button>`).join('')}</div></div>
     <div class="lookrow"><span>Olhos</span>${swatches('eyes', EYE_COLORS, L.eyes)}</div>`;
 }
 function vVisual() {
@@ -486,6 +493,7 @@ function friendView(uid) {
       <div><small>Trabalho</small><b>${p.jobIcon || ''} ${esc(p.jobName || '')}</b></div><div><small>Amor</small><b>${p.partner ? LOVE_STAGES[p.partner.stage].icon + ' ' + LOVE_STAGES[p.partner.stage].name : '💔 Solteiro(a)'}</b></div>
       <div><small>Viagens</small><b>🛂 ${p.trips || 0}</b></div><div><small>Prestígio</small><b>✨ ${fmt(p.prestige || 0)}</b></div>
       <div><small>Troféus</small><b>🎖️ ${p.ach}</b></div><div><small>Veículo</small><b>${p.veh || '🚶'}</b></div>
+      <div><small>Empresas controladas</small><b>👑 ${p.ctrl || 0}</b></div>
     </div>
     <small class="muted">${Date.now() - p.updated < 180000 ? '🟢 jogando agora' : '⚪ visto ' + ago(p.updated)}</small></div>`);
 }
@@ -649,7 +657,7 @@ function vBolsa(list, stocks) {
   <div class="assets">${list.map((a) => `
     <div class="asset" data-act="asset" data-sym="${a.sym}">
       <span class="aico s-${a.sector}">${SECTOR[a.sector].icon}</span>
-      <div class="grow"><b>${a.name}${a.div ? ' <em class="divtag">💸</em>' : ''}</b><small class="held" data-live="held:${a.sym}"></small></div>
+      <div class="grow"><b>${a.name}${a.div ? ' <em class="divtag">💸</em>' : ''}</b><small class="held" data-live="held:${a.sym}"></small>${a.shares && G.ownPct(C.s, a.sym) > 0 ? `<div class="ownmini"><i style="width:${Math.max(3, Math.min(100, G.ownPct(C.s, a.sym) / 0.51 * 100))}%"></i></div>` : ''}</div>
       <svg class="spark" data-spark="${a.sym}" viewBox="0 0 64 28" preserveAspectRatio="none"></svg>
       <div class="right"><b data-live="price:${a.sym}"></b><span class="chg" data-live="chg:${a.sym}"></span></div>
     </div>`).join('')}</div>
@@ -706,8 +714,9 @@ function openAsset(sym) {
     <svg class="spark chart" data-spark="${sym}" viewBox="0 0 300 140" preserveAspectRatio="none"></svg>
     <div class="tags"><span class="pill ${wxCls(k)}">${WX[k]} ${SECTOR[a.sector].name}: ${WXN[k]}</span>${a.div ? `<span class="pill">💸 ${(a.div * 100).toFixed(2)}%/dia</span>` : ''}</div>
     <div class="heldbox" data-live="heldfull:${sym}"></div>
+    ${a.shares ? ownHTML(sym) : ''}
     <div class="qtyrow"><input id="qty" type="number" inputmode="decimal" min="0" step="${crypto ? 'any' : '1'}" value="${crypto ? '' : 1}" placeholder="${crypto ? 'Quantidade' : 'Qtd. de ações'}"></div>
-    <div class="quick">${crypto ? '' : '<button class="chipbtn" data-act="qty" data-v="1">1</button><button class="chipbtn" data-act="qty" data-v="10">10</button><button class="chipbtn" data-act="qty" data-v="100">100</button>'}
+    <div class="quick">${crypto ? '' : [[1, '1'], [100, '100'], [1000, '1 mil'], [1e5, '100 mil'], [1e6, '1 mi']].map(([v, n]) => `<button class="chipbtn" data-act="qty" data-v="${v}">${n}</button>`).join('')}
       <button class="chipbtn" data-act="qty" data-v="${maxBuy(sym)}">Máx</button>
       ${h && h.q > 0 ? `<button class="chipbtn" data-act="qty" data-v="${h.q}">Tudo meu</button>` : ''}</div>
     <div class="preview" id="tradeprev"></div>
@@ -715,10 +724,28 @@ function openAsset(sym) {
   $('#qty').addEventListener('input', updateTradePreview);
   updateTradePreview();
 }
+function ownHTML(sym) {
+  const a = ASSETS.find((x) => x.sym === sym);
+  const own = G.ownPct(C.s, sym);
+  const tier = G.ownTier(own);
+  const next = OWN_TIERS.find((t) => own < t.min - 1e-12);
+  const prev = tier ? tier.min : 0;
+  const prog = next ? (own - prev) / (next.min - prev) : 1;
+  return `<div class="ownbox">
+    <div class="lrow"><b>🏢 Sua fatia da empresa</b><b class="ownpct">${fmtOwn(own)}</b></div>
+    <div class="bar gold"><i style="width:${Math.max(own > 0 ? 2 : 0, Math.min(100, own * 100))}%"></i></div>
+    <small class="muted">${fmt(a.shares)} ações no total · você tem ${fmt((C.s.port[sym] || { q: 0 }).q)}${tier ? ` · ${tier.icon} <b>${tier.name}</b>` : ''}</small>
+    ${next ? `<div class="nexttier"><span>Próximo: ${next.icon} <b>${next.name}</b> (${fmtOwn(next.min)})</span><div class="bar thin"><i style="width:${Math.min(100, prog * 100)}%"></i></div><small class="muted">Faltam ${fmt(Math.ceil((next.min - own) * a.shares))} ações ≈ ${money((next.min - own) * a.shares * C.mk.price(sym))}</small></div>` : '<div class="nexttier"><b>👑 Você controla esta empresa!</b></div>'}
+    <div class="tiers">${OWN_TIERS.map((t) => `<span class="${own >= t.min - 1e-12 ? 'on' : ''}">${t.icon} ${fmtOwn(t.min)}<small>${t.mult > 1 ? '+' + Math.round((t.mult - 1) * 100) + '% div.' : 'título'}</small></span>`).join('')}</div>
+  </div>`;
+}
 function maxBuy(sym) {
   const p = C.mk.price(sym) * (1 + TRADE_FEE);
   const q = Math.max(0, C.s.cash) / p;
-  return G.isCrypto(sym) ? Math.floor(q * 1e6) / 1e6 : Math.floor(q);
+  if (G.isCrypto(sym)) return Math.floor(q * 1e6) / 1e6;
+  const a = ASSETS.find((x) => x.sym === sym);
+  const left = a.shares ? a.shares - ((C.s.port[sym] || {}).q || 0) : Infinity;
+  return Math.max(0, Math.floor(Math.min(q, left)));
 }
 function updateTradePreview() {
   const el = $('#tradeprev');
@@ -932,7 +959,8 @@ function liveValue(key) {
       const v = h.q * mk.price(arg);
       const pl = v / h.cost - 1;
       const q = G.isCrypto(arg) ? fmt(h.q, h.q < 10 ? 4 : 2) : fmt(h.q);
-      return { t: k === 'heldfull' ? `Você tem ${q} = ${money(v)} (${pct(pl)})` : `🎒 ${q} · ${pct(pl, 0)}`, c: pl >= 0 ? 'up' : 'down' };
+      const own = G.ownPct(s, arg); const tier = G.ownTier(own);
+      return { t: k === 'heldfull' ? `Você tem ${q} = ${money(v)} (${pct(pl)})` : `${tier ? tier.icon : '🎒'} ${q}${own ? ' · ' + fmtOwn(own) : ''} · ${pct(pl, 0)}`, c: pl >= 0 ? 'up' : 'down' };
     }
     case 'pv': case 'pl': {
       const r = portfolioValue(arg === 's' ? STOCKS : CRYPTOS);

@@ -53,6 +53,16 @@ export const CRYPTOS = [
   { sym: 'MIAU', name: 'GatoCoin', sector: 'crypto', base: 0.03, sigma: 0.022, g: 0.000002, div: 0 },
 ];
 
+// Total de ações de cada empresa (define quanto custa ser dono de uma fatia)
+const SHARES = { TECN3: 2e8, NUVM3: 1.5e8, PIXL3: 8e7, SABR3: 1.2e8, GRAO3: 1e8, MAGZ3: 1.8e8, MODA3: 6e7, VOLT3: 2.5e8, PETX3: 5e8, BCOF4: 4e8, PAGU3: 1e8, CONS3: 7e7, LAJE11: 1e7, VIDA3: 9e7, FARM3: 8e7, LOGX3: 6e7, BYTE3: 5e7, ROBO3: 4e7, DOCE3: 3e7, CAFE3: 2e7, PASS3: 3e7, EOLI3: 6e7, ATLS3: 1e8, SHOP11: 8e6, SAUD3: 6e7, CEUA3: 1.2e8 };
+STOCKS.forEach((a) => { a.shares = SHARES[a.sym]; });
+// Marcos de participação: bônus nos dividendos (extra = dividendos que passam a vir mesmo de empresas que não pagam)
+export const OWN_TIERS = [
+  { min: 0.01, name: 'Acionista', icon: '📜', mult: 1, extra: 0 },
+  { min: 0.10, name: 'Conselheiro', icon: '🪑', mult: 1.1, extra: 0.00005 },
+  { min: 0.25, name: 'Sócio', icon: '🤝', mult: 1.25, extra: 0.0001 },
+  { min: 0.51, name: 'Controlador', icon: '👑', mult: 1.5, extra: 0.0002 },
+];
 export const ASSETS = [...STOCKS, ...CRYPTOS];
 
 // Empresas próprias: custo inicial, lucro/dia por nível

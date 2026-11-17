@@ -5,11 +5,19 @@ export const EYE_COLORS = ['#3b2414', '#6b4423', '#2a6b3c', '#2a5bab', '#6a6f78'
 export const HAIRS = [
   { id: 'curto', name: 'Curto' }, { id: 'espetado', name: 'Espetado' }, { id: 'lateral', name: 'De lado' },
   { id: 'longo', name: 'Longo' }, { id: 'rabo', name: 'Rabo de cavalo' }, { id: 'coque', name: 'Coque' },
-  { id: 'cacheado', name: 'Cacheado' }, { id: 'black', name: 'Black power' }, { id: 'moicano', name: 'Moicano' }, { id: 'anime', name: 'Anime' }, { id: 'franja', name: 'Franjinha' }, { id: 'careca', name: 'Careca' },
+  { id: 'cacheado', name: 'Cacheado' }, { id: 'black', name: 'Black power' }, { id: 'moicano', name: 'Moicano' }, { id: 'anime', name: 'Anime' }, { id: 'franja', name: 'Franjinha' },
+  { id: 'topete', name: 'Topete' }, { id: 'raspado', name: 'Raspadinho' }, { id: 'samurai', name: 'Samurai' }, { id: 'rasta', name: 'Dreads' },
+  { id: 'ondulado', name: 'Ondulado' }, { id: 'chanel', name: 'Chanel' }, { id: 'chiquinhas', name: 'Chiquinhas' }, { id: 'tranca', name: 'Trança' },
+  { id: 'careca', name: 'Careca' },
 ];
 
 // Roupas e acessórios. slot: top | bottom | shoes | head | face | neck
 // top: sleeve short|long|none, kind camiseta|camisa|moletom|terno|vestido|jaqueta|regata
+export const BEARDS = [
+  { id: null, name: 'Nenhuma' }, { id: 'bigode', name: 'Bigode' }, { id: 'bigodao', name: 'Bigodão' }, { id: 'fino', name: 'Bigode fino' },
+  { id: 'cavanhaque', name: 'Cavanhaque' }, { id: 'barbicha', name: 'Barbicha' }, { id: 'curta', name: 'Barba curta' },
+  { id: 'cheia', name: 'Barba cheia' }, { id: 'lenhador', name: 'Barba de lenhador' }, { id: 'costeletas', name: 'Costeletas' },
+];
 export const CLOTHES = [
   // Partes de cima
   { id: 't_branca', slot: 'top', name: 'Camiseta Branca', kind: 'camiseta', sleeve: 'short', c: '#f4f4f4', cost: 0, style: 0 },
@@ -198,6 +206,12 @@ function hairBack(id, c) {
     case 'black': return `<circle cx="100" cy="80" r="70" fill="${c}"/>`;
     case 'franja': return `<path d="M44,96 C38,34 162,34 156,96 L158,150 C140,158 120,150 120,150 L80,150 C80,150 60,158 42,150 Z" fill="${c}"/>`;
     case 'anime': return `<path d="M40,120 L30,90 L44,92 L36,60 L54,70 L58,40 L150,40 L146,70 L164,60 L156,92 L170,90 L160,120 Z" fill="${c}"/>`;
+    case 'chiquinhas': return `<ellipse cx="34" cy="122" rx="15" ry="32" fill="${c}" transform="rotate(14 34 122)"/><ellipse cx="166" cy="122" rx="15" ry="32" fill="${c}" transform="rotate(-14 166 122)"/><circle cx="46" cy="92" r="6" fill="#ff5d9a"/><circle cx="154" cy="92" r="6" fill="#ff5d9a"/>`;
+    case 'tranca': return [0, 1, 2, 3, 4, 5].map((i) => `<ellipse cx="${150 + i * 2}" cy="${112 + i * 18}" rx="${12 - i}" ry="11" fill="${i % 2 ? shade(c, 0.85) : c}"/>`).join('') + `<circle cx="162" cy="222" r="5" fill="#ff5d9a"/>`;
+    case 'rasta': return [44, 56, 68, 132, 144, 156].map((x, i) => `<rect x="${x - 6}" y="70" width="12" height="${110 + (i % 3) * 14}" rx="6" fill="${i % 2 ? shade(c, 0.85) : c}"/>`).join('');
+    case 'ondulado': return `<path d="M46,92 C40,30 160,30 154,92 Q166,120 154,146 Q166,172 150,196 Q100,210 50,196 Q34,172 46,146 Q34,120 46,92 Z" fill="${c}"/>`;
+    case 'chanel': return `<path d="M44,96 C38,34 162,34 156,96 L158,140 Q150,150 138,142 L62,142 Q50,150 42,140 Z" fill="${c}"/>`;
+    case 'samurai': return `<circle cx="100" cy="36" r="13" fill="${c}"/><rect x="92" y="44" width="16" height="6" rx="2" fill="#e8384f"/>`;
     case 'cacheado': return [[52, 70], [148, 70], [44, 100], [156, 100], [48, 128], [152, 128]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="17" fill="${c}"/>`).join('');
     default: return '';
   }
@@ -214,6 +228,13 @@ function hairFront(id, c) {
     case 'black': return `<path d="M50,94 C48,60 152,60 150,94 C140,74 60,74 50,94 Z" fill="${c}"/>`;
     case 'franja': return `<path d="M47,100 C42,36 158,36 153,100 L153,84 L47,84 Z" fill="${c}"/><path d="M50,86 C50,60 150,60 150,86 L150,88 L50,88 Z" fill="${c}"/>`;
     case 'anime': return `<path d="M46,100 L40,74 L56,78 L52,46 L72,62 L78,26 L94,54 L104,16 L114,52 L132,28 L134,62 L154,50 L148,78 L160,76 L154,100 C146,76 124,66 100,74 C80,64 56,74 46,100 Z" fill="${c}"/>`;
+    case 'topete': return `<path d="M47,96 C42,50 58,30 88,24 C118,16 152,26 152,48 C142,42 124,42 112,50 C134,56 152,70 153,96 C146,72 120,64 100,66 C80,64 54,72 47,96 Z" fill="${c}"/>`;
+    case 'raspado': return `<path d="M48,92 C46,44 154,44 152,92 C146,64 54,64 48,92 Z" fill="${c}" opacity=".8"/>`;
+    case 'samurai': return `<path d="M48,92 C46,46 154,46 152,92 C146,66 54,66 48,92 Z" fill="${c}"/>`;
+    case 'rasta': return `<path d="M47,96 C42,40 158,40 153,96 C146,72 120,62 100,64 C80,62 54,72 47,96 Z" fill="${c}"/>` + [60, 76, 92, 108, 124, 140].map((x) => `<circle cx="${x}" cy="${54 + Math.abs(100 - x) / 5}" r="8" fill="${shade(c, 0.9)}"/>`).join('');
+    case 'ondulado': return `<path d="M47,102 C40,38 160,38 153,102 C150,82 138,66 116,62 C106,74 88,80 70,78 C60,86 52,94 47,102 Z" fill="${c}"/>`;
+    case 'chanel': return `<path d="M47,100 C42,38 158,38 153,100 C150,80 140,68 124,64 C112,76 80,80 58,78 C52,86 48,94 47,100 Z" fill="${c}"/>`;
+    case 'chiquinhas': case 'tranca': return `<path d="M47,96 C42,40 158,40 153,96 C146,70 120,60 100,62 C80,60 54,70 47,96 Z" fill="${c}"/><path d="M100,48 L100,64" stroke="${shade(c, 0.75)}" stroke-width="3"/>`;
     case 'moicano': return `<path d="M86,70 C84,40 90,22 100,18 C110,22 116,40 114,70 C108,64 92,64 86,70 Z" fill="${c}"/>`;
     default: return '';
   }
@@ -259,6 +280,24 @@ function faceAcc(it, skin) {
     case 'barba': return `<path d="M56,108 C60,146 140,146 144,108 C136,128 118,134 100,134 C82,134 64,128 56,108 Z" fill="${shade(SKINS[skin] ? '#3a2414' : '#3a2414', 1)}" opacity=".85"/>`;
   }
   return '';
+}
+function beardSVG(id, c) {
+  const col = shade(c, 0.95);
+  const must = {
+    bigode: `<path d="M100,116 C92,111 80,112 76,120 C86,119 94,121 100,119 C106,121 114,119 124,120 C120,112 108,111 100,116 Z" fill="${col}"/>`,
+    bigodao: `<path d="M100,116 C88,108 72,112 66,120 C64,112 56,112 57,119 C62,129 82,126 100,120 C118,126 138,129 143,119 C144,112 136,112 134,120 C128,112 112,108 100,116 Z" fill="${col}"/>`,
+    fino: `<path d="M82,118 Q100,111 118,118" stroke="${col}" stroke-width="3.5" fill="none" stroke-linecap="round"/>`,
+  };
+  const under = {
+    curta: `<path d="M52,104 C54,152 146,152 148,104 C140,128 120,140 100,140 C80,140 60,128 52,104 Z" fill="${col}" opacity=".45"/>`,
+    cheia: `<path d="M50,100 C50,164 150,164 150,100 C142,124 124,132 100,132 C76,132 58,124 50,100 Z" fill="${col}"/>`,
+    lenhador: `<path d="M48,98 C42,184 158,184 152,98 C144,126 124,134 100,134 C76,134 56,126 48,98 Z" fill="${col}"/>`,
+    cavanhaque: `<path d="M88,134 Q100,160 112,134 Q100,140 88,134 Z" fill="${col}"/>`,
+    barbicha: `<path d="M94,140 Q100,158 106,140 Z" fill="${col}"/>`,
+    costeletas: `<path d="M50,90 h9 v34 h-9 Z M141,90 h9 v34 h-9 Z" fill="${col}"/>`,
+  };
+  const withMust = { cheia: 'bigode', lenhador: 'bigodao', cavanhaque: 'bigode' };
+  return { under: under[id] || '', over: must[id] || must[withMust[id]] || '' };
 }
 function backAcc(it) {
   if (!it) return '';
@@ -359,6 +398,7 @@ export function avatarSVG(look, opts = {}) {
   const earrings = f && !L.neck ? '' : '';
 
   const headIt = CLOTH[L.head];
+  const beard = beardSVG(L.beard, hair);
   const hideFrontHair = headIt && ['bone', 'gorro', 'cartola', 'elmo', 'viking', 'dinocapuz', 'faixa'].includes(headIt.kind) && L.hair !== 'black';
   const hideBackHair = headIt && ['elmo', 'dinocapuz'].includes(headIt.kind);
   const size = opts.size || 160;
@@ -370,7 +410,7 @@ export function avatarSVG(look, opts = {}) {
     ${legs}${shoes}${arms}${torso}${detail}${shine}${neckAcc(CLOTH[L.neck])}
     <rect x="88" y="132" width="24" height="16" fill="${shade(skin, 0.92)}"/>
     ${ears}<circle cx="100" cy="98" r="52" fill="${skin}"/>
-    ${blush}${brows}${eyes}${lashes}${mouth}${earrings}
+    ${blush}${brows}${eyes}${lashes}${beard.under}${mouth}${beard.over}${earrings}
     ${hideFrontHair ? '' : hairFront(L.hair, hair)}
     ${faceAcc(CLOTH[L.face], L.skin)}
     ${headwear(headIt)}

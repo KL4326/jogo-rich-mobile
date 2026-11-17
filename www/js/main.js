@@ -112,7 +112,7 @@ function profileOf(s) {
     ach: Object.keys(s.ach).length, prestige: G.prestige(s), net: Math.round(G.incomeBreakdown(s, mk).net),
     job: s.job, home: home ? home.icon : '🏚️', updated: Date.now(),
     look: s.look || null, partner: s.love ? { name: s.love.partner.name, look: s.love.partner.look, stage: s.love.stage } : null,
-    trips: Object.keys(s.trips || {}).length, jobName: (JOBS.find((j) => j.id === s.job) || {}).name, jobIcon: (JOBS.find((j) => j.id === s.job) || {}).icon,
+    trips: Object.keys(s.trips || {}).length, ctrl: G.controlled(s), jobName: (JOBS.find((j) => j.id === s.job) || {}).name, jobIcon: (JOBS.find((j) => j.id === s.job) || {}).icon,
     veh: ([...GOODS.veiculos, ...GOODS.ceumar].filter((g) => s.goods[g.id]).sort((a, b) => a.cost - b.cost).pop() || {}).icon || '',
   };
 }
