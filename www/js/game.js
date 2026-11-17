@@ -498,6 +498,15 @@ export function buyCloth(s, id) {
   s.look[c.slot] = id;
   return null;
 }
+export function buySet(s, st) {
+  const ids = Object.values(st.pieces).filter((id) => id && !s.wardrobe[id]);
+  const cost = ids.reduce((t, id) => t + CLOTH[id].cost, 0);
+  if (cost) { const e = spend(s, cost, true); if (e) return e; }
+  ids.forEach((id) => { s.wardrobe[id] = Date.now(); });
+  if (ids.length) addXP(s, 10 + Math.min(120, ids.reduce((t, id) => t + CLOTH[id].style, 0)));
+  s.look = { ...(s.look || defaultLook()), ...st.pieces };
+  return null;
+}
 export function takeOff(s, slot) {
   const def = { top: 't_branca', bottom: 'b_jeans', shoes: 's_tenis' };
   s.look[slot] = def[slot] || null;

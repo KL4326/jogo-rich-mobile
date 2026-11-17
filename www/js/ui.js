@@ -4,7 +4,8 @@ import {
   DAY_MS, SECTORS, SECTOR, STOCKS, CRYPTOS, ASSETS, BUSINESSES, COURSES, JOBS, PROPERTIES, GOODS, CARDS, UNLOCKS, TRADE_FEE, LOAN_RATE, LEVEL_BONUS, RENT_NO_HOME,
 } from './data.js';
 import * as G from './game.js';
-import { avatarSVG, defaultLook, SKINS, HAIR_COLORS, EYE_COLORS, HAIRS, CLOTHES, SLOTS } from './avatar.js';
+import { avatarSVG, defaultLook, SKINS, HAIR_COLORS, EYE_COLORS, HAIRS, CLOTHES, SLOTS, SETS, CLOTH } from './avatar.js';
+import { townSVG } from './town.js';
 import { tickToMs } from './market.js';
 
 // ---------- formatação ----------
@@ -190,6 +191,7 @@ const handlers = {
   },
   slot: (d) => { ui.slot = d.slot; if (!refreshVisual('closet')) keepScroll(render); },
   buycloth: (d, el) => { const owned = !!C.s.wardrobe[d.id]; if (act(() => G.buyCloth(C.s, d.id), owned ? null : '🛍️ Comprado!', owned ? null : el)) { if (!refreshVisual('closet')) keepScroll(render); } },
+  buyset: (d, el) => { const st = SETS.find((x) => x.id === d.id); const paid = setCost(C.s, st) > 0; if (act(() => G.buySet(C.s, st), paid ? `🎭 Fantasia de ${st.name}!` : null, paid ? el : null)) { if (!refreshVisual('closet')) keepScroll(render); } },
   takeoff: (d) => { G.takeOff(C.s, d.slot); C.afterAction(); if (!refreshVisual('closet')) keepScroll(render); },
   findlove: (d) => { G.findCandidate(C.s, d.p); C.afterAction(); render(); },
   askout: (d, el) => {
@@ -309,14 +311,13 @@ function scene() {
   const night = h < 6 || h >= 19;
   const home = G.homeOf(s);
   const veh = [...GOODS.veiculos, ...GOODS.ceumar].filter((g) => s.goods[g.id]).sort((a, b) => a.cost - b.cost).pop();
-  const bizs = BUSINESSES.filter((b) => s.biz[b.id]).slice(-4);
+  const allBiz = BUSINESSES.filter((b) => s.biz[b.id]);
   const trip = s.trip ? TRIPS.find((x) => x.id === s.trip.id) : null;
   const L = s.love;
   const showPartner = L && (!trip || s.trip.partner);
   return `<div class="scene big ${night ? 'night' : 'day'} ${trip ? 'travel' : ''}">
     <i class="${night ? 'moon' : 'sunc'}"></i>
     ${night ? '<span class="stars">✦ · ✧ · ✦ · ✧</span>' : '<i class="cld k1"></i><i class="cld k2"></i>'}
-    ${!trip && bizs.length ? `<div class="town">${bizs.map((b) => `<span>${b.icon}<i>${s.biz[b.id]}</i></span>`).join('')}</div>` : ''}
     <div class="homebig">${trip ? trip.icon : home ? home.icon : '🏚️'}</div>
     <div class="ground"></div>
     <div class="cast ${showPartner ? 'duo' : ''}">
@@ -327,6 +328,7 @@ function scene() {
     ${trip ? `<div class="tripbanner">✈️ ${trip.name} · volta em <b data-live="triptime"></b></div>` : ''}
     <div class="plaque"><small>Patrimônio</small><b data-live="nw"></b></div>
   </div>
+  ${allBiz.length ? `<div class="street" data-act="tab" data-tab="empresas"><div class="streetin">${townSVG(allBiz)}</div></div>` : ''}
   <div class="lifechips">
     <span class="lchip" data-act="tab" data-tab="vida" data-sub="carreira">${JOBS.find((j) => j.id === s.job).icon} ${JOBS.find((j) => j.id === s.job).name}</span>
     <span class="lchip" data-act="tab" data-tab="vida" data-sub="amor">${L ? `${LOVE_STAGES[L.stage].icon} ${esc(L.partner.name)}` : '💔 Solteiro(a)'}</span>
@@ -351,7 +353,7 @@ function appearanceHTML(L) {
 }
 function vVisual() {
   const s = C.s;
-  const slot = ui.slot || 'top';
+  const slot = ui.slot || 'sets';
   return `
   <div class="mirror"><div class="mirrorav" id="mirrorav">${avatarSVG(s.look, { size: 230 })}</div><div class="stylebadge">👗 Estilo <b id="stylev">${fmt(G.styleOf(s))}</b></div></div>
   <details class="box col appear" id="appear"><summary><b>✂️ Aparência</b> <small class="muted">grátis · toque para mudar</small></summary><div id="appearbody">${appearanceHTML(s.look)}</div></details>
@@ -360,13 +362,21 @@ function vVisual() {
   <div class="closet" id="closet">${closetHTML(slot)}</div>`;
 }
 const slotBar = (slot) => SLOTS.map((x) => `<button class="${slot === x.id ? 'on' : ''}" data-act="slot" data-slot="${x.id}"><span>${x.icon}</span>${x.name}</button>`).join('');
+function setCost(s, st) { return Object.values(st.pieces).filter((id) => id && !s.wardrobe[id]).reduce((t, id) => t + CLOTH[id].cost, 0); }
 function closetHTML(slot) {
   const s = C.s;
   const L = s.look;
+  if (slot === 'sets') return SETS.map((st) => {
+    const cost = setCost(s, st);
+    const worn = Object.entries(st.pieces).every(([k, v]) => (L[k] || null) === v || (!v && !L[k]) || (v === null));
+    const wornAll = Object.entries(st.pieces).filter(([, v]) => v).every(([k, v]) => L[k] === v);
+    const btn = wornAll ? '<span class="pill ok">Vestindo</span>' : cost ? `<button class="btn gold sm" data-act="buyset" data-id="${st.id}" data-cost="${cost}"><span>${money(cost)}</span></button>` : `<button class="btn sm" data-act="buyset" data-id="${st.id}">Vestir</button>`;
+    return `<div class="citem ${wornAll ? 'worn' : ''}"><div class="cprev">${avatarSVG({ ...L, ...st.pieces }, { size: 118 })}</div><b>${st.icon} ${st.name}</b><small>✨ ${Object.values(st.pieces).filter(Boolean).reduce((t, id) => t + CLOTH[id].style, 0)} de estilo</small>${btn}</div>`;
+  }).join('');
   return CLOTHES.filter((c) => c.slot === slot).map((c) => {
     const own = !!s.wardrobe[c.id];
     const worn = L[slot] === c.id;
-    const btn = worn ? (['head', 'face', 'neck'].includes(slot) || c.cost > 0 ? `<button class="btn ghost sm" data-act="takeoff" data-slot="${slot}">Tirar</button>` : '<span class="pill ok">Usando</span>')
+    const btn = worn ? (['head', 'face', 'neck', 'back'].includes(slot) || c.cost > 0 ? `<button class="btn ghost sm" data-act="takeoff" data-slot="${slot}">Tirar</button>` : '<span class="pill ok">Usando</span>')
       : own ? `<button class="btn sm" data-act="buycloth" data-id="${c.id}">Vestir</button>` : `<button class="btn gold sm" data-act="buycloth" data-id="${c.id}" data-cost="${c.cost}"><span>${money(c.cost)}</span></button>`;
     return `<div class="citem ${worn ? 'worn' : ''} ${c.shine ? 'lux' : ''}"><div class="cprev">${avatarSVG({ ...L, [slot]: c.id }, { size: 118 })}</div><b>${c.name}</b><small>✨ ${c.style} de estilo</small>${btn}</div>`;
   }).join('');
@@ -375,7 +385,7 @@ function closetHTML(slot) {
 function refreshVisual(what) {
   if (!$('#closet')) return false;
   const s = C.s;
-  const slot = ui.slot || 'top';
+  const slot = ui.slot || 'sets';
   $('#mirrorav').innerHTML = avatarSVG(s.look, { size: 230 });
   $('#stylev').textContent = fmt(G.styleOf(s));
   if (what === 'appear') $('#appearbody').innerHTML = appearanceHTML(s.look);

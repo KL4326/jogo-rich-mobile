@@ -577,3 +577,11 @@ details.appear[open] summary { margin-bottom: 8px; }
 .town span i { position: absolute; top: -8px; right: -4px; font-style: normal; font-size: 9px; font-weight: 700; background: var(--gold); color: #6b3d00; border-radius: 8px; padding: 0 4px; }
 .scene.big .homebig, .scene.big .cast { z-index: 1; }
 .town span i { display: none; }
+
+.town { position: absolute; right: 4px; bottom: 90px; opacity: .95; }
+.townsvg { display: block; max-width: 230px; height: auto; max-height: 104px; }
+
+.street { margin: -4px 0 12px; height: 96px; border-radius: 20px; overflow-x: auto; overflow-y: hidden; background: linear-gradient(180deg, #bfe7ff 0%, #e4f6ff 70%, #8ed38a 70%, #5fb85f 100%); border: 3px solid #fff; box-shadow: 0 5px 0 #0004; scrollbar-width: none; }
+.street::-webkit-scrollbar { display: none; }
+.streetin { height: 100%; display: flex; align-items: flex-end; padding: 0 10px 14px; width: max-content; min-width: 100%; justify-content: center; }
+.street .townsvg { max-width: none; height: 74px; max-height: none; width: auto; }
