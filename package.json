@@ -1,0 +1,17 @@
+{
+  "name": "magnata",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Magnata - jogo de estratégia financeira",
+  "scripts": {
+    "serve": "python3 -m http.server 8123 -d www",
+    "sync": "cap sync android"
+  },
+  "dependencies": {
+    "@capacitor/android": "8.6.2",
+    "@capacitor/core": "8.6.2"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "8.6.2"
+  }
+}

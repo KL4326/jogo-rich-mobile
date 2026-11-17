@@ -1,0 +1,8 @@
+{
+  "appId": "com.familia.magnata",
+  "appName": "Magnata",
+  "webDir": "www",
+  "android": {
+    "backgroundColor": "#0a0f1f"
+  }
+}
