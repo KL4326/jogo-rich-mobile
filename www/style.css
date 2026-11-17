@@ -409,3 +409,52 @@ textarea { font-family: ui-monospace, monospace; font-size: 12px; resize: none; 
 @keyframes coinfly { to { transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) rotate(180deg); opacity: 0; } }
 .confetti { position: fixed; top: -12px; z-index: 110; width: 9px; height: 14px; border-radius: 2px; pointer-events: none; animation: fall 2.2s ease-in forwards; }
 @keyframes fall { to { transform: translateY(105vh) rotate(var(--rot)); } }
+
+/* ===== Abertura e login ===== */
+#splash { position: fixed; inset: 0; z-index: 200; display: flex; align-items: center; justify-content: center; background: radial-gradient(circle at 50% 35%, #5a44c9 0%, var(--bg1) 40%, var(--bg2) 100%); transition: opacity .6s, transform .6s; overflow: hidden; }
+#splash.out { opacity: 0; transform: scale(1.08); pointer-events: none; }
+#rain { position: absolute; inset: 0; pointer-events: none; }
+#rain span { position: absolute; top: -60px; animation-name: rain; animation-timing-function: linear; animation-iteration-count: infinite; filter: drop-shadow(0 4px 4px #0004); }
+@keyframes rain { 0% { transform: translate(0, -60px) rotate(0); } 50% { transform: translate(var(--sw), 50vh) rotate(180deg); } 100% { transform: translate(0, 110vh) rotate(360deg); } }
+#splash-box { position: relative; width: 100%; max-width: 380px; padding: 20px; display: flex; flex-direction: column; align-items: center; text-align: center; color: #fff; }
+.brand { display: flex; flex-direction: column; align-items: center; animation: pop .8s cubic-bezier(.2, 1.6, .4, 1); }
+.bcoin { font-size: 64px; width: 100px; height: 100px; display: grid; place-items: center; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff3b0, var(--gold) 55%, var(--gold-d)); box-shadow: 0 6px 0 #a86a00, 0 0 40px #ffc93c88; animation: spin 3s ease-in-out infinite; }
+.brand h1 { margin: 10px 0 0; font-family: var(--display); font-weight: 400; font-size: 64px; letter-spacing: 1px; background: linear-gradient(180deg, #fff6c9, var(--gold) 55%, var(--gold-d)); -webkit-background-clip: text; background-clip: text; color: transparent; filter: drop-shadow(0 4px 0 #6b3d00) drop-shadow(0 0 20px #ffc93c66); }
+.tagline { margin: 0; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; font-size: 13px; color: #ffffffcc; }
+.brand.small .bcoin { font-size: 40px; width: 64px; height: 64px; }
+.brand.small h1 { font-size: 44px; margin-top: 4px; }
+.loading { display: flex; gap: 8px; margin-top: 30px; }
+.loading span { width: 14px; height: 14px; border-radius: 50%; background: var(--gold); box-shadow: 0 3px 0 var(--gold-d); animation: hop .9s ease-in-out infinite; }
+.loading span:nth-child(2) { animation-delay: .15s; } .loading span:nth-child(3) { animation-delay: .3s; }
+@keyframes hop { 50% { transform: translateY(-12px); } }
+.smsg { font-weight: 600; color: #ffffffdd; }
+.loginbox { width: 100%; margin-top: 18px; background: var(--card); color: var(--ink); border-radius: 26px; padding: 20px 18px; box-shadow: 0 6px 0 var(--edge), 0 20px 40px #0006; display: flex; flex-direction: column; gap: 10px; animation: up .4s cubic-bezier(.2, 1.3, .4, 1); }
+.loginbox h3 { font-size: 24px; margin: 0; }
+.lerr { margin: 0; min-height: 18px; font-size: 13px; font-weight: 600; color: var(--red-d); }
+.lerr.ok { color: var(--green-d); }
+.lnk2 { background: none; border: 0; font: inherit; color: var(--ink2); padding: 4px; }
+.lnk2 b { color: var(--purple); }
+.lnk2.sm { font-size: 13px; text-decoration: underline; }
+
+/* ===== Oportunidades ===== */
+.event { background: linear-gradient(180deg, #fff, #ffeef6); border: 3px solid #fff; border-radius: 22px; padding: 12px 14px; margin-bottom: 12px; box-shadow: 0 5px 0 #f0a8c8, 0 10px 20px #0003; animation: pop .5s cubic-bezier(.2, 1.5, .4, 1); }
+.evhead { display: flex; align-items: center; gap: 10px; }
+.evi { font-size: 30px; width: 50px; height: 50px; display: grid; place-items: center; border-radius: 16px; background: #ffe1ef; flex: none; animation: pulse 1.6s ease-in-out infinite; }
+.evhead small { font-family: var(--display); color: #d6417f; letter-spacing: 1px; }
+.evhead b { font-family: var(--display); font-weight: 400; font-size: 18px; }
+.event p { margin: 8px 0 0; }
+.evcost { font-size: 14px; color: var(--ink2); }
+.event .btns { margin-top: 10px; }
+.buffs { display: flex; flex-wrap: wrap; gap: 6px; margin: -4px 0 12px; }
+.pill.bad { background: #ffe1e5; color: var(--red-d); }
+.tipbig { font-family: var(--display); font-size: 22px; margin: 16px 0; }
+#tabs button { position: relative; }
+#tabs .dot { position: absolute; top: 2px; right: 22%; width: 11px; height: 11px; border-radius: 50%; background: var(--red); border: 2px solid #fff; animation: pulse 1.2s infinite; }
+
+/* ===== Ranking ao vivo ===== */
+.mytag { display: flex; align-items: center; justify-content: space-between; background: linear-gradient(135deg, #fff, var(--card2)); border-radius: 18px; padding: 10px 14px; margin-bottom: 8px; box-shadow: 0 5px 0 var(--edge); }
+.mytag small { display: block; color: var(--ink2); font-weight: 600; }
+.mytag b { font-family: var(--display); font-weight: 400; font-size: 20px; letter-spacing: 1px; color: var(--purple); }
+.pav { position: relative; }
+.pav .on { position: absolute; bottom: 0; right: 0; width: 14px; height: 14px; border-radius: 50%; background: #3ddc84; border: 2px solid #fff; }
+.rank small.up { color: var(--green-d); }

@@ -5,13 +5,16 @@
   "description": "Magnata - jogo de estratégia financeira",
   "scripts": {
     "serve": "python3 -m http.server 8123 -d www",
-    "sync": "cap sync android"
+    "sync": "cap sync android",
+    "build:firebase": "esbuild tools/firebase-entry.js --bundle --format=esm --minify --outfile=www/vendor/firebase.js"
   },
   "dependencies": {
     "@capacitor/android": "8.6.2",
     "@capacitor/core": "8.6.2"
   },
   "devDependencies": {
-    "@capacitor/cli": "8.6.2"
+    "@capacitor/cli": "8.6.2",
+    "esbuild": "^0.28.2",
+    "firebase": "^13.4.0"
   }
 }

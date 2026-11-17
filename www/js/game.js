@@ -1,7 +1,8 @@
 // ===== Estado do jogador, economia e ações =====
+import { regime, BLOCK } from './market.js';
 import {
   DAY_MS, BUSINESSES, BIZ_GROWTH, BIZ_MILESTONES, COURSES, JOBS, PROPERTIES, GOODS, GOOD, ALL_GOODS,
-  CARDS, LEVEL_BONUS, TRADE_FEE, LOAN_RATE, RENT_NO_HOME, ASSETS, CRYPTOS, UNLOCKS,
+  CARDS, LEVEL_BONUS, TRADE_FEE, LOAN_RATE, RENT_NO_HOME, ASSETS, CRYPTOS, UNLOCKS, SECTORS,
 } from './data.js';
 
 const SAVE_KEY = 'magnata_save_v1';
@@ -61,7 +62,7 @@ export const SECTOR_MULT = { 1: 1.3, 0: 1, '-1': 0.75 };
 export function card(s) { return CARDS[s.cardMax]; }
 export const levelMult = (s) => 1 + LEVEL_BONUS * (level(s) - 1);
 export function vehicleBonus(s) {
-  return GOODS.veiculos.filter((g) => s.goods[g.id]).reduce((m, g) => Math.max(m, g.bonus), 0);
+  return [...GOODS.veiculos, ...GOODS.ceumar].filter((g) => s.goods[g.id]).reduce((m, g) => Math.max(m, g.bonus), 0);
 }
 export function homeOf(s) {
   const owned = GOODS.moradia.filter((g) => s.goods[g.id]);
@@ -76,7 +77,11 @@ export function offlineHours(s) {
 export function bizProfit(s, b, mk) {
   const lvl = s.biz[b.id] || 0;
   if (!lvl) return 0;
-  return b.profit * lvl * bizMult(lvl) * SECTOR_MULT[mk.sectorNow(b.sector)] * levelMult(s);
+  return b.profit * lvl * bizMult(lvl) * SECTOR_MULT[mk.sectorNow(b.sector)] * levelMult(s) * buffMult(s, b.id);
+}
+export function buffMult(s, id) {
+  const now = Date.now();
+  return (s.buffs || []).filter((x) => x.until > now && (x.id === id || x.id === '*')).reduce((m, x) => m * x.mult, 1);
 }
 
 export function salary(s) {
@@ -117,7 +122,7 @@ export function netWorth(s, mk) {
   v += ALL_GOODS.filter((g) => s.goods[g.id]).reduce((t, g) => t + g.cost * sellRate(g), 0);
   return v - s.debt;
 }
-export const sellRate = (g) => (g.cat === 'veiculos' ? 0.6 : g.cat === 'moradia' ? 0.9 : 0.75);
+export const sellRate = (g) => (g.cat === 'veiculos' || g.cat === 'ceumar' ? 0.6 : g.cat === 'moradia' ? 0.9 : 0.75);
 
 // ---------- Simulação ----------
 // Aplica dt milissegundos de economia. Retorna o lucro líquido.
@@ -318,7 +323,7 @@ export const ACHIEVEMENTS = [
   { id: 'empresa1', icon: '🥟', name: 'Empreendedor', desc: 'Abra sua primeira empresa', test: (s) => bizCount(s) >= 1 },
   { id: 'empresa3', icon: '🏪', name: 'Grupo empresarial', desc: 'Tenha 3 tipos de empresa', test: (s) => bizCount(s) >= 3 },
   { id: 'empresa6', icon: '🏭', name: 'Conglomerado', desc: 'Tenha 6 tipos de empresa', test: (s) => bizCount(s) >= 6 },
-  { id: 'empresa12', icon: '🌐', name: 'Império total', desc: 'Tenha todos os 12 tipos de empresa', test: (s) => bizCount(s) >= 12 },
+  { id: 'empresa12', icon: '🌐', name: 'Império total', desc: 'Tenha todos os tipos de negócio', test: (s) => bizCount(s) >= BUSINESSES.length },
   { id: 'niveis100', icon: '⬆️', name: 'Expansão', desc: 'Some 100 níveis em empresas', test: (s) => bizLevels(s) >= 100 },
   { id: 'niveis500', icon: '🚀', name: 'Expansão agressiva', desc: 'Some 500 níveis em empresas', test: (s) => bizLevels(s) >= 500 },
   { id: 'acao1', icon: '📈', name: 'Investidor iniciante', desc: 'Compre sua primeira ação', test: (s) => s.stats.trades >= 1 },
@@ -332,9 +337,9 @@ export const ACHIEVEMENTS = [
   { id: 'tesouro', icon: '🏛️', name: 'Pensando no futuro', desc: 'Invista no Tesouro', test: (s) => s.tes.length > 0 },
   { id: 'imovel1', icon: '🔑', name: 'Senhorio', desc: 'Compre um imóvel para alugar', test: (s) => propCount(s) >= 1 },
   { id: 'imovel10', icon: '🏙️', name: 'Barão imobiliário', desc: 'Tenha 10 imóveis alugados', test: (s) => propCount(s) >= 10 },
-  { id: 'carro', icon: '🚗', name: 'Habilitado', desc: 'Compre um carro', test: (s) => ['popular', 'suv', 'sedan', 'esportivo'].some((g) => s.goods[g]) },
+  { id: 'carro', icon: '🚗', name: 'Habilitado', desc: 'Compre um carro', test: (s) => ['popular', 'picape', 'suv', 'sedan', 'esportivo', 'limusine', 'hipercarro'].some((g) => s.goods[g]) },
   { id: 'casa', icon: '🏠', name: 'Adeus, aluguel', desc: 'Compre sua moradia', test: (s) => !!homeOf(s) },
-  { id: 'mansao', icon: '🏰', name: 'Vida de rico', desc: 'Compre uma mansão', test: (s) => ['mansao', 'mansaopraia', 'castelo', 'ilha'].some((g) => s.goods[g]) },
+  { id: 'mansao', icon: '🏰', name: 'Vida de rico', desc: 'Compre uma mansão', test: (s) => ['mansao', 'fazenda', 'mansaopraia', 'castelo', 'ilha', 'lua'].some((g) => s.goods[g]) },
   { id: 'jato', icon: '🛩️', name: 'Ponte aérea', desc: 'Compre um jatinho', test: (s) => !!s.goods.jato },
   { id: 'ilha', icon: '🏝️', name: 'Dono do paraíso', desc: 'Compre uma ilha particular', test: (s) => !!s.goods.ilha },
   { id: 'emprestimo', icon: '🏦', name: 'Alavancado', desc: 'Pegue um empréstimo', test: (s) => s.stats.loans >= 1 },
@@ -343,6 +348,8 @@ export const ACHIEVEMENTS = [
   { id: 'milhao', icon: '💰', name: 'Milionário', desc: 'Patrimônio de R$ 1 milhão', test: (s) => s.peakNW >= 1e6 },
   { id: 'bilhao', icon: '🤑', name: 'Bilionário', desc: 'Patrimônio de R$ 1 bilhão', test: (s) => s.peakNW >= 1e9 },
   { id: 'trilhao', icon: '👑', name: 'Trilionário', desc: 'Patrimônio de R$ 1 trilhão', test: (s) => s.peakNW >= 1e12 },
+  { id: 'evento5', icon: '📨', name: 'Faro para negócios', desc: 'Aceite 5 oportunidades', test: (s) => (s.stats.events || 0) >= 5 },
+  { id: 'evento25', icon: '🦊', name: 'Raposa dos negócios', desc: 'Aceite 25 oportunidades', test: (s) => (s.stats.events || 0) >= 25 },
   { id: 'nivel10', icon: '⭐', name: 'Experiente', desc: 'Alcance o nível 10', test: (s) => level(s) >= 10 },
   { id: 'nivel25', icon: '🌟', name: 'Lenda', desc: 'Alcance o nível 25', test: (s) => level(s) >= 25 },
 ];
@@ -359,33 +366,92 @@ export function checkAchievements(s) {
   return got;
 }
 
-// ---------- Código de competição ----------
-function checksum(str) {
-  let h = 2166136261;
-  for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
-  return (h >>> 0).toString(36);
+// ---------- Oportunidades e imprevistos ----------
+const MIN = 60_000;
+const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+function ownedBiz(s) { return BUSINESSES.filter((b) => s.biz[b.id]); }
+
+// Gera um evento aleatório adequado ao momento do jogador
+export function makeEvent(s, mk) {
+  const now = Date.now();
+  const net = Math.max(50, incomeBreakdown(s, mk).net);
+  const cash = Math.max(0, s.cash);
+  const owned = ownedBiz(s);
+  const opts = [];
+  if (owned.length) {
+    const b = pick(owned);
+    const p = bizProfit(s, b, mk);
+    opts.push({ k: 'influ', icon: '🤳', title: 'Influenciador famoso', text: `Um influenciador quer divulgar sua <b>${b.name}</b>. O lucro dela dobra por 30 min.`, cost: Math.round(p * 15), biz: b.id, yes: 'Fechar parceria', no: 'Dispensar' });
+    opts.push({ k: 'reparo', icon: '🔧', title: 'Problema na operação', text: `A <b>${b.name}</b> quebrou um equipamento! Se não consertar, o lucro dela cai pela metade por 1 hora.`, cost: Math.round(p * 8), biz: b.id, yes: 'Consertar', no: 'Deixar quebrado' });
+    if (owned.length >= 2) opts.push({ k: 'feira', icon: '🎪', title: 'Feira de negócios', text: 'Montar um estande na feira da cidade aumenta o lucro de TODOS os seus negócios em 25% por 40 min.', cost: Math.round(incomeBreakdown(s, mk).biz * 12), biz: '*', yes: 'Montar estande', no: 'Não ir' });
+  }
+  if (cash > 2000) {
+    opts.push({ k: 'estoque', icon: '📦', title: 'Queima de estoque', text: 'Um atacadista em apuros vende mercadoria baixíssimo. Você revende e recebe <b>+40%</b> em 20 minutos. Garantido!', cost: Math.round(cash * 0.08), yes: 'Comprar lote', no: 'Passar' });
+    opts.push({ k: 'amigo', icon: '🙋', title: 'Amigo pedindo ajuda', text: 'Um amigo pede um empréstimo e promete devolver <b>o dobro</b> em 1 hora. Ele é meio enrolado… (65% de chance de pagar).', cost: Math.round(cash * 0.1), yes: 'Emprestar', no: 'Recusar' });
+  }
+  if (level(s) >= UNLOCKS.bolsa && cash > 5000) {
+    const si = Math.floor(Math.random() * (SECTORS.length - 1));
+    const nextB = Math.floor(mk.t / BLOCK) + 1;
+    let r = regime(si, nextB);
+    if (Math.random() > 0.9) r = pick([-1, 0, 1].filter((x) => x !== r));
+    if (r !== 0) opts.push({ k: 'dica', icon: '🕵️', title: 'Dica quente', text: 'Um analista misterioso vende uma dica sobre a <b>próxima hora</b> da bolsa. Ele quase nunca erra…', cost: Math.round(cash * 0.03), tip: `${SECTORS[si].icon} ${SECTORS[si].name} vai entrar em ${r > 0 ? '🔥 ALTA' : '❄️ QUEDA'} na próxima hora!`, yes: 'Comprar dica', no: 'Não, obrigado' });
+  }
+  if (Math.random() < 0.15) opts.push({ k: 'heranca', icon: '🎁', title: 'Herança inesperada', text: 'Um tio distante deixou uma herança para você!', gain: Math.round(net * 25), yes: 'Receber', no: null });
+  if (Math.random() < 0.12) opts.push({ k: 'loteria', icon: '🎟️', title: 'Bilhete premiado?', text: 'Um vendedor de rua oferece um bilhete de rifa. 10% de chance de ganhar <b>8x</b> o valor.', cost: Math.round(Math.max(100, cash * 0.02)), yes: 'Comprar bilhete', no: 'Ignorar' });
+  if (!opts.length) return null;
+  const e = pick(opts);
+  e.exp = now + 12 * MIN;
+  return e;
 }
-export function shareCode(s, mk) {
-  const d = { n: s.name, w: Math.round(netWorth(s, mk)), l: level(s), a: Object.keys(s.ach).length, c: s.cardMax, p: prestige(s), i: incomeBreakdown(s, mk).net, t: Date.now(), id: s.created };
-  const json = JSON.stringify(d);
-  const b64 = btoa(unescape(encodeURIComponent(json)));
-  return `MAG1.${b64}.${checksum(json + 'magnata')}`;
-}
-export function parseCode(code) {
-  try {
-    const [tag, b64, sum] = code.trim().split('.');
-    if (tag !== 'MAG1') return null;
-    const json = decodeURIComponent(escape(atob(b64)));
-    if (checksum(json + 'magnata') !== sum) return null;
-    return JSON.parse(json);
-  } catch (e) { return null; }
-}
-export function addFriend(s, d) {
-  if (d.id === s.created) return 'Esse é o seu próprio código 😅';
-  const i = s.friends.findIndex((f) => f.id === d.id);
-  if (i >= 0) {
-    if (s.friends[i].t > d.t) return 'Você já tem um código mais recente dessa pessoa';
-    s.friends[i] = d;
-  } else s.friends.push(d);
+
+// Aceitar (yes=true) ou recusar o evento atual. Retorna mensagem
+export function answerEvent(s, yes) {
+  const e = s.event;
+  if (!e) return 'Nada para responder';
+  const now = Date.now();
+  s.buffs = (s.buffs || []).filter((x) => x.until > now);
+  s.pending = s.pending || [];
+  if (!yes) {
+    s.event = null;
+    if (e.k === 'reparo') { s.buffs.push({ id: e.biz, mult: 0.5, until: now + 60 * MIN }); return '😬 O lucro do negócio caiu pela metade por 1 hora.'; }
+    return null;
+  }
+  if (e.cost) { const err = spend(s, e.cost); if (err) return err; }
+  s.event = null;
+  s.stats.events = (s.stats.events || 0) + 1;
+  addXP(s, 10);
+  switch (e.k) {
+    case 'influ': s.buffs.push({ id: e.biz, mult: 2, until: now + 30 * MIN }); return { msg: '📣 Lucro em dobro por 30 min!' };
+    case 'feira': s.buffs.push({ id: '*', mult: 1.25, until: now + 40 * MIN }); return { msg: '🎪 Todos os negócios +25% por 40 min!' };
+    case 'reparo': return { msg: '🔧 Consertado! Tudo funcionando.' };
+    case 'estoque': s.pending.push({ amt: e.cost * 1.4, at: now + 20 * MIN, p: 1, label: 'Venda do estoque' }); return { msg: '📦 Em 20 min você recebe o retorno.' };
+    case 'amigo': s.pending.push({ amt: e.cost * 2, at: now + 60 * MIN, p: 0.65, label: 'Seu amigo' }); return { msg: '🤞 Agora é torcer!' };
+    case 'dica': return { msg: '🕵️ ' + e.tip, tip: true };
+    case 'heranca': s.cash += e.gain; return { msg: '🎁 Herança recebida!', gain: e.gain };
+    case 'loteria': if (Math.random() < 0.1) { s.cash += e.cost * 8; return { msg: '🎉 GANHOU! Prêmio de 8x!', win: true }; } return { msg: '🎟️ Não foi dessa vez…' };
+  }
   return null;
+}
+
+// Chamado no loop: cria eventos, expira e paga pendências. Retorna lista de mensagens
+export function eventTick(s, mk) {
+  const now = Date.now();
+  const out = [];
+  if (s.event && now > s.event.exp) {
+    if (s.event.k === 'reparo') { s.buffs = s.buffs || []; s.buffs.push({ id: s.event.biz, mult: 0.5, until: now + 60 * MIN }); out.push('😬 Você ignorou o conserto: lucro do negócio pela metade por 1h.'); }
+    s.event = null;
+  }
+  if (!s.event && now > (s.nextEvent || 0)) {
+    if (s.nextEvent) { s.event = makeEvent(s, mk); if (s.event) out.push({ newEvent: true }); }
+    s.nextEvent = now + (8 + Math.random() * 10) * MIN;
+  }
+  if (s.pending && s.pending.length) {
+    s.pending = s.pending.filter((p) => {
+      if (now < p.at) return true;
+      if (Math.random() < p.p) { s.cash += p.amt; out.push({ pay: p.amt, label: p.label }); }
+      else out.push({ fail: p.label });
+      return false;
+    });
+  }
+  return out;
 }

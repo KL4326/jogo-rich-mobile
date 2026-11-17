@@ -152,14 +152,8 @@ const handlers = {
   flow: () => modal(`<h3>📊 Seu dinheiro por dia</h3><div class="flow" data-live-html="flow"></div><p class="muted small">1 dia no jogo = 1 minuto de verdade.</p>`),
   news: () => modal(`<h3>📺 Jornal do Mercado</h3><div class="news" data-live-html="news20"></div>`),
   info: (d) => modal(INFO[d.k]),
-  copycode: () => copyCode(),
-  pastecode: () => modal(`<h3>📥 Colar código</h3><p class="muted">Cole o código que a pessoa mandou no grupo.</p><textarea id="friendcode" rows="4" placeholder="MAG1..."></textarea><button class="btn full" data-act="addfriend">Adicionar ao ranking</button>`),
-  addfriend: () => {
-    const d = G.parseCode($('#friendcode').value);
-    if (!d) return toast('⚠️ Código inválido', 'err');
-    if (act(() => G.addFriend(C.s, d), `👥 ${esc(d.n)} entrou no ranking!`)) { closeModal(); render(); }
-  },
-  delfriend: (d) => confirmBox('Remover do ranking?', () => { C.s.friends = C.s.friends.filter((f) => String(f.id) !== d.id); C.afterAction(); render(); }),
+  delfriend: (d) => confirmBox('Remover essa pessoa dos seus amigos?', () => { C.removeFriend(d.id); render(); }),
+  friendadd: () => modal(`<h3>👥 Adicionar amigo</h3><p class="muted">Peça a tag da pessoa (aparece no topo do Ranking dela) e digite aqui.</p><input id="friendtag" placeholder="Ex: MARIA#1234" autocapitalize="characters"><button class="btn full" id="addfriendbtn" data-act="addfriendgo">Adicionar</button>`),
   ach: (d) => { const a = G.ACHIEVEMENTS.find((x) => x.id === d.id); toast(`${C.s.ach[a.id] ? a.icon : '🔒'} <b>${a.name}</b>: ${a.desc}`, C.s.ach[a.id] ? 'gold' : ''); },
   rename: () => {
     const v = $('#newname').value.trim().slice(0, 18);
@@ -168,6 +162,23 @@ const handlers = {
   },
   reset: () => confirmBox('Apagar TODO o progresso? Isso não tem volta!', () => { G.wipe(); location.reload(); }),
   help: () => openHelp(),
+  event: (d, el) => { if (d.yes === '1') burst(el); C.answerEvent(d.yes === '1'); },
+  addfriendgo: async () => {
+    const inp = $('#friendtag');
+    const btn = $('#addfriendbtn');
+    btn.disabled = true;
+    const err = await C.addFriend(inp.value);
+    btn.disabled = false;
+    if (err) return toast('⚠️ ' + err, 'err');
+    toast('👥 Amigo adicionado!', 'ok'); closeModal(); render();
+  },
+  copytag: () => {
+    const t = C.s.tag || '';
+    const done = () => toast(`📋 Tag ${esc(t)} copiada!`, 'ok');
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(done, () => toast('Sua tag: ' + esc(t)));
+    else toast('Sua tag: ' + esc(t));
+  },
+  logout: () => confirmBox('Sair da conta? Seu progresso fica salvo na nuvem.', () => C.logout()),
   confirmyes: () => { const f = pendingConfirm; closeModal(); f && f(); },
 };
 const G_NAME = (id) => Object.values(GOODS).flat().find((g) => g.id === id).name;
@@ -204,7 +215,7 @@ const INFO = {
     <p>🐷 <b>Poupança:</b> saque quando quiser.<br>📄 <b>CDB:</b> rende mais, fica preso 1 hora.<br>🏛️ <b>Tesouro:</b> rende mais ainda, fica preso 4 horas.</p><p>A taxa (CDI) muda a cada 6 horas.</p>`,
   imoveis: `<h3>🔑 Imóveis</h3><p>Compre imóveis e receba aluguel todo dia. O preço deles sobe e desce junto com o setor Imobiliário — dá pra comprar barato na crise e vender caro na alta!</p>`,
   credito: `<h3>💳 Empréstimo</h3><p>Pegue dinheiro emprestado para abrir negócios mais cedo. Mas cuidado: os juros (${(LOAN_RATE * 100).toFixed(2)}% ao dia) correm sem parar! O limite depende do seu cartão.</p>`,
-  bens: `<h3>🛍️ Coleção de bens</h3><p>🚗 <b>Veículos</b> aumentam seu salário (vale o melhor que você tiver).</p><p>🏠 <b>Moradia</b> acaba com o aluguel de ${money(RENT_NO_HOME)}/dia e aumenta as horas que você ganha com o jogo fechado.</p><p>💎 <b>Luxo</b> dá muito prestígio ✨ para se exibir no ranking.</p><p>Bens têm uma pequena manutenção diária e, se vender, você recebe só parte do valor.</p>`,
+  bens: `<h3>🛍️ Coleção de bens</h3><p>🚗🛥️ <b>Carros, barcos e aeronaves</b> aumentam seu salário (vale o melhor que você tiver).</p><p>🏠 <b>Moradia</b> acaba com o aluguel de ${money(RENT_NO_HOME)}/dia e aumenta as horas que você ganha com o jogo fechado.</p><p>💍🖼️ <b>Luxo e Coleção</b> dão muito prestígio ✨ para se exibir no ranking.</p><p>Bens têm uma pequena manutenção diária e, se vender, você recebe só parte do valor.</p>`,
   carreira: `<h3>💼 Carreira</h3><p>Estude para desbloquear empregos melhores. Os cursos levam <b>tempo de verdade</b> — deixe estudando e volte depois!</p><p>Alguns empregos também pedem um nível mínimo.</p>`,
 };
 const infoBtn = (k) => `<button class="qbtn" data-act="info" data-k="${k}">?</button>`;
@@ -219,11 +230,12 @@ const TABS = [
   { id: 'perfil', icon: '🏆', name: 'Ranking' },
 ];
 function renderTabs() {
-  $('#tabs').innerHTML = TABS.map((t) => `<button class="${ui.tab === t.id ? 'on' : ''}" data-act="tab" data-tab="${t.id}"><span>${t.icon}</span><small>${t.name}</small></button>`).join('');
+  $('#tabs').innerHTML = TABS.map((t) => `<button class="${ui.tab === t.id ? 'on' : ''}" data-act="tab" data-tab="${t.id}"><span>${t.icon}</span><small>${t.name}</small>${t.id === 'inicio' && C.s.event && ui.tab !== 'inicio' ? '<i class="dot"></i>' : ''}</button>`).join('');
 }
 
 export function render() {
   renderTop();
+  renderTabs();
   const v = $('#view');
   const fn = { inicio: vInicio, carreira: vCarreira, empresas: vEmpresas, investir: vInvestir, bens: vBens, perfil: vPerfil }[ui.tab];
   v.innerHTML = `<div class="page">${fn()}</div>`;
@@ -265,7 +277,7 @@ function scene() {
   const h = new Date().getHours();
   const night = h < 6 || h >= 19;
   const home = G.homeOf(s);
-  const veh = GOODS.veiculos.filter((g) => s.goods[g.id]).pop();
+  const veh = [...GOODS.veiculos, ...GOODS.ceumar].filter((g) => s.goods[g.id]).sort((a, b) => a.cost - b.cost).pop();
   const lux = GOODS.luxo.filter((g) => s.goods[g.id]).slice(-2);
   const bizs = BUSINESSES.filter((b) => s.biz[b.id]).slice(-5);
   const job = JOBS.find((j) => j.id === s.job);
@@ -289,11 +301,13 @@ function vInicio() {
   const q = quest();
   return `
   ${scene()}
+  ${buffsLine()}
   <div class="stats3" data-act="flow">
     <div><small>Ganha por dia</small><b class="up" data-live="inc"></b></div>
     <div><small>Gasta por dia</small><b class="down" data-live="exp"></b></div>
     <div class="more">›</div>
   </div>
+  ${eventCard()}
   ${q ? `<div class="quest"><span class="qi">⭐</span><div><small>MISSÃO</small><p>${q}</p></div></div>` : ''}
   ${course ? `<div class="box studying"><span class="bi">${course.icon}</span><div class="grow"><b>${course.name}</b><div class="bar"><i data-live-w="course"></i></div></div><span class="timer" data-live="coursetime"></span></div>` : ''}
   ${next ? `<div class="box goal" data-act="tab" data-tab="perfil" data-sub="cartoes"><div class="mini2 ${next.cls}"></div><div class="grow"><small>Próximo cartão</small><b>${next.name}</b><div class="bar gold"><i data-live-w="nextcard"></i></div></div><span class="goalv">${money(next.min)}</span></div>` : ''}
@@ -301,6 +315,19 @@ function vInicio() {
     <div class="nhead"><b>📺 Jornal do Mercado</b><span class="lnk">ver tudo ›</span></div>
     <div class="news" data-live-html="news3"></div>
   </div>`;
+}
+function eventCard() {
+  const e = C.s.event;
+  if (!e) return '';
+  return `<div class="event"><div class="evhead"><span class="evi">${e.icon}</span><div class="grow"><small>OPORTUNIDADE</small><b>${e.title}</b></div><span class="timer sm" data-live="evtime"></span></div>
+    <p>${e.text}</p>${e.cost ? `<p class="evcost">Custa <b>${money(e.cost)}</b></p>` : ''}
+    <div class="btns">${e.no ? `<button class="btn ghost" data-act="event" data-yes="0">${e.no}</button>` : ''}<button class="btn" data-act="event" data-yes="1" ${e.cost ? `data-cost="${e.cost}"` : ''}>${e.yes}</button></div></div>`;
+}
+function buffsLine() {
+  const now = Date.now();
+  const list = (C.s.buffs || []).filter((x) => x.until > now);
+  if (!list.length) return '';
+  return `<div class="buffs">${list.map((x) => { const b = BUSINESSES.find((y) => y.id === x.id); return `<span class="pill ${x.mult > 1 ? 'money' : 'bad'}">${b ? b.icon : '🏭'} ${x.mult > 1 ? 'x' + x.mult : '½'} · ${dur(x.until - now)}</span>`; }).join('')}</div>`;
 }
 function quest() {
   const s = C.s;
@@ -575,14 +602,14 @@ function openLoan(kind) {
 }
 
 // ---------- BENS ----------
-const RAR = ['comum', 'comum', 'raro', 'raro', 'epico', 'epico', 'lendario', 'lendario', 'lendario'];
+const RAR = ['comum', 'comum', 'comum', 'raro', 'raro', 'raro', 'epico', 'epico', 'lendario', 'lendario'];
 const RARN = { comum: 'Comum', raro: 'Raro', epico: 'Épico', lendario: 'Lendário' };
 function vBens() {
   const s = C.s;
   const sub = ui.sub.bens;
   const list = GOODS[sub];
   const owned = list.filter((g) => s.goods[g.id]).length;
-  return title('💎', 'Coleção', 'bens') + subtabs([['veiculos', '🚗', 'Veículos'], ['moradia', '🏠', 'Moradia'], ['luxo', '💎', 'Luxo']]) + `
+  return title('💎', 'Coleção', 'bens') + subtabs([['veiculos', '🚗', 'Carros'], ['ceumar', '🛥️', 'Céu e Mar'], ['moradia', '🏠', 'Casas'], ['luxo', '💍', 'Luxo'], ['colecao', '🖼️', 'Coleção']]) + `
   <div class="wallet"><div><small>✨ Prestígio</small><b>${fmt(G.prestige(s))}</b></div><div class="right"><small>Coleção</small><b>${owned}/${list.length}</b></div></div>
   <div class="goods">${list.map((g, i) => {
     const own = !!s.goods[g.id];
@@ -601,7 +628,7 @@ function openGood(id) {
   const cat = Object.keys(GOODS).find((k) => GOODS[k].some((x) => x.id === id));
   const r = RAR[GOODS[cat].indexOf(g)];
   const own = !!s.goods[id];
-  const rate = cat === 'veiculos' ? 0.6 : cat === 'moradia' ? 0.9 : 0.75;
+  const rate = cat === 'veiculos' || cat === 'ceumar' ? 0.6 : cat === 'moradia' ? 0.9 : 0.75;
   modal(`<div class="goodmodal ${r}"><div class="gi">${g.icon}</div><span class="rar">${RARN[r]}</span><h3>${g.name}</h3>
     <div class="tags">${g.bonus ? `<span class="pill">💼 +${Math.round(g.bonus * 100)}% salário</span>` : ''}${g.hours ? `<span class="pill">🌙 +${g.hours}h offline</span><span class="pill">🏠 sem aluguel</span>` : ''}<span class="pill">✨ ${g.prestige} prestígio</span></div>
     ${own ? `<p class="muted">Você é dono disso! Se vender, recebe ${money(g.cost * rate)}.</p><button class="btn red full" data-act="sellgood" data-id="${id}">Vender</button>`
@@ -617,28 +644,21 @@ function vPerfil() {
 }
 function vRanking() {
   const s = C.s;
-  const me = { n: s.name, w: G.netWorth(s, C.mk), l: G.level(s), a: Object.keys(s.ach).length, c: s.cardMax, p: G.prestige(s), t: Date.now(), me: true };
-  const all = [me, ...s.friends].sort((a, b) => b.w - a.w);
+  const me = { n: s.name, w: G.netWorth(s, C.mk), l: G.level(s), a: Object.keys(s.ach).length, c: s.cardMax, p: G.prestige(s), net: G.incomeBreakdown(s, C.mk).net, me: true, home: (G.homeOf(s) || {}).icon || '🏚️' };
+  const fr = s.friends.map((uid) => { const p = C.friends[uid]; return p ? { n: p.name, w: p.nw, l: p.level, a: p.ach, c: p.card || 0, p: p.prestige, net: p.net, t: p.updated, id: uid, home: p.home, online: Date.now() - p.updated < 3 * 60_000 } : { n: 'Carregando…', w: -1, l: 0, a: 0, c: 0, p: 0, id: uid, loading: true }; });
+  const all = [me, ...fr].sort((a, b) => b.w - a.w);
   const pod = [all[1], all[0], all[2]];
   const medal = ['🥈', '🥇', '🥉'];
   const cls = ['p2', 'p1', 'p3'];
   return `
-  <div class="podium">${pod.map((p, i) => p ? `<div class="pcol ${cls[i]} ${p.me ? 'me' : ''}"><div class="pav">${esc(p.n[0] || '?').toUpperCase()}</div><b>${esc(p.n)}</b><small>${money(p.w)}</small><div class="pbar"><span>${medal[i]}</span></div></div>` : '<div class="pcol empty"><div class="pbar"></div></div>').join('')}</div>
+  <div class="mytag"><div><small>Sua tag de amigo</small><b>${C.cloud ? esc(s.tag || 'gerando…') : 'offline'}</b></div><button class="btn sm" data-act="copytag">Copiar</button></div>
+  <div class="podium">${pod.map((p, i) => p && !p.loading ? `<div class="pcol ${cls[i]} ${p.me ? 'me' : ''}"><div class="pav">${esc(p.n[0] || '?').toUpperCase()}${p.online || p.me ? '<i class="on"></i>' : ''}</div><b>${esc(p.n)}</b><small>${money(p.w)}</small><div class="pbar"><span>${medal[i]}</span></div></div>` : '<div class="pcol empty"><div class="pbar"></div></div>').join('')}</div>
   <div class="ranklist">${all.map((p, i) => `<div class="rank ${p.me ? 'me' : ''}"><span class="pos">${i + 1}º</span>
-      <div class="grow"><b>${esc(p.n)}${p.me ? ' (você)' : ''}</b><small>⭐${p.l} · 💳${CARDS[p.c].name} · 🎖️${p.a} · ✨${fmt(p.p)}${p.me ? '' : ' · ' + ago(p.t)}</small></div>
-      <div class="right"><b>${money(p.w)}</b>${p.me ? '' : `<button class="lnk" data-act="delfriend" data-id="${p.id}">remover</button>`}</div></div>`).join('')}</div>
-  ${s.friends.length ? '' : '<p class="muted center">Ainda só você aqui! Troque códigos com a família 👇</p>'}
-  <div class="btns"><button class="btn" data-act="copycode">📤 Enviar meu código</button><button class="btn blue" data-act="pastecode">📥 Colar código</button></div>
-  <textarea id="mycode" class="hidden" readonly></textarea>
-  <p class="muted center small">O mercado é o mesmo para todos. Vence quem decidir melhor! 😎</p>`;
-}
-function copyCode() {
-  const ta = $('#mycode');
-  ta.value = G.shareCode(C.s, C.mk);
-  const done = () => toast('📋 Código copiado! Cole no grupo da família.', 'ok');
-  const fallback = () => { ta.classList.remove('hidden'); ta.select(); try { document.execCommand('copy'); done(); } catch (e) { toast('Copie o código abaixo', ''); } };
-  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(ta.value).then(done, fallback);
-  else fallback();
+      <div class="grow"><b>${p.home || ''} ${esc(p.n)}${p.me ? ' (você)' : ''}</b>${p.loading ? '' : `<small>⭐${p.l} · 💳${CARDS[p.c].name} · 🎖️${p.a} · ✨${fmt(p.p)}</small><small class="${p.online || p.me ? 'up' : ''}">${p.me ? '🟢 você' : p.online ? '🟢 jogando agora' : '⚪ visto ' + ago(p.t)} · ${p.net >= 0 ? '+' : ''}${fmt(p.net || 0)}/dia</small>`}</div>
+      <div class="right"><b>${p.loading ? '…' : money(p.w)}</b>${p.me ? '' : `<button class="lnk" data-act="delfriend" data-id="${p.id}">remover</button>`}</div></div>`).join('')}</div>
+  ${s.friends.length ? '' : '<p class="muted center">Ainda só você aqui! Adicione a família pela tag 👇</p>'}
+  ${C.cloud ? '<button class="btn full blue" data-act="friendadd">👥 Adicionar amigo pela tag</button>' : '<p class="muted center">Ranking online disponível quando as contas estiverem ativadas.</p>'}
+  <p class="muted center small">O ranking atualiza ao vivo. O mercado é o mesmo para todos — vence quem decidir melhor! 😎</p>`;
 }
 function vCartoes() {
   const s = C.s;
@@ -663,6 +683,7 @@ function vAjustes() {
     <div class="fr"><span>🎯 Lucro com ações</span><b class="${s.stats.tradeProfit >= 0 ? 'up' : 'down'}">${money(s.stats.tradeProfit)}</b></div>
     <div class="fr"><span>🏔️ Maior patrimônio</span><b>${money(s.peakNW)}</b></div>
   </div>
+  ${C.cloud ? `<div class="box col"><b>👤 Conta</b><small class="muted">Seu progresso é salvo na nuvem automaticamente.</small><button class="btn ghost full" data-act="logout">Sair da conta</button></div>` : ''}
   <p class="muted center small">Versão do jogo: ${esc(window.GAME_VERSION || '?')} · atualiza sozinho</p>
   <button class="btn red full" data-act="reset">Apagar progresso</button>`;
 }
@@ -697,6 +718,7 @@ function liveValue(key) {
     case 'poup': return money(s.poup);
     case 'debt': return money(s.debt);
     case 'debtint': return money(s.debt * LOAN_RATE);
+    case 'evtime': return s.event ? '⏳ ' + dur(s.event.exp - Date.now()) : '';
     case 'coursetime': return s.course ? '⏱️ ' + dur(s.course.end - Date.now()) : '';
     case 'nextblock': return dur(mk.msToNextBlock());
     case 'price': return price(mk.price(arg));
@@ -756,6 +778,8 @@ export function onMarketTick() {
   refresh(true);
   if (ui.tab === 'empresas' && !modalOpen()) { const sc = $('#view').scrollTop; render(); $('#view').scrollTop = sc; }
 }
+export function onEvent() { renderTabs(); if (ui.tab === 'inicio' && !modalOpen()) { const sc = $('#view').scrollTop; render(); $('#view').scrollTop = sc; } }
+export function onFriends() { if (ui.tab === 'perfil' && ui.sub.perfil === 'ranking' && !modalOpen()) { const sc = $('#view').scrollTop; render(); $('#view').scrollTop = sc; } }
 export function slowRefresh() {
   document.querySelectorAll('[data-live-html="flow"]').forEach((el) => { el.innerHTML = flowHTML(); });
 }
