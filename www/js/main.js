@@ -217,8 +217,18 @@ function afterAction() {
   achs.forEach((a, i) => setTimeout(() => UI.toast(`🎖️ Conquista: <b>${a.name}</b>`, 'gold'), 400 * i));
   if (newCard) { cardModal(newCard); UI.confetti(); }
   else if (achs.length) UI.confetti();
+  // Subiu de status social?
+  G.statusRefresh();
+  const st = G.statusOf(ctx.s);
+  let stUp = false;
+  if (ctx.s.statusMax === undefined) ctx.s.statusMax = st.idx;
+  else if (st.idx > ctx.s.statusMax) {
+    ctx.s.statusMax = st.idx; stUp = true;
+    UI.confetti(); UI.toast(`${st.icon} Novo status: <b>${st.name}</b>! Veja suas vantagens.`, 'gold');
+    notify(st.icon, `Você virou <b>${st.name}</b>! Toque no seu status na tela inicial para ver as vantagens.`);
+  }
   G.save(ctx.s);
-  if (G.level(ctx.s) > lvlBefore || achs.length || newCard) UI.render();
+  if (G.level(ctx.s) > lvlBefore || achs.length || newCard || stUp) UI.render();
 }
 
 function answerEvent(yes) {

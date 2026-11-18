@@ -969,3 +969,16 @@ details.appear[open] summary { margin-bottom: 8px; }
 .gtag { font: 600 10px system-ui; color: #1a944f; background: #fff; border-radius: 8px; padding: 1px 6px; vertical-align: middle; }
 .mname { display: block; font-size: 12px; margin-bottom: 1px; }
 .msg .mname small { display: inline; font-size: 10px; font-weight: 400; opacity: .6; }
+/* status social */
+.stlist { display: flex; flex-direction: column; gap: 6px; margin: 10px 0; }
+.stier { border: 2px solid var(--edge); border-radius: 14px; padding: 8px 10px; background: #fff; opacity: .75; }
+.stier.done { opacity: .9; }
+.stier.cur { opacity: 1; border-color: var(--gold); background: #fff8e0; box-shadow: 0 3px 0 var(--gold-d); }
+.sthead { display: flex; align-items: center; gap: 8px; }
+.sthead span { font-size: 22px; }
+.sthead b { flex: 1; }
+.sthead em { font-style: normal; font: 700 11px system-ui; background: var(--gold); color: #5a3a00; border-radius: 8px; padding: 2px 7px; }
+.sthead em.ok { background: var(--green); color: #fff; }
+.stier ul { margin: 4px 0 0; padding-left: 18px; font-size: 13px; }
+.club { color: #b07800; font-weight: 700; }
+s.old { opacity: .6; font-size: 12px; margin-left: 4px; }

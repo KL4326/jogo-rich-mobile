@@ -100,6 +100,27 @@ export function homeOf(s) {
 }
 export const styleOf = (s) => Object.keys(s.wardrobe || {}).reduce((t, id) => t + (CLOTH[id] ? CLOTH[id].style : 0), 0) + Object.keys(s.legends || {}).length * 300;
 export const tripPrestige = (s) => Object.keys(s.trips || {}).reduce((t, id) => { const tr = TRIPS.find((x) => x.id === id); return t + (tr ? Math.max(1, Math.round(Math.log10(tr.cost) ** 2 - 10)) : 0); }, 0);
+// ===== Status social (vem do prestígio) =====
+export const STATUS = [
+  { min: 0, name: 'Anônimo', icon: '👤', biz: 0, disc: 0 },
+  { min: 50, name: 'Conhecido', icon: '🙂', biz: 0.03, disc: 0 },
+  { min: 250, name: 'Influente', icon: '📣', biz: 0.06, disc: 0.05 },
+  { min: 1000, name: 'Celebridade', icon: '🌟', biz: 0.10, disc: 0.08, luck: true },
+  { min: 5000, name: 'Lenda', icon: '👑', biz: 0.15, disc: 0.12, luck: true, love: true, club: true },
+  { min: 20000, name: 'Ícone mundial', icon: '🌍', biz: 0.20, disc: 0.15, luck: true, love: true, club: true },
+];
+export const statusIdx = (p) => { let i = 0; STATUS.forEach((x, j) => { if (p >= x.min) i = j; }); return i; };
+let stCache = { s: null, t: 0, v: null };
+export function statusOf(s) {
+  const now = Date.now();
+  if (stCache.s === s && now - stCache.t < 1000) return stCache.v;
+  const p = prestige(s), i = statusIdx(p);
+  stCache = { s, t: now, v: { ...STATUS[i], idx: i, p, next: STATUS[i + 1] || null } };
+  return stCache.v;
+}
+export const statusRefresh = () => { stCache.t = 0; };
+export const discPrice = (s, cost) => cost * (1 - statusOf(s).disc);
+const loveMult = (s) => (statusOf(s).love ? 1.25 : 1);
 export const prestige = (s) => ALL_GOODS.filter((g) => s.goods[g.id]).reduce((p, g) => p + g.prestige, 0) + styleOf(s) + tripPrestige(s) + (s.love && s.love.wedding ? (WEDDINGS.find((w) => w.id === s.love.wedding) || { prestige: 0 }).prestige : 0);
 export function offlineHours(s) {
   const home = homeOf(s);
@@ -109,7 +130,7 @@ export function offlineHours(s) {
 export function bizProfit(s, b, mk) {
   const lvl = s.biz[b.id] || 0;
   if (!lvl) return 0;
-  return b.profit * lvl * bizMult(lvl) * SECTOR_MULT[mk.sectorNow(b.sector)] * levelMult(s) * buffMult(s, b.id);
+  return b.profit * lvl * bizMult(lvl) * SECTOR_MULT[mk.sectorNow(b.sector)] * levelMult(s) * buffMult(s, b.id) * (1 + statusOf(s).biz);
 }
 export function buffMult(s, id) {
   const now = Date.now();
@@ -200,6 +221,7 @@ export function ccAvail(s) { return Math.max(0, card(s).limit - ccOwed(s) - s.de
 export function setPay(s, mode, parc) { s.payMode = mode; if (parc) s.parc = parc; }
 // Compra de consumo: dinheiro (sem cashback) ou cartão (com cashback, à vista ou parcelado)
 function shop(s, amount) {
+  amount = discPrice(s, amount); // desconto do status social
   if (s.payMode === 'card') {
     const c = ensureCC(s);
     if (amount > ccAvail(s) + 1e-6) return 'Limite do cartão insuficiente';
@@ -614,6 +636,8 @@ function eventPool(s, mk) {
   } else {
     add(1, { k: 'crush', icon: '💘', title: 'Alguém de olho em você', text: 'Parece que tem alguém interessado em você… Vá em 👤 Vida → ❤️ Amor e procure!', gain: 0, yes: 'Ficar curioso', fx: { xp: 5 } });
   }
+  // Celebridade ou mais: a sorte sorri (mais boas notícias, menos imprevistos)
+  if (statusOf(s).luck) E.forEach((x) => { if (x.ev.gain) x.w *= 1.5; else if (x.ev.pay) x.w *= 0.7; });
   return E;
 }
 
@@ -791,7 +815,7 @@ export function giveGift(s, id) {
   if ((L.cd[id] || 0) > Date.now()) return 'Você deu esse presente há pouco tempo… espere um pouco 😉';
   const e = shop(s, g.cost); if (e) return e;
   L.cd[id] = Date.now() + g.cd * 60_000;
-  L.aff = Math.min(100, L.aff + g.aff);
+  L.aff = Math.min(100, L.aff + g.aff * loveMult(s));
   addXP(s, 3);
   return null;
 }
@@ -829,7 +853,7 @@ export function checkLove(s) {
   }
   if (L.act && Date.now() >= L.act.end) {
     const a = L.act; L.act = null;
-    L.aff = Math.min(100, L.aff + a.aff);
+    L.aff = Math.min(100, L.aff + a.aff * loveMult(s));
     addXP(s, 8);
     if (a.id === 'wedding') { L.stage = 4; L.wedding = a.wedding; L.married = Date.now(); addXP(s, 200); return { wedding: true }; }
     if (L.stage === 0) { L.stage = 1; return { firstDate: true }; }

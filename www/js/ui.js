@@ -138,6 +138,7 @@ function act(fn, okMsg, el) {
 
 const handlers = {
   close: () => closeModal(),
+  status: () => statusModal(),
   phonechat: (d) => import('./phone.js').then((m) => { C.phone = m; closeModal(); m.open(C, 'chat', { uid: d.id }); }),
   phone: () => import('./phone.js').then((m) => { C.phone = m; m.open(C); }).catch(() => toast('⚠️ Não foi possível abrir o celular', 'err')),
   tab: (d) => { ui.tab = d.tab; if (d.sub) ui.sub[d.tab] = d.sub; closeModal(); renderTabs(); render(true); $('#view').scrollTop = 0; },
@@ -402,9 +403,23 @@ function payBar() {
   const s = C.s;
   const card = s.payMode === 'card';
   return `<div class="paybar"><div class="pbrow"><span>Pagar com</span><div class="seg2">${[['cash', '💵 Dinheiro'], ['card', '💳 Cartão']].map(([m, n]) => `<button class="${(s.payMode || 'cash') === m ? 'on' : ''}" data-act="paymode" data-m="${m}">${n}</button>`).join('')}</div></div>
-    ${card ? `<div class="pbrow"><div class="parc">${G.PARCELAS.map((n) => `<button class="chipbtn ${(s.parc || 1) === n ? 'on' : ''}" data-act="parc" data-n="${n}">${n === 1 ? 'À vista' : n + 'x'}</button>`).join('')}</div></div><small>Limite disponível: <b data-live="ccavail"></b> · cashback ${Math.round(G.card(s).cashback * 100)}%</small>` : '<small>💡 No cartão você ganha cashback e pode parcelar.</small>'}</div>`;
+    ${card ? `<div class="pbrow"><div class="parc">${G.PARCELAS.map((n) => `<button class="chipbtn ${(s.parc || 1) === n ? 'on' : ''}" data-act="parc" data-n="${n}">${n === 1 ? 'À vista' : n + 'x'}</button>`).join('')}</div></div><small>Limite disponível: <b data-live="ccavail"></b> · cashback ${Math.round(G.card(s).cashback * 100)}%</small>` : '<small>💡 No cartão você ganha cashback e pode parcelar.</small>'}${G.statusOf(s).disc ? `<small class="up">🏷️ Desconto de ${G.statusOf(s).name}: ${Math.round(G.statusOf(s).disc * 100)}% (já no preço)</small>` : ''}</div>`;
 }
+const dp = (c) => G.discPrice(C.s, c);
 const costBtn = (act, data, cost, label = '') => `<button class="btn gold" data-act="${act}" ${dataAttrs(data)} data-cost="${cost}">${label}<span>${money(cost)}</span></button>`;
+
+// ---------- STATUS SOCIAL ----------
+const perksOf = (x) => [x.biz ? `🏭 +${Math.round(x.biz * 100)}% no lucro dos negócios` : '', x.disc ? `🏷️ ${Math.round(x.disc * 100)}% de desconto em bens, roupas, viagens e no amor` : '', x.luck ? '🍀 Mais boas notícias e menos imprevistos' : '', x.love ? '❤️ +25% de carinho em presentes e encontros' : '', x.club ? '👑 Selo do Clube dos Magnatas no ranking' : ''].filter(Boolean);
+function statusModal() {
+  const st = G.statusOf(C.s);
+  const nx = st.next;
+  const pct = nx ? Math.min(100, ((st.p - st.min) / (nx.min - st.min)) * 100) : 100;
+  modal(`<h3>${st.icon} Status: ${st.name}</h3>
+    <p class="muted">Seu <b>prestígio</b> (✨ ${fmt(st.p)}) define seu status social. Quanto mais famoso, mais vantagens!</p>
+    ${nx ? `<div class="bar gold"><i style="width:${pct}%"></i></div><small>Faltam <b>✨ ${fmt(nx.min - st.p)}</b> para ${nx.icon} ${nx.name}</small>` : '<p class="up"><b>Você chegou ao topo! 🌍</b></p>'}
+    <div class="stlist">${G.STATUS.map((x, i) => `<div class="stier ${i === st.idx ? 'cur' : i < st.idx ? 'done' : ''}"><div class="sthead"><span>${x.icon}</span><b>${x.name}</b><small>✨ ${fmt(x.min)}</small>${i === st.idx ? '<em>você</em>' : i < st.idx ? '<em class="ok">✓</em>' : ''}</div>${perksOf(x).length ? `<ul>${perksOf(x).map((t) => `<li>${t}</li>`).join('')}</ul>` : '<small class="muted">Sem vantagens ainda</small>'}</div>`).join('')}</div>
+    <p class="hint small">✨ Como ganhar prestígio: comprando 💎 bens (carros, casas, luxo), 👗 roupas com estilo, 🌟 skins lendárias, ✈️ conhecendo destinos novos e 💒 casando.</p>`);
+}
 
 // ---------- INÍCIO ----------
 export function bigCard(name, c, idx, locked = false) {
@@ -443,7 +458,7 @@ function scene() {
   <div class="lifechips">
     <span class="lchip" data-act="tab" data-tab="vida" data-sub="carreira">${JOBS.find((j) => j.id === s.job).icon} ${JOBS.find((j) => j.id === s.job).name}</span>
     <span class="lchip" data-act="tab" data-tab="vida" data-sub="amor">${L ? `${LOVE_STAGES[L.stage].icon} ${esc(L.partner.name)}` : '💔 Solteiro(a)'}</span>
-    <span class="lchip" data-act="tab" data-tab="bens">✨ ${fmt(G.prestige(s))}</span>
+    <span class="lchip" data-act="status">${G.statusOf(s).icon} ${G.statusOf(s).name} · ✨ ${fmt(G.prestige(s))}</span>
   </div>`;
 }
 
@@ -485,14 +500,14 @@ function legendsPanel() {
   const sx = ui.lsex || (s.look && s.look.sex) || 'm';
   const cur = s.look && s.look.lend;
   const list = LEGENDS.filter((l) => l.sex === sx);
-  return `<div class="legendhead"><b>🌟 Skins Lendárias</b><small>Visual completo e exclusivo + <b>bônus no salário</b> enquanto estiver usando. ${money(LEGEND_COST)} cada.</small></div>
+  return `<div class="legendhead"><b>🌟 Skins Lendárias</b><small>Visual completo e exclusivo + <b>bônus no salário</b> enquanto estiver usando. ${money(dp(LEGEND_COST))} cada.</small></div>
   ${cur ? `<div class="paybar lendnow"><span>Usando: <b>${esc(LEGEND[cur].name)}</b> (+${Math.round(LEGEND[cur].bonus * 100)}% salário)</span><button class="btn ghost sm" data-act="lendoff">Tirar</button></div>` : ''}
   ${payBar()}
   <div class="seg2 lsex">${[['m', '♂️ Masculinas'], ['f', '♀️ Femininas']].map(([v, n]) => `<button class="${sx === v ? 'on' : ''}" data-act="lsex" data-v="${v}">${n}</button>`).join('')}</div>
   <div class="closet" data-cardable>${list.map((l) => {
     const own = !!(s.legends || {})[l.id];
     const worn = cur === l.id;
-    const btn = worn ? '<span class="pill ok">✨ Usando</span>' : own ? `<button class="btn sm" data-act="lend" data-id="${l.id}">Usar</button>` : `<button class="btn gold sm" data-act="lend" data-id="${l.id}" data-cost="${LEGEND_COST}"><span>${money(LEGEND_COST)}</span></button>`;
+    const btn = worn ? '<span class="pill ok">✨ Usando</span>' : own ? `<button class="btn sm" data-act="lend" data-id="${l.id}">Usar</button>` : `<button class="btn gold sm" data-act="lend" data-id="${l.id}" data-cost="${dp(LEGEND_COST)}"><span>${money(dp(LEGEND_COST))}</span></button>`;
     return `<div class="citem legend ${worn ? 'worn' : ''}"><span class="lrar">LENDÁRIA</span><div class="cprev">${avatarSVG({ ...(s.look || defaultLook(l.sex)), lend: l.id }, { size: 128 })}</div><b>${l.name}</b><span class="pill money">+${Math.round(l.bonus * 100)}% salário</span>${btn}</div>`;
   }).join('')}</div>`;
 }
@@ -503,14 +518,14 @@ function closetHTML(slot) {
   if (slot === 'sets') return SETS.map((st) => {
     const cost = setCost(s, st);
     const wornAll = Object.entries(st.pieces).filter(([, v]) => v).every(([k, v]) => L[k] === v);
-    const btn = wornAll ? '<span class="pill ok">Vestindo</span>' : cost ? `<button class="btn gold sm" data-act="buyset" data-id="${st.id}" data-cost="${cost}"><span>${money(cost)}</span></button>` : `<button class="btn sm" data-act="buyset" data-id="${st.id}">Vestir</button>`;
+    const btn = wornAll ? '<span class="pill ok">Vestindo</span>' : cost ? `<button class="btn gold sm" data-act="buyset" data-id="${st.id}" data-cost="${dp(cost)}"><span>${money(dp(cost))}</span></button>` : `<button class="btn sm" data-act="buyset" data-id="${st.id}">Vestir</button>`;
     return `<div class="citem ${wornAll ? 'worn' : ''}"><div class="cprev">${avatarSVG({ ...L, ...st.pieces }, { size: 118 })}</div><b>${st.icon} ${st.name}</b><small>✨ ${Object.values(st.pieces).filter(Boolean).reduce((t, id) => t + CLOTH[id].style, 0)} de estilo</small>${btn}</div>`;
   }).join('');
   return CLOTHES.filter((c) => c.slot === slot).map((c) => {
     const own = !!s.wardrobe[c.id];
     const worn = L[slot] === c.id;
     const btn = worn ? (['head', 'face', 'neck', 'back'].includes(slot) || c.cost > 0 ? `<button class="btn ghost sm" data-act="takeoff" data-slot="${slot}">Tirar</button>` : '<span class="pill ok">Usando</span>')
-      : own ? `<button class="btn sm" data-act="buycloth" data-id="${c.id}">Vestir</button>` : `<button class="btn gold sm" data-act="buycloth" data-id="${c.id}" data-cost="${c.cost}"><span>${money(c.cost)}</span></button>`;
+      : own ? `<button class="btn sm" data-act="buycloth" data-id="${c.id}">Vestir</button>` : `<button class="btn gold sm" data-act="buycloth" data-id="${c.id}" data-cost="${dp(c.cost)}"><span>${money(dp(c.cost))}</span></button>`;
     return `<div class="citem ${worn ? 'worn' : ''} ${c.shine ? 'lux' : ''}"><div class="cprev">${avatarSVG({ ...L, [slot]: c.id }, { size: 118 })}</div><b>${c.name}</b><small>✨ ${c.style} de estilo</small>${btn}</div>`;
   }).join('');
 }
@@ -562,7 +577,7 @@ function vAmor() {
   let next = '';
   if (!L.act && L.stage === 1) next = `<button class="btn pink full" data-act="nextstep">💌 Pedir em namoro <small>(❤️ 40)</small></button>`;
   if (!L.act && L.stage === 2) next = `<button class="btn pink full" data-act="nextstep" data-cost="${RING_COST}">💍 Pedir em casamento <small>(anel ${money(RING_COST)} · ❤️ 60)</small></button>`;
-  const weddings = `<p class="hint small">💒 Precisa de ❤️ 75 de carinho.</p>${WEDDINGS.map((w) => `<div class="item"><span class="bi">${w.icon}</span><div class="grow"><b>${w.name}</b><small>⏱️ ${w.mins} dias · ✨ +${w.prestige}</small></div>${costBtn('marry', { id: w.id }, w.cost)}</div>`).join('')}`;
+  const weddings = `<p class="hint small">💒 Precisa de ❤️ 75 de carinho.</p>${WEDDINGS.map((w) => `<div class="item"><span class="bi">${w.icon}</span><div class="grow"><b>${w.name}</b><small>⏱️ ${w.mins} dias · ✨ +${w.prestige}</small></div>${costBtn('marry', { id: w.id }, dp(w.cost))}</div>`).join('')}`;
   const tabs = [['programas', '🎟️', 'Programas'], ['presentes', '🎁', 'Presentes']];
   if (!L.act && L.stage === 3) tabs.unshift(['casamento', '💒', 'Casamento']);
   let lt = ui.lov || 'programas';
@@ -583,8 +598,8 @@ function vAmor() {
   ${next}
   ${pillTabs('lov', tabs, lt)}
   ${lt === 'casamento' ? weddings : ''}
-  ${lt !== 'programas' ? '' : DATES.map((d) => `<div class="item ${L.act ? 'dim' : ''}"><span class="bi">${d.icon}</span><div class="grow"><b>${d.name}</b><small>⏱️ ${d.mins} dias · ❤️ +${L.lastDate === d.id ? `${Math.round(d.aff * 0.6)} <span class="down">(repetido)</span>` : d.aff}</small></div>${L.act ? '' : costBtn('date', { id: d.id }, d.cost)}</div>`).join('')}
-  ${lt !== 'presentes' ? '' : `<p class="hint small">🎁 Cada presente só pode ser dado de novo depois de um tempo. Os mais caros valem bem mais!</p><div class="gifts">${GIFTS.map((g) => { const wait = ((L.cd || {})[g.id] || 0) > Date.now(); return `<button class="gift ${wait ? 'wait' : ''}" data-act="gift" data-id="${g.id}" ${wait ? '' : `data-cost="${g.cost}"`}><span>${g.icon}</span><b>${g.name}</b><small>❤️ +${g.aff}</small>${wait ? `<em class="cdt" data-live="giftcd:${g.id}"></em>` : `<em>${money(g.cost)}</em><i class="cdinfo">espera ${g.cd >= 60 ? g.cd / 60 + 'h' : g.cd + ' min'}</i>`}</button>`; }).join('')}</div>`}
+  ${lt !== 'programas' ? '' : DATES.map((d) => `<div class="item ${L.act ? 'dim' : ''}"><span class="bi">${d.icon}</span><div class="grow"><b>${d.name}</b><small>⏱️ ${d.mins} dias · ❤️ +${L.lastDate === d.id ? `${Math.round(d.aff * 0.6)} <span class="down">(repetido)</span>` : d.aff}</small></div>${L.act ? '' : costBtn('date', { id: d.id }, dp(d.cost))}</div>`).join('')}
+  ${lt !== 'presentes' ? '' : `<p class="hint small">🎁 Cada presente só pode ser dado de novo depois de um tempo. Os mais caros valem bem mais!</p><div class="gifts">${GIFTS.map((g) => { const wait = ((L.cd || {})[g.id] || 0) > Date.now(); return `<button class="gift ${wait ? 'wait' : ''}" data-act="gift" data-id="${g.id}" ${wait ? '' : `data-cost="${dp(g.cost)}"`}><span>${g.icon}</span><b>${g.name}</b><small>❤️ +${g.aff}</small>${wait ? `<em class="cdt" data-live="giftcd:${g.id}"></em>` : `<em>${money(dp(g.cost))}</em><i class="cdinfo">espera ${g.cd >= 60 ? g.cd / 60 + 'h' : g.cd + ' min'}</i>`}</button>`; }).join('')}</div>`}
   <button class="lnk center-block" data-act="breakup">${L.stage >= 4 ? 'Pedir divórcio (custa 25% do dinheiro)' : 'Terminar relacionamento'}</button>`;
 }
 
@@ -605,7 +620,7 @@ function vViagens() {
   ${list.map((t) => {
     const n = s.trips[t.id] || 0;
     return `<div class="item trip ${n ? 'done' : ''}"><span class="bi">${t.icon}${n ? '<i class="stamp">✓</i>' : ''}</span><div class="grow"><b>${t.name}</b><small>🗓️ ${t.days} dias${n ? ` · visitado ${n}x` : ''}</small></div>
-      ${trip ? '' : `<div class="col">${costBtn('trip', { id: t.id }, t.cost)}${L ? `<button class="btn pink sm" data-act="trip" data-id="${t.id}" data-partner="1" data-cost="${t.cost * 2}">+ ${esc(L.partner.name)} ❤️</button>` : ''}</div>`}</div>`;
+      ${trip ? '' : `<div class="col">${costBtn('trip', { id: t.id }, dp(t.cost))}${L ? `<button class="btn pink sm" data-act="trip" data-id="${t.id}" data-partner="1" data-cost="${dp(t.cost * 2)}">+ ${esc(L.partner.name)} ❤️</button>` : ''}</div>`}</div>`;
   }).join('')}`;
 }
 
@@ -743,7 +758,7 @@ function friendView(uid) {
       <div><small>Patrimônio</small><b>${money(p.nw)}</b></div><div><small>Por dia</small><b class="up">+${money(p.net || 0)}</b></div>
       <div><small>Nível</small><b>⭐ ${p.level}</b></div><div><small>Cartão</small><b>${card.name}</b></div>
       <div><small>Trabalho</small><b>${p.jobIcon || ''} ${esc(p.jobName || '')}</b></div><div><small>Amor</small><b>${p.partner ? LOVE_STAGES[p.partner.stage].icon + ' ' + LOVE_STAGES[p.partner.stage].name : '💔 Solteiro(a)'}</b></div>
-      <div><small>Viagens</small><b>🛂 ${p.trips || 0}</b></div><div><small>Prestígio</small><b>✨ ${fmt(p.prestige || 0)}</b></div>
+      <div><small>Viagens</small><b>🛂 ${p.trips || 0}</b></div><div><small>Status</small><b>${G.STATUS[G.statusIdx(p.prestige || 0)].icon} ${G.STATUS[G.statusIdx(p.prestige || 0)].name}</b></div>
       <div><small>Troféus</small><b>🎖️ ${p.ach}</b></div><div><small>Veículo</small><b>${p.veh || '🚶'}</b></div>
       <div><small>Empresas controladas</small><b>👑 ${p.ctrl || 0}</b></div>
     </div>
@@ -1223,7 +1238,7 @@ function vBens() {
   const list = GOODS[sub];
   const owned = list.filter((g) => s.goods[g.id]).length;
   const head = title('💎', 'Coleção', 'bens') + subtabs([['veiculos', '🚗', 'Carros'], ['ceumar', '🛥️', 'Céu e Mar'], ['moradia', '🏠', 'Casas'], ['luxo', '💍', 'Luxo'], ['colecao', '🖼️', 'Coleção']]) + `
-  <div class="wallet"><div><small>✨ Prestígio</small><b>${fmt(G.prestige(s))}</b></div><div class="right"><small>Coleção</small><b>${owned}/${list.length}</b></div></div>`;
+  <div class="wallet" data-act="status"><div><small>✨ Prestígio · ${G.statusOf(s).icon} ${G.statusOf(s).name} ›</small><b>${fmt(G.prestige(s))}</b></div><div class="right"><small>Coleção</small><b>${owned}/${list.length}</b></div></div>`;
   if (sub === 'veiculos') return head + payBar() + `<div data-cardable>${vCarros()}</div>`;
   return head + payBar() + `
   <div class="goods" data-cardable>${list.map((g, i) => goodCard(g, RAR[i])).join('')}</div>`;
@@ -1238,7 +1253,7 @@ function goodCard(g, r) {
     return `<div class="gcard ${r} ${own ? 'own' : ''}" data-act="good" data-id="${g.id}">
       <span class="rar">${RARN[r]}</span>${own ? '<span class="owned">✓</span>' : ''}
       <div class="gi">${g.brand ? vIcon(g) : g.icon}</div><b>${g.name}</b><small>${perk}</small>
-      <div class="gprice" data-cost="${own ? 0 : g.cost}">${own ? 'É seu!' : money(g.cost)}</div></div>`;
+      <div class="gprice" data-cost="${own ? 0 : dp(g.cost)}">${own ? 'É seu!' : money(dp(g.cost))}</div></div>`;
   }
 }
 const brandBadge = (b, big) => `<span class="bmono ${big ? 'big' : ''}" style="background:linear-gradient(135deg, ${b.c1}, ${b.c2})">${b.mono}</span>`;
@@ -1264,7 +1279,7 @@ function openGood(id) {
   modal(`<div class="goodmodal ${r}" data-cardable><div class="gi">${g.brand ? vIcon(g) : g.icon}</div><span class="rar">${g.tier ? g.tier : RARN[r]}</span><h3>${g.name}</h3>${br ? `<p class="muted">${brandBadge(br)} ${br.name} · ${br.slogan}</p>` : ''}
     <div class="tags">${g.bonus ? `<span class="pill">💼 +${Math.round(g.bonus * 100)}% salário</span>` : ''}${g.hours ? `<span class="pill">🌙 +${g.hours}h offline</span><span class="pill">🏠 sem aluguel</span>` : ''}<span class="pill">✨ ${g.prestige} prestígio</span></div>
     ${own ? `<p class="muted">Você é dono disso! Se vender, recebe ${money(g.cost * rate)}.</p><button class="btn red full" data-act="sellgood" data-id="${id}">Vender</button>`
-      : `<p class="muted">${s.payMode === 'card' ? `Pagando com 💳 cartão ${(s.parc || 1) === 1 ? 'à vista' : 'em ' + s.parc + 'x sem juros'} · cashback de ${Math.round(G.card(s).cashback * 100)}%` : 'Pagando com 💵 dinheiro (sem cashback)'}<br><small>Mude a forma de pagamento na barra "Pagar com".</small></p><button class="btn gold full" data-act="buygood" data-id="${id}" data-cost="${g.cost}"><em>Comprar</em><span>${money(g.cost)}</span></button>`}</div>`);
+      : `<p class="muted">${s.payMode === 'card' ? `Pagando com 💳 cartão ${(s.parc || 1) === 1 ? 'à vista' : 'em ' + s.parc + 'x sem juros'} · cashback de ${Math.round(G.card(s).cashback * 100)}%` : 'Pagando com 💵 dinheiro (sem cashback)'}<br><small>Mude a forma de pagamento na barra "Pagar com".</small></p><button class="btn gold full" data-act="buygood" data-id="${id}" data-cost="${dp(g.cost)}"><em>Comprar</em><span>${money(dp(g.cost))}</span>${dp(g.cost) < g.cost ? ` <s class="old">${money(g.cost)}</s>` : ''}</button>`}</div>`);
 }
 
 // ---------- RANKING / PERFIL ----------
@@ -1286,7 +1301,7 @@ function vRanking() {
   <div class="mytag"><div><small>Sua tag de amigo</small><b>${C.cloud ? esc(s.tag || 'gerando…') : 'offline'}</b></div><button class="btn sm" data-act="copytag">Copiar</button></div>
   <div class="podium">${pod.map((p, i) => p && !p.loading ? `<div class="pcol ${cls[i]} ${p.me ? 'me' : ''}"><div class="pav2" ${p.me ? '' : `data-act="friend" data-id="${p.id}"`}>${avatarSVG(p.look, { size: i === 1 ? 110 : 90 })}${p.online || p.me ? '<i class="on"></i>' : ''}</div><b>${esc(p.n)}</b><small>${money(p.w)}</small><div class="pbar"><span>${medal[i]}</span></div></div>` : '<div class="pcol empty"><div class="pbar"></div></div>').join('')}</div>
   <div class="ranklist">${all.map((p, i) => `<div class="rank ${p.me ? 'me' : ''}" ${p.me || p.loading ? '' : `data-act="friend" data-id="${p.id}"`}><span class="pos">${i + 1}º</span><span class="rav">${p.loading ? '' : avatarSVG(p.look, { size: 52 })}</span>
-      <div class="grow"><b>${p.home || ''} ${esc(p.n)}${p.me ? ' (você)' : ''}</b>${p.loading ? '' : `<small>⭐${p.l} · 💳${CARDS[p.c].name} · 🎖️${p.a} · ✨${fmt(p.p)}</small><small class="${p.online || p.me ? 'up' : ''}">${p.me ? '🟢 você' : p.online ? '🟢 jogando agora' : '⚪ visto ' + ago(p.t)} · ${p.net >= 0 ? '+' : ''}${fmt(p.net || 0)}/dia</small>`}</div>
+      <div class="grow"><b>${p.home || ''} ${esc(p.n)}${p.me ? ' (você)' : ''}</b>${p.loading ? '' : `<small>⭐${p.l} · 💳${CARDS[p.c].name} · 🎖️${p.a} · ${G.STATUS[G.statusIdx(p.p || 0)].icon}${fmt(p.p)}${G.STATUS[G.statusIdx(p.p || 0)].club ? ' · <span class="club">👑 Clube</span>' : ''}</small><small class="${p.online || p.me ? 'up' : ''}">${p.me ? '🟢 você' : p.online ? '🟢 jogando agora' : '⚪ visto ' + ago(p.t)} · ${p.net >= 0 ? '+' : ''}${fmt(p.net || 0)}/dia</small>`}</div>
       <div class="right"><b>${p.loading ? '…' : money(p.w)}</b>${p.me ? '' : `<button class="lnk" data-act="delfriend" data-id="${p.id}">remover</button>`}</div></div>`).join('')}</div>
   ${s.friends.length ? '' : '<p class="muted center">Ainda só você aqui! Adicione a família pela tag 👇</p>'}
   ${C.cloud ? '<button class="btn full blue" data-act="friendadd">👥 Adicionar amigo pela tag</button>' : '<p class="muted center">Ranking online disponível quando as contas estiverem ativadas.</p>'}
