@@ -213,11 +213,13 @@ export function startCourse(s, id) {
   const c = COURSES.find((x) => x.id === id);
   if (s.course) return 'Você já está estudando';
   if (s.edu.includes(id)) return 'Você já concluiu este curso';
-  if (c.req && !s.edu.includes(c.req)) return 'Requisito não concluído';
+  if (!courseReqOk(s, c)) return 'Requisito não concluído';
   const e = spend(s, c.cost); if (e) return e;
   s.course = { id, end: Date.now() + c.mins * 60_000, start: Date.now() };
   return null;
 }
+export const courseReqs = (c) => (Array.isArray(c.req) ? c.req : c.req ? [c.req] : []);
+export const courseReqOk = (s, c) => courseReqs(c).every((r) => s.edu.includes(r)) && (!c.reqAny || c.reqAny.some((r) => s.edu.includes(r)));
 export function checkCourse(s) {
   if (s.course && Date.now() >= s.course.end) {
     const c = COURSES.find((x) => x.id === s.course.id);
@@ -410,6 +412,10 @@ export const ACHIEVEMENTS = [
   { id: 'ilha', icon: '🏝️', name: 'Dono do paraíso', desc: 'Compre uma ilha particular', test: (s) => !!s.goods.ilha },
   { id: 'emprestimo', icon: '🏦', name: 'Alavancado', desc: 'Pegue um empréstimo', test: (s) => s.stats.loans >= 1 },
   { id: 'ceo', icon: '🏆', name: 'Topo da carreira', desc: 'Torne-se CEO', test: (s) => s.job === 'ceo' },
+  { id: 'doutor', icon: '🎓', name: 'Doutor(a)', desc: 'Conclua um doutorado', test: (s) => s.edu.includes('doutorado') },
+  { id: 'juiz', icon: '⚖️', name: 'Meritíssimo(a)', desc: 'Torne-se juiz(a)', test: (s) => s.job === 'juiz' || s.job === 'desembargador' },
+  { id: 'jaleco', icon: '🩺', name: 'De jaleco', desc: 'Torne-se médico(a)', test: (s) => ['medico', 'cirurgiao'].includes(s.job) },
+  { id: 'espaco', icon: '👩‍🚀', name: 'Rumo às estrelas', desc: 'Torne-se astronauta', test: (s) => s.job === 'astronauta' },
   { id: 'mil', icon: '💵', name: 'Primeiros mil', desc: 'Patrimônio de R$ 10 mil', test: (s) => s.peakNW >= 1e4 },
   { id: 'milhao', icon: '💰', name: 'Milionário', desc: 'Patrimônio de R$ 1 milhão', test: (s) => s.peakNW >= 1e6 },
   { id: 'bilhao', icon: '🤑', name: 'Bilionário', desc: 'Patrimônio de R$ 1 bilhão', test: (s) => s.peakNW >= 1e9 },

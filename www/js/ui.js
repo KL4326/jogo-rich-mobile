@@ -1,6 +1,6 @@
 // ===== Interface (visual de jogo) =====
 import {
-  BRANDS, TIERS, OWN_TIERS, TRIP_CATS, TRIPS, LOVE_STAGES, DATES, GIFTS, RING_COST, WEDDINGS,
+  COURSE_GROUPS, JOB_AREAS, BRANDS, TIERS, OWN_TIERS, TRIP_CATS, TRIPS, LOVE_STAGES, DATES, GIFTS, RING_COST, WEDDINGS,
   DAY_MS, SECTORS, SECTOR, STOCKS, CRYPTOS, ASSETS, BUSINESSES, COURSES, JOBS, PROPERTIES, GOODS, CARDS, UNLOCKS, TRADE_FEE, LOAN_RATE, LEVEL_BONUS, RENT_NO_HOME,
 } from './data.js';
 import * as G from './game.js';
@@ -142,8 +142,9 @@ const handlers = {
   sub: (d) => { ui.sub[ui.tab] = d.sub; render(true); $('#view').scrollTop = 0; },
   bizn: (d) => { ui.bizN = d.n === 'max' ? 'max' : +d.n; render(); },
   buybiz: (d, el) => { const sc = $('#view').scrollTop; if (act(() => G.buyBiz(C.s, d.id, ui.bizN), null, el)) { render(); $('#view').scrollTop = sc; } },
-  course: (d, el) => act(() => G.startCourse(C.s, d.id), '📚 Bons estudos!', el) && render(),
-  job: (d, el) => act(() => G.takeJob(C.s, d.id), '💼 Novo emprego!', el) && render(),
+  course: (d, el) => { if (act(() => G.startCourse(C.s, d.id), '📚 Bons estudos!', el)) { keepScroll(render); if ($('#jobpath')) openJobPath(ui.lastPath); } },
+  jobpath: (d) => openJobPath(d.id),
+  job: (d, el) => { if (act(() => G.takeJob(C.s, d.id), '💼 Nova profissão!', el)) { closeModal(); keepScroll(render); } },
   asset: (d) => openAsset(d.sym),
   qty: (d) => { const inp = $('#qty'); if (!inp) return; inp.value = d.v; updateTradePreview(); },
   trade: (d) => doTrade(d.sym, d.side),
@@ -713,33 +714,71 @@ function newsHTML(n) {
 }
 
 // ---------- CARREIRA ----------
+const CNAME = (id) => (COURSES.find((c) => c.id === id) || { name: id }).name;
+function courseNeeds(c) { return [...G.courseReqs(c).map(CNAME), ...(c.reqAny ? [c.reqAny.map(CNAME).join(' ou ')] : [])]; }
+// Cursos que faltam (com pré-requisitos, em ordem) para ter a formação pedida
+function pathFor(s, ids, out = []) {
+  for (const id of ids) {
+    if (s.edu.includes(id) || out.includes(id)) continue;
+    const c = COURSES.find((x) => x.id === id);
+    if (!c) continue;
+    pathFor(s, G.courseReqs(c), out);
+    if (c.reqAny && !c.reqAny.some((r) => s.edu.includes(r) || out.includes(r))) pathFor(s, [c.reqAny[0]], out);
+    if (!out.includes(id)) out.push(id);
+  }
+  return out;
+}
+function courseRow(c) {
+  const s = C.s;
+  const done = s.edu.includes(c.id);
+  const running = s.course && s.course.id === c.id;
+  const reqOk = G.courseReqOk(s, c);
+  let right;
+  if (done) right = '<span class="pill ok">✓</span>';
+  else if (running) right = '<span class="timer" data-live="coursetime"></span>';
+  else if (!reqOk || s.course) right = '<span class="pill">🔒</span>';
+  else right = costBtn('course', { id: c.id }, c.cost);
+  const unlocks = JOBS.filter((j) => j.edu.includes(c.id)).length;
+  return `<div class="item ${done ? 'done' : ''} ${!reqOk && !done ? 'dim' : ''}"><span class="bi">${c.icon}</span><div class="grow"><b>${c.name}</b><small>⏱️ ${c.mins} min${unlocks ? ` · libera ${unlocks} profiss${unlocks > 1 ? 'ões' : 'ão'}` : ''}${!reqOk && !done ? ` · precisa de ${courseNeeds(c).join(', ')}` : ''}</small>${running ? '<div class="bar"><i data-live-w="course"></i></div>' : ''}</div>${right}</div>`;
+}
 function vCarreira() {
   const s = C.s;
   const job = JOBS.find((j) => j.id === s.job);
   const lvl = G.level(s);
-  const courses = COURSES.map((c) => {
-    const done = s.edu.includes(c.id);
-    const running = s.course && s.course.id === c.id;
-    const reqOk = !c.req || s.edu.includes(c.req);
-    let right;
-    if (done) right = '<span class="pill ok">✓</span>';
-    else if (running) right = '<span class="timer" data-live="coursetime"></span>';
-    else if (!reqOk || s.course) right = '<span class="pill">🔒</span>';
-    else right = costBtn('course', { id: c.id }, c.cost);
-    return `<div class="item ${done ? 'done' : ''} ${!reqOk && !done ? 'dim' : ''}"><span class="bi">${c.icon}</span><div class="grow"><b>${c.name}</b><small>⏱️ ${c.mins} min${!reqOk && !done ? ` · precisa de ${COURSES.find((x) => x.id === c.req).name}` : ''}</small>${running ? '<div class="bar"><i data-live-w="course"></i></div>' : ''}</div>${right}</div>`;
-  }).join('');
-  const jobs = JOBS.map((j) => {
-    const cur = s.job === j.id;
-    const ok = G.canTakeJob(s, j);
-    const miss = [...j.edu.filter((e) => !s.edu.includes(e)).map((e) => COURSES.find((c) => c.id === e).name), lvl < j.lvl ? `Nível ${j.lvl}` : null].filter(Boolean);
-    if (cur) return '';
-    return `<div class="item ${ok ? '' : 'dim'}"><span class="bi">${j.icon}</span><div class="grow"><b>${j.name}</b><small>${ok ? `💵 ${money(j.salary)}/dia` : '🔒 ' + miss.join(', ')}</small></div>${ok ? `<button class="btn" data-act="job" data-id="${j.id}">Trabalhar</button>` : ''}</div>`;
-  }).join('');
-  const t = ui.car || 'estudos';
+  const t = ui.car || 'profissoes';
+  let body = '';
+  if (t === 'profissoes') {
+    const area = ui.area || job.area || 'basico';
+    body = `<div class="subtabs vistabs">${JOB_AREAS.map((a) => `<button class="${area === a.id ? 'on' : ''}" data-act="pt" data-g="area" data-t="${a.id}"><span>${a.icon}</span>${a.name}</button>`).join('')}</div>
+    ${JOBS.filter((j) => j.area === area).map((j) => {
+      const cur = s.job === j.id;
+      const ok = G.canTakeJob(s, j);
+      const chips = [...j.edu.map((e) => `<span class="rq ${s.edu.includes(e) ? 'ok' : ''}">${s.edu.includes(e) ? '✓' : '○'} ${CNAME(e)}</span>`), j.lvl > 1 ? `<span class="rq ${lvl >= j.lvl ? 'ok' : ''}">${lvl >= j.lvl ? '✓' : '○'} Nível ${j.lvl}</span>` : ''].join('');
+      return `<div class="item job ${cur ? 'cur' : ''}"><span class="bi">${j.icon}</span><div class="grow"><b>${j.name}</b><span class="pill money">💵 ${money(j.salary)}/dia</span>${chips ? `<div class="rqs">${chips}</div>` : ''}</div>
+        ${cur ? '<span class="pill ok">Atual</span>' : ok ? `<button class="btn sm" data-act="job" data-id="${j.id}">Trabalhar</button>` : `<button class="btn ghost sm" data-act="jobpath" data-id="${j.id}">Ver caminho</button>`}</div>`;
+    }).join('')}`;
+  } else {
+    body = COURSE_GROUPS.map((g) => `<h4 class="sec">${g.icon} ${g.name}</h4>${COURSES.filter((c) => c.grp === g.id).map(courseRow).join('')}`).join('');
+  }
   return `
-  <div class="hero job"><span class="hi">${job.icon}</span><div><small>Seu emprego</small><h3>${job.name}</h3><span class="pill money"><b data-live="salary"></b>/dia</span></div></div>
-  ${pillTabs('car', [['estudos', '📚', 'Estudos'], ['empregos', '💼', 'Empregos']], t)}
-  ${t === 'estudos' ? courses : jobs}`;
+  <div class="hero job"><span class="hi">${job.icon}</span><div><small>Sua profissão</small><h3>${job.name}</h3><span class="pill money"><b data-live="salary"></b>/dia</span></div></div>
+  ${s.course ? `<div class="box studying"><span class="bi">${COURSES.find((c) => c.id === s.course.id).icon}</span><div class="grow"><b>Estudando: ${CNAME(s.course.id)}</b><div class="bar"><i data-live-w="course"></i></div></div><span class="timer" data-live="coursetime"></span></div>` : ''}
+  ${pillTabs('car', [['profissoes', '💼', 'Profissões'], ['estudos', '📚', 'Estudos']], t)}
+  ${body}`;
+}
+function openJobPath(id) {
+  const s = C.s;
+  const j = JOBS.find((x) => x.id === id);
+  ui.lastPath = id;
+  const steps = pathFor(s, j.edu);
+  const lvl = G.level(s);
+  const total = steps.reduce((t, cid) => t + COURSES.find((c) => c.id === cid).cost, 0);
+  const mins = steps.reduce((t, cid) => t + COURSES.find((c) => c.id === cid).mins, 0);
+  modal(`<div id="jobpath"><h3>${j.icon} Quero ser ${j.name}</h3>
+    <p class="muted">Salário: <b class="up">${money(j.salary)}/dia</b>${steps.length ? ` · faltam ${steps.length} curso(s): ${money(total)} e ${mins} min de estudo` : ''}</p>
+    <div class="steps">${steps.map((cid, i) => { const c = COURSES.find((x) => x.id === cid); return `<div class="step"><span class="sn">${i + 1}</span>${courseRow(c)}</div>`; }).join('')}
+    ${j.lvl > 1 ? `<div class="step"><span class="sn">⭐</span><div class="item ${lvl >= j.lvl ? 'done' : ''}"><span class="bi">⭐</span><div class="grow"><b>Nível ${j.lvl}</b><small>Você está no nível ${lvl}</small></div>${lvl >= j.lvl ? '<span class="pill ok">✓</span>' : '<span class="pill">🔒</span>'}</div></div>` : ''}</div>
+    ${G.canTakeJob(s, j) ? `<button class="btn full" data-act="job" data-id="${j.id}">Começar a trabalhar como ${j.name}</button>` : '<p class="muted small">Só um curso por vez. Complete os passos em ordem!</p>'}</div>`);
 }
 
 // ---------- NEGÓCIOS ----------

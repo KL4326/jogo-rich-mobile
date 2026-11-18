@@ -739,3 +739,13 @@ details.appear[open] summary { margin-bottom: 8px; }
 .parcs { display: flex; flex-wrap: wrap; gap: 6px; }
 .parcs span { background: var(--card2); border-radius: 10px; padding: 3px 8px; font-size: 12px; font-weight: 600; }
 .loanbox .lockbox, .loanbox .locked { margin-top: 0; }
+/* carreira */
+.item.job { align-items: flex-start; }
+.item.job .grow { gap: 4px; }
+.rqs { display: flex; flex-wrap: wrap; gap: 4px; }
+.rq { font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 8px; background: #ffe1e5; color: var(--red-d); }
+.rq.ok { background: #dcf8e7; color: var(--green-d); }
+.steps { display: flex; flex-direction: column; gap: 2px; margin: 10px 0; }
+.step { display: flex; align-items: center; gap: 8px; }
+.step .item { flex: 1; margin-bottom: 6px; }
+.sn { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: var(--purple); color: #fff; font-weight: 700; font-size: 13px; flex: none; }
