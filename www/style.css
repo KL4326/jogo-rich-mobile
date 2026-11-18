@@ -772,3 +772,32 @@ details.appear[open] summary { margin-bottom: 8px; }
 .cstats > div { background: #fff; border-radius: 14px; padding: 8px 10px; display: flex; flex-direction: column; }
 .cstats small { color: var(--ink2); font-weight: 600; }
 .chipbtn small { display: block; font-size: 10.5px; color: var(--green-d); }
+/* renda fixa com prazos */
+.terms { display: flex; flex-wrap: wrap; gap: 4px; margin: 2px 0; }
+.terms span { font-size: 11.5px; font-weight: 600; background: var(--card2); border-radius: 8px; padding: 1px 7px; color: var(--ink2); }
+.terms b { color: var(--green-d); }
+.lock .grow small { font-size: 11px; }
+.lock .col { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+.termpick { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 6px 0 10px; }
+.tp { border: 3px solid var(--edge); background: #fff; border-radius: 16px; padding: 8px 4px; font: inherit; color: var(--ink); display: flex; flex-direction: column; align-items: center; gap: 1px; }
+.tp b { font-family: var(--display); font-weight: 400; font-size: 16px; }
+.tp small { font-size: 11px; font-weight: 600; color: var(--ink2); }
+.tp small.up { color: var(--green-d); }
+.tp.on { border-color: var(--purple); background: #f1ebff; box-shadow: 0 3px 0 #c9b8f5; }
+/* posição nos investimentos */
+.wallet3 { display: grid; grid-template-columns: 1fr 1fr 1.2fr; gap: 6px; background: linear-gradient(135deg, #fff, var(--card2)); border-radius: 20px; padding: 10px 12px; margin-bottom: 14px; box-shadow: 0 5px 0 var(--edge); }
+.wallet3 small { display: block; color: var(--ink2); font-weight: 600; font-size: 11px; }
+.wallet3 b { font-family: var(--display); font-weight: 400; font-size: 15px; }
+.plline { font-weight: 700 !important; font-size: 11.5px !important; }
+.pos { border-radius: 18px; padding: 10px 12px; margin: 8px 0; display: flex; flex-direction: column; gap: 8px; }
+.pos.win { background: #e3f9ec; } .pos.lose { background: #ffe6ea; }
+.posres { display: flex; align-items: baseline; gap: 8px; }
+.posres small { color: var(--ink2); font-weight: 700; flex: 1; }
+.posres b { font-family: var(--display); font-weight: 400; font-size: 24px; }
+.pos.win .posres b, .pos.win .posres span { color: var(--green-d); } .pos.lose .posres b, .pos.lose .posres span { color: var(--red-d); }
+.posres span { font-weight: 700; }
+.posgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.posgrid > div { background: #ffffffaa; border-radius: 12px; padding: 6px 8px; display: flex; flex-direction: column; }
+.posgrid small { color: var(--ink2); font-weight: 600; font-size: 11px; }
+.posgrid b { font-size: 14px; }
+.btn.sm small { font-family: 'Fredoka'; font-size: 11px; opacity: .9; }

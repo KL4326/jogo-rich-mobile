@@ -101,6 +101,7 @@ export function salary(s) {
 // Renda e gastos por dia de jogo, detalhado
 export function incomeBreakdown(s, mk) {
   const sal = salary(s);
+  const salVeh = sal - sal / (1 + vehicleBonus(s)); // parte do salário que vem do veículo
   const bizGross = BUSINESSES.reduce((t, b) => t + bizProfit(s, b, mk), 0);
   const biz = bizGross * (1 - corpFloat(s)); // a fatia vendida na bolsa vai para os acionistas
   const rent = PROPERTIES.reduce((t, p) => t + (s.props[p.id] || 0) * p.rent, 0) * levelMult(s);
@@ -110,13 +111,13 @@ export function incomeBreakdown(s, mk) {
     if (h && h.q > 0) { const t = ownTier(ownPct(s, a.sym)); const d = ((a.div || 0) + (t ? t.extra : 0)) * (t ? t.mult : 1); if (d) divs += h.q * mk.price(a.sym) * d; }
   }
   const cdi = mk.cdi();
-  const juros = s.poup * cdi * 0.7 + s.cdb.reduce((t, x) => t + x.amt, 0) * cdi * 1.1 + s.tes.reduce((t, x) => t + x.amt, 0) * cdi * 1.3;
+  const juros = s.poup * cdi * 0.7 + s.cdb.reduce((t, x) => t + x.amt * fixedRate('cdb', x), 0) * cdi + s.tes.reduce((t, x) => t + x.amt * fixedRate('tes', x), 0) * cdi;
   const moradia = homeOf(s) ? 0 : RENT_NO_HOME;
   const manut = ALL_GOODS.filter((g) => s.goods[g.id]).reduce((t, g) => t + g.cost * 0.0002, 0);
   const loan = s.debt * LOAN_RATE;
   const inc = sal + biz + rent + divs + juros;
   const exp = moradia + manut + loan;
-  return { sal, biz, rent, divs, juros, moradia, manut, loan, inc, exp, net: inc - exp };
+  return { sal, salVeh, biz, rent, divs, juros, moradia, manut, loan, inc, exp, net: inc - exp };
 }
 
 export function netWorth(s, mk) {
@@ -143,8 +144,8 @@ export function accrue(s, mk, dt) {
   const cdi = mk.cdi();
   // juros compõem nas próprias aplicações
   s.poup += s.poup * cdi * 0.7 * days;
-  s.cdb.forEach((x) => { x.amt += x.amt * cdi * 1.1 * days; });
-  s.tes.forEach((x) => { x.amt += x.amt * cdi * 1.3 * days; });
+  s.cdb.forEach((x) => { x.amt += x.amt * cdi * fixedRate('cdb', x) * days; });
+  s.tes.forEach((x) => { x.amt += x.amt * cdi * fixedRate('tes', x) * days; });
   s.debt += s.debt * LOAN_RATE * days;
   const cashGain = (ib.sal + ib.biz + ib.rent + ib.divs - ib.moradia - ib.manut) * days;
   s.cash += cashGain;
@@ -192,7 +193,9 @@ export function ccTick(s) {
   const out = []; let guard = 0;
   while (Date.now() >= c.nextClose && guard++ < 100) {
     let due = c.fatura; c.fatura = 0;
-    c.parcels.forEach((p) => { due += p.amt; p.left--; });
+    const skip = c.paidAhead === c.nextClose; // parcela deste mês já foi antecipada
+    if (!skip) c.parcels.forEach((p) => { due += p.amt; p.left--; });
+    c.paidAhead = null;
     c.parcels = c.parcels.filter((p) => p.left > 0);
     c.nextClose += FATURA_MS;
     if (due <= 0.01) continue;
@@ -203,12 +206,18 @@ export function ccTick(s) {
   }
   return out;
 }
-export function payFaturaNow(s) {
-  const c = s.cc; if (!c || c.fatura <= 0.01) return 'A fatura atual está zerada';
-  const amt = Math.min(c.fatura, s.cash);
-  if (amt <= 0) return 'Dinheiro insuficiente';
-  s.cash -= amt; c.fatura -= amt;
-  return null;
+export const ccCurrent = (s) => (s.cc ? s.cc.fatura + s.cc.parcels.reduce((t, p) => t + p.amt, 0) : 0);
+// all=false: paga a fatura atual (compras à vista + parcela deste mês); all=true: quita tudo, inclusive parcelas futuras
+export function payFaturaNow(s, all = false) {
+  const c = s.cc;
+  const due = all ? ccOwed(s) : ccCurrent(s);
+  if (!c || due <= 0.01) return 'Não há nada para pagar no cartão';
+  if (s.cash < due - 0.01) return `Você precisa de ${Math.ceil(due).toLocaleString('pt-BR')} em dinheiro`;
+  s.cash -= due;
+  c.fatura = 0;
+  if (all) c.parcels = [];
+  else { c.parcels.forEach((p) => { p.left--; p.prepaid = (p.prepaid || 0) + 1; }); c.parcels = c.parcels.filter((p) => p.left > 0); c.paidAhead = c.nextClose; }
+  return { paid: due };
 }
 
 export function startCourse(s, id) {
@@ -292,12 +301,21 @@ export function trade(s, mk, sym, qty, side) {
 }
 export const isCrypto = (sym) => CRYPTOS.some((c) => c.sym === sym);
 
-export function applyFixed(s, kind, amt) {
+// Prazos: quanto mais tempo preso, mais rende (multiplicador sobre o CDI). mins = minutos reais
+export const TERMS = {
+  cdb: [{ mins: 15, rate: 1.0 }, { mins: 30, rate: 1.1 }, { mins: 60, rate: 1.2 }],
+  tes: [{ mins: 60, rate: 1.25 }, { mins: 120, rate: 1.35 }, { mins: 240, rate: 1.5 }],
+};
+const defRate = (kind) => (kind === 'cdb' ? 1.1 : 1.3); // aplicações antigas
+export const fixedRate = (kind, x) => x.rate || defRate(kind);
+export function applyFixed(s, kind, amt, term = 0) {
   if (!(amt > 0)) return 'Valor inválido';
   const e = spend(s, amt); if (e) return e;
   if (kind === 'poup') s.poup += amt;
-  else if (kind === 'cdb') s.cdb.push({ amt, until: Date.now() + 60 * DAY_MS });
-  else s.tes.push({ amt, until: Date.now() + 240 * DAY_MS });
+  else {
+    const t = TERMS[kind][term] || TERMS[kind][0];
+    s[kind].push({ amt, principal: amt, start: Date.now(), until: Date.now() + t.mins * 60_000, rate: t.rate, mins: t.mins });
+  }
   addXP(s, 2);
   return null;
 }
@@ -306,13 +324,17 @@ export function withdrawPoup(s, amt) {
   s.poup -= amt; s.cash += amt;
   return null;
 }
-export function redeem(s, kind, i) {
+// Resgate: no prazo recebe tudo; antes do prazo recebe só o valor aplicado (perde o rendimento)
+export function redeem(s, kind, i, early = false) {
   const list = s[kind];
   const x = list[i];
-  if (!x || Date.now() < x.until) return 'Ainda está no prazo de carência';
+  if (!x) return 'Aplicação não encontrada';
+  const ready = Date.now() >= x.until;
+  if (!ready && !early) return 'Ainda está no prazo de carência';
   list.splice(i, 1);
-  s.cash += x.amt;
-  return null;
+  const got = ready ? x.amt : Math.min(x.amt, x.principal || x.amt);
+  s.cash += got;
+  return { got, lost: x.amt - got };
 }
 
 export function buyProp(s, mk, id) {

@@ -153,11 +153,13 @@ const handlers = {
   fixedgo: (d) => {
     const v = readAmount();
     if (d.kind === 'saque') act(() => G.withdrawPoup(C.s, v), '🏦 Saque feito');
-    else act(() => G.applyFixed(C.s, d.kind, v), '✅ Dinheiro aplicado');
+    else act(() => G.applyFixed(C.s, d.kind, v, (ui.term || {})[d.kind] ?? 1), '✅ Dinheiro aplicado');
     closeModal(); render();
   },
   pctamt: (d) => { const inp = $('#amt'); inp.value = Math.floor(+d.base * +d.p * 100) / 100; },
-  redeem: (d, el) => act(() => G.redeem(C.s, d.kind, +d.i), '💰 Resgatado', el) && render(),
+  redeem: (d, el) => act(() => G.redeem(C.s, d.kind, +d.i), '💰 Resgatado', el) && keepScroll(render),
+  redeemearly: (d) => { const x = C.s[d.kind][+d.i]; confirmBox(`Resgatar antes do prazo? Você recebe ${money(x.principal || x.amt)} e perde ${money(x.amt - (x.principal || x.amt))} de rendimento.`, () => { if (act(() => G.redeem(C.s, d.kind, +d.i, true), '💸 Resgatado antes do prazo')) keepScroll(render); }); },
+  term: (d, el) => { ui.term = ui.term || {}; ui.term[d.k] = +d.i; el.parentElement.querySelectorAll('.tp').forEach((b) => b.classList.toggle('on', b === el)); },
   buyprop: (d, el) => act(() => G.buyProp(C.s, C.mk, d.id), '🔑 Imóvel comprado!', el) && render(),
   sellprop: (d) => confirmBox('Vender este imóvel?', () => act(() => G.sellProp(C.s, C.mk, d.id), 'Imóvel vendido') && render()),
   good: (d) => openGood(d.id),
@@ -281,7 +283,7 @@ const handlers = {
   inboxok: () => { C.clearInbox(); keepScroll(render); },
   paymode: (d) => { G.setPay(C.s, d.m); C.afterAction(); if (!refreshVisual()) keepScroll(render); },
   parc: (d) => { G.setPay(C.s, 'card', +d.n); C.afterAction(); if (!refreshVisual()) keepScroll(render); },
-  payfatura: () => act(() => G.payFaturaNow(C.s), '🧾 Fatura paga!') && keepScroll(render),
+  payfatura: (d) => { const r = act(() => G.payFaturaNow(C.s, d.all === '1')); if (r) { A.sfx('cash'); toast(d.all === '1' ? `🧾 Cartão quitado: ${money(r.paid)}` : `🧾 Fatura paga: ${money(r.paid)}`, 'ok', false); keepScroll(render); } },
   found: (d, el) => { if (act(() => G.foundCorp(C.s, ($('#cname') || {}).value, ($('#cticker') || {}).value), '🏢 Empresa fundada!', el)) { confetti(); render(); } },
   ipo: (d, el) => confirmBox(`Vender ${Math.round(+d.p * 100)}% da sua empresa no mercado? Essa fatia do lucro dos seus negócios passa a ir para os acionistas.`, () => { const r = act(() => G.ipo(C.s, C.mk, +d.p)); if (r) { A.sfx('cash'); toast(`🔔 IPO! Você recebeu ${money(r.got)}`, 'gold', false); confetti(); render(); } }),
   buyback: (d, el) => { const r = act(() => G.buyback(C.s, C.mk, +d.p), null, el); if (r) { toast(`🔁 Recompra feita: ${money(r.cost)}`, 'ok'); render(); } },
@@ -760,7 +762,7 @@ function quest() {
 function flowHTML() {
   const ib = G.incomeBreakdown(C.s, C.mk);
   const rows = [
-    ['💼 Salário', ib.sal], ['🏭 Negócios', ib.biz], ['🔑 Aluguéis', ib.rent], ['💸 Dividendos', ib.divs], ['🏦 Juros', ib.juros],
+    ['💼 Salário', ib.sal - ib.salVeh], ['🚗 Bônus do veículo', ib.salVeh], ['🏭 Negócios', ib.biz], ['🔑 Aluguéis', ib.rent], ['💸 Dividendos', ib.divs], ['🏦 Juros', ib.juros],
     ['🏠 Aluguel da moradia', -ib.moradia], ['🔧 Manutenção', -ib.manut], ['💳 Juros da dívida', -ib.loan],
   ].filter((r) => Math.abs(r[1]) > 0.0001);
   return rows.map(([n, v]) => `<div class="fr"><span>${n}</span><b class="${v < 0 ? 'down' : 'up'}">${v < 0 ? '-' : '+'}${money(Math.abs(v))}</b></div>`).join('') +
@@ -921,14 +923,14 @@ function portfolioValue(list) {
 function vBolsa(list, stocks) {
   const k = stocks ? 's' : 'c';
   return `
-  <div class="wallet"><div><small>💼 Sua carteira</small><b data-live="pv:${k}"></b></div><div class="right"><small>Lucro</small><b data-live="pl:${k}"></b></div></div>
+  <div class="wallet3"><div><small>💼 Investido</small><b data-live="inv:${k}"></b></div><div><small>📊 Vale agora</small><b data-live="pv:${k}"></b></div><div><small>Resultado</small><b data-live="pl:${k}"></b></div></div>
   <div class="wxhead"><b>Clima dos setores</b><small>muda em <span data-live="nextblock"></span></small></div>
   <div class="wxrow" data-live-html="${stocks ? 'sectors' : 'cryptosector'}"></div>
   ${assetFilters(list, stocks)}
   <div class="assets">${filterAssets(list, stocks).map((a) => `
     <div class="asset" data-act="asset" data-sym="${a.sym}">
       <span class="aico s-${a.sector}">${SECTOR[a.sector].icon}</span>
-      <div class="grow"><b>${a.name}${a.div ? ' <em class="divtag">💸</em>' : ''}</b><small class="held" data-live="held:${a.sym}"></small>${a.shares && G.ownPct(C.s, a.sym) > 0 ? `<div class="ownmini"><i style="width:${Math.max(3, Math.min(100, G.ownPct(C.s, a.sym) / 0.51 * 100))}%"></i></div>` : ''}</div>
+      <div class="grow"><b>${a.name}${a.div ? ' <em class="divtag">💸</em>' : ''}</b><small class="held" data-live="held:${a.sym}"></small><small class="plline" data-live="plrow:${a.sym}"></small>${a.shares && G.ownPct(C.s, a.sym) > 0 ? `<div class="ownmini"><i style="width:${Math.max(3, Math.min(100, G.ownPct(C.s, a.sym) / 0.51 * 100))}%"></i></div>` : ''}</div>
       <svg class="spark" data-spark="${a.sym}" viewBox="0 0 64 28" preserveAspectRatio="none"></svg>
       <div class="right"><b data-live="price:${a.sym}"></b><span class="chg" data-live="chg:${a.sym}"></span></div>
     </div>`).join('') || '<p class="emptyf">Nenhum ativo aqui ainda 🙃</p>'}</div>
@@ -996,7 +998,7 @@ function openAsset(sym) {
     <div class="pricehead"><b class="bigprice" data-live="price:${sym}"></b><span class="chg" data-live="chg:${sym}"></span></div>
     <svg class="spark chart" data-spark="${sym}" viewBox="0 0 300 140" preserveAspectRatio="none"></svg>
     <div class="tags"><span class="pill ${wxCls(k)}">${WX[k]} ${SECTOR[a.sector].name}: ${WXN[k]}</span>${a.div ? `<span class="pill">💸 ${(a.div * 100).toFixed(2)}%/dia</span>` : ''}</div>
-    <div class="heldbox" data-live="heldfull:${sym}"></div>
+    <div class="posbox" data-live-html="pos:${sym}"></div>
     ${a.shares ? ownHTML(sym) : ''}
     <div class="qtyrow"><input id="qty" type="number" inputmode="decimal" min="0" step="${crypto ? 'any' : '1'}" value="${crypto ? '' : 1}" placeholder="${crypto ? 'Quantidade' : 'Qtd. de ações'}"></div>
     <div class="quick">${crypto ? '' : [[1, '1'], [100, '100'], [1000, '1 mil'], [1e5, '100 mil'], [1e6, '1 mi']].map(([v, n]) => `<button class="chipbtn" data-act="qty" data-v="${v}">${n}</button>`).join('')}
@@ -1053,20 +1055,25 @@ function vRenda() {
   const now = Date.now();
   const list = (kind) => s[kind].map((x, i) => {
     const ready = now >= x.until;
-    return `<div class="lock"><b>${money(x.amt)}</b>${ready ? `<button class="btn sm" data-act="redeem" data-kind="${kind}" data-i="${i}">Resgatar</button>` : `<span class="timer sm">🔒 ${dur(x.until - now)}</span>`}</div>`;
+    const gain = x.amt - (x.principal || x.amt);
+    return `<div class="lock"><div class="grow"><b>${money(x.amt)}</b><small>${x.principal ? `aplicou ${money(x.principal)} · <span class="up">rendeu +${money(gain)}</span> · ` : ''}${Math.round(G.fixedRate(kind, x) * 100)}% do CDI</small></div>
+      ${ready ? `<button class="btn sm" data-act="redeem" data-kind="${kind}" data-i="${i}">Resgatar</button>` : `<div class="col"><span class="timer sm">🔒 ${dur(x.until - now)}</span><button class="lnk" data-act="redeemearly" data-kind="${kind}" data-i="${i}">resgatar antes</button></div>`}</div>`;
   }).join('');
   const sum = (k) => s[k].reduce((t, x) => t + x.amt, 0);
+  const terms = (k) => G.TERMS[k].map((t) => `<span>${t.mins >= 60 ? t.mins / 60 + 'h' : t.mins + ' min'}: <b>${Math.round(t.rate * 100)}%</b></span>`).join('');
   return `
-  <div class="vault pig"><span class="vi">🐷</span><div class="grow"><b>Poupança</b><small>+${(cdi * 70).toFixed(3)}%/dia · saque livre</small><span class="vv" data-live="poup"></span></div>
+  <p class="hint small">⏳ No CDB e no Tesouro você escolhe o prazo: quanto mais tempo o dinheiro fica preso, mais rende. Precisa antes? Dá para resgatar antes do prazo, mas você perde o rendimento.</p>
+  <div class="vault pig"><span class="vi">🐷</span><div class="grow"><b>Poupança</b><small>70% do CDI (+${(cdi * 70).toFixed(3)}%/dia) · saque livre</small><span class="vv" data-live="poup"></span></div>
     <div class="vbtns"><button class="btn sm" data-act="fixed" data-kind="poup">Guardar</button><button class="btn ghost sm" data-act="fixed" data-kind="saque">Sacar</button></div></div>
-  <div class="vault cdb"><span class="vi">📄</span><div class="grow"><b>CDB</b><small>+${(cdi * 110).toFixed(3)}%/dia · preso 1h</small><span class="vv">${money(sum('cdb'))}</span>${list('cdb')}</div>
+  <div class="vault cdb"><span class="vi">📄</span><div class="grow"><b>CDB</b><div class="terms">${terms('cdb')}</div><span class="vv">${money(sum('cdb'))}</span>${list('cdb')}</div>
     <div class="vbtns"><button class="btn sm" data-act="fixed" data-kind="cdb">Aplicar</button></div></div>
-  <div class="vault tes"><span class="vi">🏛️</span><div class="grow"><b>Tesouro</b><small>+${(cdi * 130).toFixed(3)}%/dia · preso 4h</small><span class="vv">${money(sum('tes'))}</span>${list('tes')}</div>
-    <div class="vbtns"><button class="btn sm" data-act="fixed" data-kind="tes">Aplicar</button></div></div>`;
+  <div class="vault tes"><span class="vi">🏛️</span><div class="grow"><b>Tesouro</b><div class="terms">${terms('tes')}</div><span class="vv">${money(sum('tes'))}</span>${list('tes')}</div>
+    <div class="vbtns"><button class="btn sm" data-act="fixed" data-kind="tes">Aplicar</button></div></div>
+  <small class="muted center-block">CDI de hoje: ${(cdi * 100).toFixed(3)}% ao dia (muda a cada 6h)</small>`;
 }
 function readAmount() { return parseFloat(($('#amt') || {}).value) || 0; }
-function amountModal(ttl, desc, base, go, kind) {
-  modal(`<h3>${ttl}</h3><p class="muted">${desc}</p>
+function amountModal(ttl, desc, base, go, kind, extra = '') {
+  modal(`<h3>${ttl}</h3><p class="muted">${desc}</p>${extra}
     <input id="amt" type="number" inputmode="decimal" min="0" placeholder="Valor em R$">
     <div class="quick">${[0.25, 0.5, 1].map((p) => `<button class="chipbtn" data-act="pctamt" data-p="${p}" data-base="${Math.max(0, base)}">${p === 1 ? 'Tudo' : p * 100 + '%'}</button>`).join('')}</div>
     <div class="btns"><button class="btn ghost" data-act="close">Cancelar</button><button class="btn" data-act="${go}" data-kind="${kind}">Confirmar</button></div>`);
@@ -1075,7 +1082,14 @@ function openFixed(kind) {
   const s = C.s;
   if (kind === 'saque') return amountModal('🐷 Sacar da poupança', `Saldo: ${money(s.poup)}`, s.poup, 'fixedgo', 'saque');
   const names = { poup: '🐷 Guardar na poupança', cdb: '📄 Aplicar no CDB', tes: '🏛️ Investir no Tesouro' };
-  amountModal(names[kind], `Você tem ${money(s.cash)}`, s.cash, 'fixedgo', kind);
+  let extra = '';
+  if (G.TERMS[kind]) {
+    const cdi = C.mk.cdi();
+    ui.term = ui.term || {};
+    const cur = ui.term[kind] ?? 1;
+    extra = `<b class="lbl">Prazo de resgate</b><div class="termpick">${G.TERMS[kind].map((t, i) => `<button class="tp ${i === cur ? 'on' : ''}" data-act="term" data-k="${kind}" data-i="${i}"><b>${t.mins >= 60 ? t.mins / 60 + (t.mins === 60 ? ' hora' : ' horas') : t.mins + ' min'}</b><small>${Math.round(t.rate * 100)}% do CDI</small><small class="up">+${(cdi * t.rate * 100).toFixed(3)}%/dia</small></button>`).join('')}</div>`;
+  }
+  amountModal(names[kind], `Você tem ${money(s.cash)}`, s.cash, 'fixedgo', kind, extra);
 }
 
 function vImoveis() {
@@ -1112,7 +1126,7 @@ function vCredito() {
       <div class="lrow"><b>🧾 Fatura atual</b><b>${money(cc.fatura + cc.parcels.reduce((t, p) => t + p.amt, 0))}</b></div>
       <small class="muted">Fecha e é paga automaticamente em <b data-live="ccclose"></b>. Se faltar dinheiro, o resto vai para o rotativo (com juros).</small>
       ${cc.parcels.length ? `<div class="parcs">${cc.parcels.map((p) => `<span>${money(p.amt)} · faltam ${p.left}/${p.n}</span>`).join('')}</div>` : ''}
-      <button class="btn ghost full sm" data-act="payfatura">Antecipar pagamento da fatura</button>
+      <div class="btns"><button class="btn sm" data-act="payfatura" data-all="0">Pagar fatura atual<br><small>${money(G.ccCurrent(s))}</small></button><button class="btn ghost sm" data-act="payfatura" data-all="1">Quitar tudo<br><small>${money(G.ccOwed(s))}</small></button></div>
     </div>
     <h4 class="sec">🏦 Empréstimo</h4>
     ${locked ? lockBox(UNLOCKS.credito, 'Empréstimos') : `<div class="limit"><div class="lrow"><span>Dívida (empréstimo + rotativo)</span><b class="down" data-live="debt"></b></div>
@@ -1280,7 +1294,7 @@ function liveValue(key) {
     case 'coursetime': return s.course ? '⏱️ ' + dur(s.course.end - Date.now()) : '';
     case 'nextblock': return dur(mk.msToNextBlock());
     case 'price': return price(mk.price(arg));
-    case 'chg': { const c = mk.change(arg); return { t: (c >= 0 ? '▲ ' : '▼ ') + pct(Math.abs(c)).slice(1), c: c >= 0 ? 'up' : 'down' }; }
+    case 'chg': { const c = mk.change(arg); return { t: (c >= 0 ? '▲ ' : '▼ ') + pct(Math.abs(c)).slice(1) + ' 1h', c: c >= 0 ? 'up' : 'down' }; }
     case 'held': case 'heldfull': {
       const h = s.port[arg];
       if (!h || !(h.q > 0)) return k === 'heldfull' ? 'Você ainda não tem.' : G.isCrypto(arg) || !ASSETS.find((a) => a.sym === arg) ? arg : arg;
@@ -1288,18 +1302,40 @@ function liveValue(key) {
       const pl = v / h.cost - 1;
       const q = G.isCrypto(arg) ? fmt(h.q, h.q < 10 ? 4 : 2) : fmt(h.q);
       const own = G.ownPct(s, arg); const tier = G.ownTier(own);
-      return { t: k === 'heldfull' ? `Você tem ${q} = ${money(v)} (${pct(pl)})` : `${tier ? tier.icon : '🎒'} ${q}${own ? ' · ' + fmtOwn(own) : ''} · ${pct(pl, 0)}`, c: pl >= 0 ? 'up' : 'down' };
+      return { t: k === 'heldfull' ? `Você tem ${q} = ${money(v)} (${pct(pl)})` : `${tier ? tier.icon : '🎒'} ${q}${G.isCrypto(arg) ? '' : ' ações'}${own ? ' · ' + fmtOwn(own) + ' da empresa' : ''}`, c: pl >= 0 ? 'up' : 'down' };
     }
+    case 'plrow': {
+      const h = s.port[arg];
+      if (!h || !(h.q > 0)) return '';
+      const v = h.q * mk.price(arg), d = v - h.cost, pc = d / h.cost;
+      return { t: `${d >= 0 ? '▲ Lucro' : '▼ Prejuízo'} de ${money(Math.abs(d))} (${pct(pc)})`, c: d >= 0 ? 'up' : 'down' };
+    }
+    case 'inv': return money(portfolioValue(arg === 's' ? STOCKS : CRYPTOS).cost);
     case 'pv': case 'pl': {
       const r = portfolioValue(arg === 's' ? STOCKS : CRYPTOS);
       if (k === 'pv') return money(r.v);
       const d = r.v - r.cost;
-      return { t: (d >= 0 ? '+' : '') + money(d), c: d >= 0 ? 'up' : 'down' };
+      return { t: (d >= 0 ? '+' : '') + money(d) + (r.cost ? ` (${pct(d / r.cost)})` : ''), c: d >= 0 ? 'up' : 'down' };
     }
   }
   return '';
 }
+function posHTML(sym) {
+  const s = C.s, mk = C.mk;
+  const h = s.port[sym];
+  if (!h || !(h.q > 0)) return '<p class="muted center">Você ainda não tem este ativo.</p>';
+  const a = ASSETS.find((x) => x.sym === sym);
+  const p = mk.price(sym), avg = h.cost / h.q, v = h.q * p, d = v - h.cost, pc = d / h.cost;
+  const t = G.ownTier(G.ownPct(s, sym));
+  const div = h.q * p * ((a.div || 0) + (t ? t.extra : 0)) * (t ? t.mult : 1);
+  const q = G.isCrypto(sym) ? fmt(h.q, h.q < 10 ? 4 : 2) : fmt(h.q);
+  return `<div class="pos ${d >= 0 ? 'win' : 'lose'}"><div class="posres"><small>Seu resultado</small><b>${d >= 0 ? '▲ +' : '▼ -'}${money(Math.abs(d))}</b><span>${pct(pc)}</span></div>
+    <div class="posgrid"><div><small>Você tem</small><b>${q}</b></div><div><small>Preço médio pago</small><b>${price(avg)}</b></div><div><small>Investido</small><b>${money(h.cost)}</b></div><div><small>Vale agora</small><b>${money(v)}</b></div>
+    ${div ? `<div><small>Dividendos</small><b class="up">+${money(div)}/dia</b></div>` : ''}<div><small>Preço atual</small><b>${price(p)}</b></div></div>
+    <small class="muted">${d >= 0 ? 'Se vender agora, você sai no lucro (já descontando a compra).' : 'Se vender agora, você realiza o prejuízo. Dá para esperar o preço voltar.'}</small></div>`;
+}
 function liveHTML(key) {
+  if (key.startsWith('pos:')) return posHTML(key.slice(4));
   switch (key) {
     case 'flow': return flowHTML();
     case 'news3': return newsHTML(3);
