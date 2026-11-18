@@ -688,7 +688,7 @@ details.appear[open] summary { margin-bottom: 8px; }
 .scratch { position: relative; height: 150px; border-radius: 22px; overflow: hidden; margin-bottom: 12px; background: linear-gradient(135deg, #fff6c9, #ffe27a); border: 4px dashed #e09a12; box-shadow: 0 5px 0 var(--gold-d); }
 .scratch .prize { position: absolute; inset: 0; display: grid; place-items: center; font-family: var(--display); font-size: 40px; color: #6b3d00; }
 .scratch .cover { position: absolute; inset: 0; display: grid; place-items: center; font-family: var(--display); font-size: 26px; letter-spacing: 2px; color: #fff; background: repeating-linear-gradient(45deg, #9aa0a8 0 12px, #b8bec8 12px 24px); transition: clip-path 1s ease-in; clip-path: inset(0 0 0 0); }
-.scratch .cover:empty { display: none; }
+.scratch .cover.revealed { clip-path: inset(0 0 0 100%); transition: none; }
 .scratch .cover.scratching { clip-path: inset(0 0 0 100%); }
 .hint { font-size: 13px; color: #fff; background: #ffffff1a; border: 2px dashed #ffffff40; border-radius: 14px; padding: 10px 12px; margin: 0 0 12px; font-weight: 600; line-height: 1.4; }
 .sheet .hint, .box .hint { color: var(--ink); background: var(--card2); border-color: var(--edge); }

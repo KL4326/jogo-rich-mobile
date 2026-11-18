@@ -253,9 +253,14 @@ const handlers = {
     const r = G.playScratch(C.s, readBet());
     if (typeof r === 'string') return toast('⚠️ ' + r, 'err');
     ui.busy = true; ui.lastScratch = r.mult; refresh();
+    // 1) cobre o bilhete de novo (sem animação), 2) troca o prêmio por baixo, 3) raspa
+    const cv = $('#cover');
+    cv.style.transition = 'none';
+    cv.classList.remove('scratching', 'revealed');
+    void cv.offsetWidth;
     $('#prize').textContent = r.mult ? '🎉 ' + r.mult + 'x' : '😢 Nada';
-    const cv = $('#cover'); cv.textContent = 'RASPE AQUI'; cv.classList.add('scratching');
-    setTimeout(() => casinoResult(r, el), 1100);
+    requestAnimationFrame(() => requestAnimationFrame(() => { cv.style.transition = ''; cv.classList.add('scratching'); }));
+    setTimeout(() => casinoResult(r, el), 1300);
   },
   snd: () => { const on = A.settings().music || A.settings().sfx; A.setMusic(!on); A.setSfx(!on); renderTop(); toast(on ? '🔇 Som desligado' : '🔊 Som ligado', '', false); },
   sndset: (d) => { const v = !A.settings()[d.k]; if (d.k === 'music') A.setMusic(v); else A.setSfx(v); keepScroll(render); },
@@ -642,7 +647,7 @@ function vCassino() {
       ${k === 'num' ? `<input id="rnum" type="number" inputmode="numeric" min="0" max="36" placeholder="Número de 0 a 36" value="${ui.rnum ?? ''}">` : ''}
       <button class="btn gold full big" id="spinbtn" data-act="roulette"><em>GIRAR A ROLETA</em></button>`;
   } else {
-    game = `<div class="scratch" id="scratch"><div class="prize" id="prize">${ui.lastScratch === undefined ? '🎟️' : ui.lastScratch ? '🎉 ' + ui.lastScratch + 'x' : '😢 Nada'}</div><div class="cover" id="cover">${ui.lastScratch === undefined ? 'RASPE AQUI' : ''}</div></div>
+    game = `<div class="scratch" id="scratch"><div class="prize" id="prize">${ui.lastScratch === undefined ? '🎟️' : ui.lastScratch ? '🎉 ' + ui.lastScratch + 'x' : '😢 Nada'}</div><div class="cover ${ui.lastScratch === undefined ? '' : 'revealed'}" id="cover">RASPE AQUI</div></div>
       <button class="btn gold full big" id="spinbtn" data-act="scratch"><em>COMPRAR E RASPAR</em></button>
       <div class="paytable"><span>100x<b>0,1%</b></span><span>10x<b>0,9%</b></span><span>5x<b>4%</b></span><span>2x<b>10%</b></span><span>1x<b>25%</b></span></div>`;
   }
