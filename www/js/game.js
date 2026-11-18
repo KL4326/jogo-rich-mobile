@@ -9,13 +9,21 @@ import {
 
 const SAVE_KEY = 'magnata_save_v1';
 
+// Sorteia um emprego de entrada (sem estudo) de qualquer área
+export const STARTER_JOBS = JOBS.filter((j) => !j.edu.length && j.lvl <= 1);
+export const starterJob = () => STARTER_JOBS[Math.floor(Math.random() * STARTER_JOBS.length)].id;
 export function newState(name, look) {
   const now = Date.now();
+  const st = newStateBase(name, look, now);
+  st.job = st.startJob = starterJob();
+  return st;
+}
+function newStateBase(name, look, now) {
   return ensureLife({
     look: look || null,
     v: 1, name, created: now, last: now,
     cash: 1500, debt: 0, xp: 0,
-    job: 'entregador', edu: [], course: null,
+    job: null, edu: [], course: null,
     biz: {}, port: {}, props: {}, goods: {},
     poup: 0, cdb: [], tes: [],
     cardMax: 0, peakNW: 1500, ach: {},
@@ -408,7 +416,7 @@ const sectorsHeld = (s) => new Set(ASSETS.filter((a) => s.port[a.sym] && s.port[
 
 export const ACHIEVEMENTS = [
   { id: 'estudo1', icon: '📘', name: 'De volta aos estudos', desc: 'Conclua seu primeiro curso', test: (s) => s.edu.length >= 1 },
-  { id: 'emprego', icon: '💼', name: 'Carteira assinada', desc: 'Troque de emprego', test: (s) => s.job !== 'entregador' },
+  { id: 'emprego', icon: '💼', name: 'Carteira assinada', desc: 'Troque de emprego', test: (s) => s.job !== (s.startJob || 'entregador') },
   { id: 'empresa1', icon: '🥟', name: 'Empreendedor', desc: 'Abra sua primeira empresa', test: (s) => bizCount(s) >= 1 },
   { id: 'empresa3', icon: '🏪', name: 'Grupo empresarial', desc: 'Tenha 3 tipos de empresa', test: (s) => bizCount(s) >= 3 },
   { id: 'empresa6', icon: '🏭', name: 'Conglomerado', desc: 'Tenha 6 tipos de empresa', test: (s) => bizCount(s) >= 6 },

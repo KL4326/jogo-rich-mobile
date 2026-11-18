@@ -776,7 +776,7 @@ function quest() {
   const s = C.s;
   if (!s.edu.length && !s.course) return 'Faça o <b>Ensino Médio</b> na aba 👤 Vida → Carreira para ganhar mais.';
   if (!Object.keys(s.biz).length) return 'Abra sua primeira <b>Barraca de Pastel</b> na aba 🏭 Negócios.';
-  if (s.job === 'entregador' && s.edu.includes('medio')) return 'Você já pode ser <b>Atendente</b>! Vá em 👤 Vida → Carreira.';
+  if (G.STARTER_JOBS.some((j) => j.id === s.job) && s.edu.includes('medio')) return 'Você já pode ser <b>Atendente</b>! Vá em 👤 Vida → Carreira.';
   if (!s.goods.bike && !G.vehicleBonus(s)) return 'Compre uma <b>bicicleta</b> em 💎 Bens: +5% de salário.';
   if (G.level(s) >= UNLOCKS.bolsa && !s.stats.trades) return 'A <b>Bolsa</b> abriu! Veja o 📺 jornal e compre ações de um setor 🔥.';
   if (!s.love && s.cash > 3000 && !s.candidate) return 'Que tal encontrar um amor? Vá em 👤 Vida → ❤️ Amor.';

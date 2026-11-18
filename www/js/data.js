@@ -140,7 +140,18 @@ export const JOB_AREAS = [
 // Profissões. salary = por dia (1 min). edu = formação exigida; lvl = nível mínimo
 export const JOBS = [
   { id: 'entregador', area: 'basico', name: 'Entregador(a) de App', icon: '🛵', salary: 60, edu: [], lvl: 1 },
-  { id: 'garcom', area: 'basico', name: 'Garçom / Garçonete', icon: '🍽️', salary: 80, edu: [], lvl: 1 },
+  { id: 'garcom', area: 'basico', name: 'Garçom / Garçonete', icon: '🍽️', salary: 70, edu: [], lvl: 1 },
+  // Empregos de entrada (sem estudo), um por área: o jogador novo começa num deles, sorteado
+  { id: 'farmacia', area: 'saude', name: 'Atendente de Farmácia', icon: '💊', salary: 65, edu: [], lvl: 1 },
+  { id: 'mensageiro', area: 'direito', name: 'Mensageiro(a) de Escritório', icon: '📨', salary: 60, edu: [], lvl: 1 },
+  { id: 'montador', area: 'tech', name: 'Montador(a) de Computadores', icon: '🔌', salary: 65, edu: [], lvl: 1 },
+  { id: 'repositor', area: 'negocios', name: 'Repositor(a) de Mercado', icon: '🛒', salary: 60, edu: [], lvl: 1 },
+  { id: 'ajudante_obra', area: 'eng', name: 'Ajudante de Obras', icon: '👷', salary: 65, edu: [], lvl: 1 },
+  { id: 'aux_lab', area: 'ciencia', name: 'Auxiliar de Laboratório', icon: '🧫', salary: 60, edu: [], lvl: 1 },
+  { id: 'monitor', area: 'educacao', name: 'Monitor(a) de Recreação', icon: '🎈', salary: 55, edu: [], lvl: 1 },
+  { id: 'promotor_ev', area: 'comunicacao', name: 'Promotor(a) de Eventos', icon: '🎪', salary: 60, edu: [], lvl: 1 },
+  { id: 'vigia', area: 'seguranca', name: 'Vigia Noturno(a)', icon: '🔦', salary: 65, edu: [], lvl: 1 },
+  { id: 'bagagem', area: 'aviacao', name: 'Carregador(a) de Bagagens', icon: '🧳', salary: 65, edu: [], lvl: 1 },
   { id: 'atendente', area: 'basico', name: 'Atendente', icon: '☎️', salary: 110, edu: ['medio'], lvl: 1 },
   { id: 'recepcionista', area: 'basico', name: 'Recepcionista', icon: '🛎️', salary: 130, edu: ['medio'], lvl: 2 },
   { id: 'vendedor', area: 'basico', name: 'Vendedor(a)', icon: '🤝', salary: 180, edu: ['medio'], lvl: 3 },
