@@ -313,6 +313,8 @@ function start(s) {
   afterAction();
   watchFriends();
   watchPix();
+  // Celular: só carrega o módulo se o jogador tiver um (escuta apenas a lista de conversas)
+  if (ctx.cloud && ctx.uid && s.goods.celular) import('./phone.js').then((m) => { ctx.phone = m; m.setup(ctx); m.badge(); }).catch(() => {});
   if (!s.look) UI.openCreator();
   setInterval(tick, 250);
   setInterval(() => G.save(ctx.s), 5000);

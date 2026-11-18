@@ -122,3 +122,29 @@ export async function claimPix(id) {
     return snap.data();
   });
 }
+
+// ---------- Celular: Vitrine (rede social) ----------
+export const myUid = () => (auth && auth.currentUser ? auth.currentUser.uid : null);
+export async function createPost(p) { await F.addDoc(F.collection(db, 'posts'), p); }
+export function watchFeed(uids, cb) {
+  const q = F.query(F.collection(db, 'posts'), F.where('uid', 'in', uids.slice(0, 30)));
+  return F.onSnapshot(q, (snap) => cb(snap.docs.map((d) => ({ id: d.id, ...d.data() }))), (e) => cb(null, e));
+}
+export const likePost = (id, uid, on) => F.updateDoc(F.doc(db, 'posts', id), { [`likes.${uid}`]: on ? true : F.deleteField() });
+export const commentPost = (id, c) => F.updateDoc(F.doc(db, 'posts', id), { comments: F.arrayUnion(c) });
+export const deletePost = (id) => F.deleteDoc(F.doc(db, 'posts', id));
+
+// ---------- Celular: Papo (mensagens privadas) ----------
+export const chatId = (a, b) => [a, b].sort().join('_');
+export async function sendMsg(cid, members, msg) {
+  await F.addDoc(F.collection(db, 'chats', cid, 'msgs'), msg);
+  await F.setDoc(F.doc(db, 'chats', cid), { members, last: { from: msg.from, text: msg.text || (msg.photo ? '📷 Foto' : ''), t: msg.t } }, { merge: true });
+}
+export function watchChats(uid, cb) {
+  const q = F.query(F.collection(db, 'chats'), F.where('members', 'array-contains', uid));
+  return F.onSnapshot(q, (snap) => cb(snap.docs.map((d) => ({ id: d.id, ...d.data() }))), () => {});
+}
+export function watchMsgs(cid, cb) {
+  const q = F.query(F.collection(db, 'chats', cid, 'msgs'), F.orderBy('t', 'desc'), F.limit(60));
+  return F.onSnapshot(q, (snap) => cb(snap.docs.map((d) => ({ id: d.id, ...d.data() })).reverse()), (e) => cb(null, e));
+}

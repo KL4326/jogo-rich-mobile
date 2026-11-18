@@ -6,4 +6,5 @@ export {
 } from 'firebase/auth';
 export {
   initializeFirestore, doc, getDoc, setDoc, onSnapshot, runTransaction, collection, addDoc, query, where,
+  updateDoc, deleteDoc, deleteField, arrayUnion, orderBy, limit,
 } from 'firebase/firestore';

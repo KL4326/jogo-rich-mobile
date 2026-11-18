@@ -33,14 +33,14 @@ export function fmtOwn(p) {
   const t = v >= 10 ? v.toFixed(1) : v >= 0.01 ? v.toFixed(2) : v < 0.0001 ? '<0,0001' : v.toFixed(4);
   return t.replace('.', ',') + '%';
 }
-const esc = (t) => String(t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+export const esc = (t) => String(t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 function dur(ms) {
   ms = Math.max(0, ms);
   const s = Math.ceil(ms / 1000);
   const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), ss = s % 60;
   return h ? `${h}h${String(m).padStart(2, '0')}` : `${m}:${String(ss).padStart(2, '0')}`;
 }
-function ago(ts) {
+export function ago(ts) {
   const m = Math.floor((Date.now() - ts) / 60000);
   if (m < 1) return 'agora';
   if (m < 60) return `há ${m} min`;
@@ -138,6 +138,8 @@ function act(fn, okMsg, el) {
 
 const handlers = {
   close: () => closeModal(),
+  phonechat: (d) => import('./phone.js').then((m) => { C.phone = m; closeModal(); m.open(C, 'chat', { uid: d.id }); }),
+  phone: () => import('./phone.js').then((m) => { C.phone = m; m.open(C); }).catch(() => toast('⚠️ Não foi possível abrir o celular', 'err')),
   tab: (d) => { ui.tab = d.tab; if (d.sub) ui.sub[d.tab] = d.sub; closeModal(); renderTabs(); render(true); $('#view').scrollTop = 0; },
   sub: (d) => { ui.sub[ui.tab] = d.sub; render(true); $('#view').scrollTop = 0; },
   bizn: (d) => { ui.bizN = d.n === 'max' ? 'max' : +d.n; render(); },
@@ -163,7 +165,7 @@ const handlers = {
   buyprop: (d, el) => act(() => G.buyProp(C.s, C.mk, d.id), '🔑 Imóvel comprado!', el) && render(),
   sellprop: (d) => confirmBox('Vender este imóvel?', () => act(() => G.sellProp(C.s, C.mk, d.id), 'Imóvel vendido') && render()),
   good: (d) => openGood(d.id),
-  buygood: (d, el) => { if (act(() => G.buyGood(C.s, d.id), null, el)) { closeModal(); confetti(); toast(`🎉 ${G_NAME(d.id)} é seu!`, 'gold'); render(); } },
+  buygood: (d, el) => { if (act(() => G.buyGood(C.s, d.id), null, el)) { closeModal(); confetti(); toast(`🎉 ${G_NAME(d.id)} é seu!`, 'gold'); if (d.id === 'celular') setTimeout(() => toast('📱 Toque no celular lá em cima para usar Câmera, Papo e Vitrine!', 'gold'), 1200); render(); } },
   sellgood: (d) => confirmBox('Vender este bem? Você recebe só uma parte do valor.', () => act(() => G.sellGood(C.s, d.id), 'Vendido') && render()),
   loan: (d) => openLoan(d.kind),
   loango: (d) => {
@@ -383,10 +385,12 @@ function renderTop() {
         <b class="pname">${esc(s.name)}</b>
         <div class="xpbar"><i data-live-w="xp"></i><span data-live="xptxt"></span></div>
       </div>
+      ${s.goods.celular ? '<button class="sndbtn phonebtn" data-act="phone" aria-label="Celular">📱<i class="pdot" style="display:none"></i></button>' : ''}
       <button class="sndbtn" data-act="snd">${A.settings().music || A.settings().sfx ? '🔊' : '🔇'}</button>
       <div class="minicard ${c.cls}" data-act="tab" data-tab="perfil" data-sub="cartoes"><span>${c.name}</span></div>
     </div>
     <div class="cashpill"><span class="cicon">🪙</span><span class="cash" data-live="cash"></span><span class="rate" data-live="rate"></span></div>`;
+  if (C.phone) C.phone.badge();
 }
 
 const title = (icon, text, help) => `<div class="ptitle"><h2>${icon} ${text}</h2>${help ? infoBtn(help) : ''}</div>`;
@@ -744,7 +748,8 @@ function friendView(uid) {
       <div><small>Empresas controladas</small><b>👑 ${p.ctrl || 0}</b></div>
     </div>
     <small class="muted">${Date.now() - p.updated < 180000 ? '🟢 jogando agora' : '⚪ visto ' + ago(p.updated)}</small>
-    <button class="btn full pixbtn" data-act="pix" data-id="${uid}">💸 Enviar Pix para ${esc(p.name)}</button></div>`);
+    <button class="btn full pixbtn" data-act="pix" data-id="${uid}">💸 Enviar Pix para ${esc(p.name)}</button>
+    ${C.s.goods.celular && C.uid ? `<button class="btn full ghost" data-act="phonechat" data-id="${uid}">💬 Mandar mensagem</button>` : ''}</div>`);
 }
 
 function vInicio() {
