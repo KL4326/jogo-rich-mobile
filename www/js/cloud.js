@@ -155,3 +155,13 @@ export function watchGeral(n, cb) {
   const q = F.query(F.collection(db, 'geral'), F.orderBy('t', 'desc'), F.limit(n));
   return F.onSnapshot(q, (snap) => cb(snap.docs.map((d) => ({ id: d.id, ...d.data() })).reverse()), (e) => cb(null, e));
 }
+
+// ---------- Convites de amizade ----------
+export const inviteId = (from, to) => `${from}_${to}`;
+export const sendInvite = (inv) => F.setDoc(F.doc(db, 'invites', inviteId(inv.from, inv.to)), inv);
+export const answerInvite = (id, status) => F.updateDoc(F.doc(db, 'invites', id), { status, answered: Date.now() });
+export const deleteInvite = (id) => F.deleteDoc(F.doc(db, 'invites', id));
+export function watchInvites(uid, field, cb) {
+  const q = F.query(F.collection(db, 'invites'), F.where(field, '==', uid));
+  return F.onSnapshot(q, (snap) => cb(snap.docs.map((d) => ({ id: d.id, ...d.data() }))), () => {});
+}

@@ -291,6 +291,7 @@ export const GOODS = {
     { id: 'lua', name: 'Base na Lua', icon: '🌕', cost: 5e11, prestige: 20000, hours: 10 },
   ],
   luxo: [
+    { id: 'celular0', name: 'Celular Básico', icon: '📱', cost: 500, prestige: 0 },
     { id: 'celular', name: 'Celular Top', icon: '📱', cost: 9000, prestige: 2 },
     { id: 'tenis', name: 'Tênis Colecionável', icon: '👟', cost: 25000, prestige: 4 },
     { id: 'relogio', name: 'Relógio Suíço', icon: '⌚', cost: 90000, prestige: 8 },

@@ -140,7 +140,10 @@ const handlers = {
   close: () => closeModal(),
   status: () => statusModal(),
   phonechat: (d) => import('./phone.js').then((m) => { C.phone = m; closeModal(); m.open(C, 'chat', { uid: d.id }); }),
-  phone: () => import('./phone.js').then((m) => { C.phone = m; m.open(C); }).catch(() => toast('⚠️ Não foi possível abrir o celular', 'err')),
+  invok: (d) => C.acceptInvite(d.id),
+  invno: (d) => C.declineInvite(d.id),
+  phone: () => G.hasPhone(C.s) ? handlers.phoneopen() : modal(`<h3>📱 Você ainda não tem celular</h3><p>Com um celular você usa a <b>📷 Câmera</b>, conversa no <b>💬 Papo</b> (privado e no <b>🌎 Geral</b> com todos os jogadores) e posta na <b>✨ Vitrine</b>.</p><p class="muted">Compre um em 💎 Bens → 💍 Luxo. O <b>Celular Básico</b> custa só ${money(500)}.</p><button class="btn full" data-act="tab" data-tab="bens" data-sub="luxo">Ir para a loja</button>`),
+  phoneopen: () => import('./phone.js').then((m) => { C.phone = m; m.open(C); }).catch(() => toast('⚠️ Não foi possível abrir o celular', 'err')),
   tab: (d) => { ui.tab = d.tab; if (d.sub) ui.sub[d.tab] = d.sub; closeModal(); renderTabs(); render(true); $('#view').scrollTop = 0; },
   sub: (d) => { ui.sub[ui.tab] = d.sub; render(true); $('#view').scrollTop = 0; },
   bizn: (d) => { ui.bizN = d.n === 'max' ? 'max' : +d.n; render(); },
@@ -166,7 +169,7 @@ const handlers = {
   buyprop: (d, el) => act(() => G.buyProp(C.s, C.mk, d.id), '🔑 Imóvel comprado!', el) && render(),
   sellprop: (d) => confirmBox('Vender este imóvel?', () => act(() => G.sellProp(C.s, C.mk, d.id), 'Imóvel vendido') && render()),
   good: (d) => openGood(d.id),
-  buygood: (d, el) => { if (act(() => G.buyGood(C.s, d.id), null, el)) { closeModal(); confetti(); toast(`🎉 ${G_NAME(d.id)} é seu!`, 'gold'); if (d.id === 'celular') setTimeout(() => toast('📱 Toque no celular lá em cima para usar Câmera, Papo e Vitrine!', 'gold'), 1200); render(); } },
+  buygood: (d, el) => { if (act(() => G.buyGood(C.s, d.id), null, el)) { closeModal(); confetti(); toast(`🎉 ${G_NAME(d.id)} é seu!`, 'gold'); if (d.id === 'celular' || d.id === 'celular0') setTimeout(() => toast('📱 Toque no celular lá em cima para usar Câmera, Papo e Vitrine!', 'gold'), 1200); render(); } },
   sellgood: (d) => confirmBox('Vender este bem? Você recebe só uma parte do valor.', () => act(() => G.sellGood(C.s, d.id), 'Vendido') && render()),
   loan: (d) => openLoan(d.kind),
   loango: (d) => {
@@ -178,7 +181,7 @@ const handlers = {
   news: () => modal(`<h3>📺 Jornal do Mercado</h3><div class="news" data-live-html="news20"></div>`),
   info: (d) => modal(INFO[d.k]),
   delfriend: (d) => confirmBox('Remover essa pessoa dos seus amigos?', () => { C.removeFriend(d.id); render(); }),
-  friendadd: () => modal(`<h3>👥 Adicionar amigo</h3><p class="muted">Peça a tag da pessoa (aparece no topo do Ranking dela) e digite aqui.</p><input id="friendtag" placeholder="Ex: MARIA#1234" autocapitalize="characters"><button class="btn full" id="addfriendbtn" data-act="addfriendgo">Adicionar</button>`),
+  friendadd: () => modal(`<h3>👥 Adicionar amigo</h3><p class="muted">Peça a tag da pessoa (aparece no topo do Ranking dela) e digite aqui. Ela recebe um <b>convite</b> para aceitar ou recusar.</p><input id="friendtag" placeholder="Ex: MARIA#1234" autocapitalize="characters"><button class="btn full" id="addfriendbtn" data-act="addfriendgo">Adicionar</button>`),
   ach: (d) => { const a = G.ACHIEVEMENTS.find((x) => x.id === d.id); toast(`${C.s.ach[a.id] ? a.icon : '🔒'} <b>${a.name}</b>: ${a.desc}`, C.s.ach[a.id] ? 'gold' : ''); },
   rename: () => {
     const v = $('#newname').value.trim().slice(0, 18);
@@ -194,6 +197,7 @@ const handlers = {
     btn.disabled = true;
     const err = await C.addFriend(inp.value);
     btn.disabled = false;
+    if (err === 'sent') { toast('📨 Convite enviado! Assim que aceitarem, aparece no seu ranking.', 'ok'); closeModal(); return render(); }
     if (err) return toast('⚠️ ' + err, 'err');
     toast('👥 Amigo adicionado!', 'ok'); closeModal(); render();
   },
@@ -386,7 +390,7 @@ function renderTop() {
         <b class="pname">${esc(s.name)}</b>
         <div class="xpbar"><i data-live-w="xp"></i><span data-live="xptxt"></span></div>
       </div>
-      ${s.goods.celular ? '<button class="sndbtn phonebtn" data-act="phone" aria-label="Celular">📱<i class="pdot" style="display:none"></i></button>' : ''}
+      <button class="sndbtn phonebtn ${G.hasPhone(s) ? '' : 'nophone'}" data-act="phone" aria-label="Celular">📱<i class="pdot" style="display:none"></i></button>
       <button class="sndbtn" data-act="snd">${A.settings().music || A.settings().sfx ? '🔊' : '🔇'}</button>
       <div class="minicard ${c.cls}" data-act="tab" data-tab="perfil" data-sub="cartoes"><span>${c.name}</span></div>
     </div>
@@ -764,7 +768,7 @@ function friendView(uid) {
     </div>
     <small class="muted">${Date.now() - p.updated < 180000 ? '🟢 jogando agora' : '⚪ visto ' + ago(p.updated)}</small>
     <button class="btn full pixbtn" data-act="pix" data-id="${uid}">💸 Enviar Pix para ${esc(p.name)}</button>
-    ${C.s.goods.celular && C.uid ? `<button class="btn full ghost" data-act="phonechat" data-id="${uid}">💬 Mandar mensagem</button>` : ''}</div>`);
+    ${G.hasPhone(C.s) && C.uid ? `<button class="btn full ghost" data-act="phonechat" data-id="${uid}">💬 Mandar mensagem</button>` : ''}</div>`);
 }
 
 function vInicio() {
@@ -780,6 +784,7 @@ function vInicio() {
     <div><small>Gasta por dia</small><b class="down" data-live="exp"></b></div>
     <div class="more">›</div>
   </div>
+  ${invitesCard()}
   ${inboxCard()}
   ${eventCard()}
   ${q ? `<div class="quest"><span class="qi">⭐</span><div><small>MISSÃO</small><p>${q}</p></div></div>` : ''}
@@ -789,6 +794,16 @@ function vInicio() {
     <div class="nhead"><b>📺 Jornal do Mercado</b><span class="lnk">ver tudo ›</span></div>
     <div class="news" data-live-html="news3"></div>
   </div>`;
+}
+function invitesCard() {
+  const list = C.invites || [];
+  if (!list.length) return '';
+  return `<div class="invites"><b>👥 Convites de amizade</b>${list.map((i) => `<div class="invrow"><span class="fav">${i.fromLook ? avatarSVG(i.fromLook, { size: 70 }) : '👤'}</span><div class="grow"><b>${esc(i.fromName)}</b><small>${esc(i.fromTag || '')} quer ser seu amigo</small></div><button class="btn sm" data-act="invok" data-id="${i.id}">Aceitar</button><button class="btn ghost sm" data-act="invno" data-id="${i.id}">Recusar</button></div>`).join('')}</div>`;
+}
+function sentCard() {
+  const sent = Object.entries(C.s.sent || {});
+  if (!sent.length) return '';
+  return `<div class="sentinv"><small>📨 Aguardando resposta:</small> ${sent.map(([, x]) => `<span class="pill">${esc(x.tag)}</span>`).join(' ')}</div>`;
 }
 function inboxCard() {
   const list = C.s.inbox || [];
@@ -1304,6 +1319,7 @@ function vRanking() {
       <div class="grow"><b>${p.home || ''} ${esc(p.n)}${p.me ? ' (você)' : ''}</b>${p.loading ? '' : `<small>⭐${p.l} · 💳${CARDS[p.c].name} · 🎖️${p.a} · ${G.STATUS[G.statusIdx(p.p || 0)].icon}${fmt(p.p)}${G.STATUS[G.statusIdx(p.p || 0)].club ? ' · <span class="club">👑 Clube</span>' : ''}</small><small class="${p.online || p.me ? 'up' : ''}">${p.me ? '🟢 você' : p.online ? '🟢 jogando agora' : '⚪ visto ' + ago(p.t)} · ${p.net >= 0 ? '+' : ''}${fmt(p.net || 0)}/dia</small>`}</div>
       <div class="right"><b>${p.loading ? '…' : money(p.w)}</b>${p.me ? '' : `<button class="lnk" data-act="delfriend" data-id="${p.id}">remover</button>`}</div></div>`).join('')}</div>
   ${s.friends.length ? '' : '<p class="muted center">Ainda só você aqui! Adicione a família pela tag 👇</p>'}
+  ${invitesCard()}${sentCard()}
   ${C.cloud ? '<button class="btn full blue" data-act="friendadd">👥 Adicionar amigo pela tag</button>' : '<p class="muted center">Ranking online disponível quando as contas estiverem ativadas.</p>'}
   ${(s.pixLog || []).length ? `<div class="box col pixlog"><b>💸 Últimos Pix</b>${s.pixLog.slice(0, 6).map((x) => `<div class="fr"><span>${x.dir === 'in' ? '⬇️ de' : '⬆️ para'} ${esc(x.name)} <small class="muted">${ago(x.t)}</small>${x.desc ? `<small class="pixdesc">💬 “${esc(x.desc)}”</small>` : ''}</span><b class="${x.dir === 'in' ? 'up' : 'down'}">${x.dir === 'in' ? '+' : '-'}${money(x.amount)}</b></div>`).join('')}</div>` : ''}
   <p class="muted center small">💸 Toque num amigo para ver a vida dele e enviar Pix. O ranking atualiza ao vivo. O mercado é o mesmo para todos — vence quem decidir melhor! 😎</p>`;

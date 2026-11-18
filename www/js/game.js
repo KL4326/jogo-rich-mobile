@@ -100,6 +100,7 @@ export function homeOf(s) {
 }
 export const styleOf = (s) => Object.keys(s.wardrobe || {}).reduce((t, id) => t + (CLOTH[id] ? CLOTH[id].style : 0), 0) + Object.keys(s.legends || {}).length * 300;
 export const tripPrestige = (s) => Object.keys(s.trips || {}).reduce((t, id) => { const tr = TRIPS.find((x) => x.id === id); return t + (tr ? Math.max(1, Math.round(Math.log10(tr.cost) ** 2 - 10)) : 0); }, 0);
+export const hasPhone = (s) => !!(s.goods.celular || s.goods.celular0);
 // ===== Status social (vem do prestígio) =====
 export const STATUS = [
   { min: 0, name: 'Anônimo', icon: '👤', biz: 0, disc: 0 },

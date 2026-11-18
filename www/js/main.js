@@ -141,11 +141,68 @@ async function addFriend(raw) {
   try { uid = await Cloud.findTag(tag); } catch (e) { return Cloud.errMsg(e); }
   if (!uid) return 'Ninguém encontrado com essa tag.';
   if (ctx.s.friends.includes(uid)) return 'Essa pessoa já é sua amiga.';
-  ctx.s.friends.push(uid);
+  const s = ctx.s;
+  s.sent = s.sent || {};
+  // Se a pessoa já me convidou, aceita direto
+  const theirs = ctx.invites.find((i) => i.from === uid);
+  if (theirs) { await acceptInvite(theirs.id); return null; }
+  if (s.sent[uid]) return 'Convite já enviado. Aguarde a resposta 😉';
+  try {
+    await Cloud.withTimeout(Cloud.sendInvite({ from: ctx.uid, fromName: s.name, fromTag: s.tag || '', fromLook: s.look || null, to: uid, toTag: tag, status: 'pending', created: Date.now() }), 10000);
+  } catch (e) { return e && e.code === 'permission-denied' ? 'Convites ainda não liberados no servidor (falta atualizar as regras do Firebase).' : Cloud.errMsg(e); }
+  s.sent[uid] = { tag, t: Date.now() };
+  G.save(s);
+  UI.render();
+  return 'sent';
+}
+// ---------- Convites de amizade ----------
+ctx.invites = [];
+function makeFriend(uid) {
+  if (!ctx.s.friends.includes(uid)) ctx.s.friends.push(uid);
+  if (ctx.s.sent) delete ctx.s.sent[uid];
   G.save(ctx.s);
   watchFriends();
   pushCloud().catch(() => {});
-  return null;
+}
+async function acceptInvite(id) {
+  const inv = ctx.invites.find((i) => i.id === id); if (!inv) return;
+  try { await Cloud.answerInvite(id, 'accepted'); } catch (e) { UI.toast('⚠️ ' + Cloud.errMsg(e), 'err'); return; }
+  makeFriend(inv.from);
+  ctx.invites = ctx.invites.filter((i) => i.id !== id);
+  UI.toast(`🤝 Agora você e <b>${esc(inv.fromName)}</b> são amigos!`, 'gold');
+  afterAction(); UI.render();
+}
+async function declineInvite(id) {
+  try { await Cloud.answerInvite(id, 'declined'); } catch (e) { UI.toast('⚠️ ' + Cloud.errMsg(e), 'err'); return; }
+  ctx.invites = ctx.invites.filter((i) => i.id !== id);
+  UI.render();
+}
+ctx.acceptInvite = acceptInvite; ctx.declineInvite = declineInvite;
+function watchInvites() {
+  if (!ctx.uid) return;
+  // Recebidos
+  Cloud.watchInvites(ctx.uid, 'to', (list) => {
+    const before = new Set(ctx.invites.map((i) => i.id));
+    const pend = list.filter((i) => i.status === 'pending');
+    // Já era amigo (sistema antigo) ou também convidei: aceita sozinho
+    const auto = pend.filter((i) => ctx.s.friends.includes(i.from) || (ctx.s.sent || {})[i.from]);
+    ctx.invites = pend.filter((i) => !auto.includes(i));
+    auto.forEach((i) => Cloud.answerInvite(i.id, 'accepted').then(() => makeFriend(i.from)).catch(() => {}));
+    const fresh = ctx.invites.filter((i) => !before.has(i.id));
+    if (fresh.length) { A.sfx('notify'); fresh.forEach((i) => UI.toast(`👥 <b>${esc(i.fromName)}</b> quer ser seu amigo!`, 'gold', false)); }
+    UI.onEvent();
+  });
+  // Enviados: quando respondem
+  Cloud.watchInvites(ctx.uid, 'from', (list) => {
+    for (const i of list) {
+      if (i.status === 'pending') continue;
+      const tag = i.toTag || 'Seu convite';
+      if (i.status === 'accepted') { makeFriend(i.to); notify('🤝', `<b>${esc(tag)}</b> aceitou seu convite de amizade!`); }
+      else { if (ctx.s.sent) delete ctx.s.sent[i.to]; G.save(ctx.s); notify('🙅', `<b>${esc(tag)}</b> recusou seu convite de amizade.`); }
+      Cloud.deleteInvite(i.id).catch(() => {});
+      UI.render();
+    }
+  });
 }
 // ---------- Notificações (ficam no Início até o jogador ver) ----------
 function notify(icon, text) {
@@ -323,8 +380,9 @@ function start(s) {
   afterAction();
   watchFriends();
   watchPix();
+  watchInvites();
   // Celular: só carrega o módulo se o jogador tiver um (escuta apenas a lista de conversas)
-  if (ctx.cloud && ctx.uid && s.goods.celular) import('./phone.js').then((m) => { ctx.phone = m; m.setup(ctx); m.badge(); }).catch(() => {});
+  if (ctx.cloud && ctx.uid && G.hasPhone(s)) import('./phone.js').then((m) => { ctx.phone = m; m.setup(ctx); m.badge(); }).catch(() => {});
   if (!s.look) UI.openCreator();
   setInterval(tick, 250);
   setInterval(() => G.save(ctx.s), 5000);
