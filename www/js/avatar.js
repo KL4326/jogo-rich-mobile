@@ -275,6 +275,9 @@ function faceAcc(it, skin) {
     case 'bigode': return `<path d="M100,114 C92,108 76,110 70,120 C80,118 90,122 100,118 C110,122 120,118 130,120 C124,110 108,108 100,114 Z" fill="#3a2414"/>`;
     case 'mascninja': return `<path d="M50,108 C54,150 146,150 150,108 Z" fill="${it.c}"/>`;
     case 'mascara': return `<path d="M58,92 C70,84 90,86 100,94 C110,86 130,84 142,92 L140,108 C128,114 112,110 100,104 C88,110 72,114 60,108 Z" fill="${it.c}"/><ellipse cx="80" cy="99" rx="8" ry="6" fill="#fff"/><ellipse cx="120" cy="99" rx="8" ry="6" fill="#fff"/><circle cx="80" cy="99" r="3.5" fill="#222"/><circle cx="120" cy="99" r="3.5" fill="#222"/>`;
+    case 'venda': return `<path d="M46,88 Q100,80 154,88 L154,110 Q100,102 46,110 Z" fill="${it.c}"/><path d="M154,92 l14,6 l-12,6 Z" fill="${it.c}"/>`;
+    case 'marcas': return `<path d="M64,112 l12,2 M64,118 l12,1 M124,114 l12,-2 M124,119 l12,-1 M94,70 l6,-6 l6,6" stroke="${it.c}" stroke-width="3" fill="none" stroke-linecap="round"/>`;
+    case 'losango': return `<path d="M100,62 l5,7 l-5,7 l-5,-7 Z" fill="${it.c}"/>`;
     case 'tapaolho': return `<path d="M50,80 L150,112" stroke="#111" stroke-width="3"/><ellipse cx="120" cy="101" rx="13" ry="12" fill="${it.c}"/>`;
     case 'nariz': return `<circle cx="100" cy="112" r="10" fill="${it.c}"/><circle cx="97" cy="108" r="3" fill="#fff" opacity=".7"/>`;
     case 'barba': return `<path d="M56,108 C60,146 140,146 144,108 C136,128 118,134 100,134 C82,134 64,128 56,108 Z" fill="${shade(SKINS[skin] ? '#3a2414' : '#3a2414', 1)}" opacity=".85"/>`;
@@ -298,6 +301,11 @@ function beardSVG(id, c) {
   };
   const withMust = { cheia: 'bigode', lenhador: 'bigodao', cavanhaque: 'bigode' };
   return { under: under[id] || '', over: must[id] || must[withMust[id]] || '' };
+}
+function auraSVG(c, id) {
+  return `<defs><radialGradient id="${id}au" cx="50%" cy="55%" r="55%"><stop offset="0" stop-color="${c}" stop-opacity=".55"/><stop offset=".7" stop-color="${c}" stop-opacity=".25"/><stop offset="1" stop-color="${c}" stop-opacity="0"/></radialGradient></defs>
+  <ellipse cx="100" cy="150" rx="98" ry="140" fill="url(#${id}au)"><animate attributeName="opacity" values=".75;1;.75" dur="2.2s" repeatCount="indefinite"/></ellipse>
+  <path d="M40,250 Q30,180 52,120 Q46,170 62,200 Q60,130 84,70 Q82,140 100,170 Q100,90 118,50 Q116,130 136,170 Q142,110 158,90 Q150,160 150,210 Q166,170 168,140 Q174,200 160,252 Z" fill="${c}" opacity=".35"><animate attributeName="opacity" values=".2;.45;.2" dur="1.6s" repeatCount="indefinite"/></path>`;
 }
 function backAcc(it) {
   if (!it) return '';
@@ -330,17 +338,22 @@ function neckAcc(it) {
 }
 
 // Desenha o personagem. opts: { size, pose }
+// Peça pode ser um id do catálogo ou um objeto (usado pelas skins lendárias)
+const piece = (v, def) => (v && typeof v === 'object' ? v : CLOTH[v] || (def ? CLOTH[def] : null));
+const colorOf = (v, list, def) => (typeof v === 'string' && v[0] === '#' ? v : list[v] || list[def]);
 export function avatarSVG(look, opts = {}) {
-  const L = { ...defaultLook(), ...(look || {}) };
-  const skin = SKINS[L.skin] || SKINS[1];
-  const hair = HAIR_COLORS[L.hairColor] || HAIR_COLORS[0];
-  const eye = EYE_COLORS[L.eyes] || EYE_COLORS[0];
-  const top = CLOTH[L.top] || CLOTH.t_branca;
-  const bot = CLOTH[L.bottom] || CLOTH.b_jeans;
-  const shoe = CLOTH[L.shoes] || CLOTH.s_tenis;
+  let L = { ...defaultLook(), ...(look || {}) };
+  const leg = L.lend ? LEGEND[L.lend] : null;
+  if (leg) L = { ...L, head: null, face: null, neck: null, back: null, beard: null, ...leg.look, ...leg.pieces, aura: leg.aura };
+  const skin = colorOf(L.skin, SKINS, 1);
+  const hair = colorOf(L.hairColor, HAIR_COLORS, 0);
+  const eye = colorOf(L.eyes, EYE_COLORS, 0);
+  const top = piece(L.top, 't_branca');
+  const bot = piece(L.bottom, 'b_jeans');
+  const shoe = piece(L.shoes, 's_tenis');
   const dress = ['vestido', 'princesa', 'mago'].includes(top.kind);
   const f = L.sex === 'f';
-  const tc = top.c, td = shade(tc, 0.82);
+  const tc = top.kind === 'semcamisa' ? skin : top.c, td = shade(tc, 0.82);
   const id = 'a' + Math.random().toString(36).slice(2, 7);
 
   // pernas
@@ -385,6 +398,7 @@ export function avatarSVG(look, opts = {}) {
   if (top.kind === 'robo') detail += `<rect x="78" y="156" width="44" height="40" rx="4" fill="${shade(tc, 0.85)}"/><circle cx="90" cy="168" r="5" fill="${c2}"/><circle cx="110" cy="168" r="5" fill="#ffd23c"/><rect x="86" y="180" width="28" height="8" rx="2" fill="#2a2a33"/><path d="M88,184 h4 M96,184 h4 M104,184 h4" stroke="${c2}" stroke-width="3"/>`;
   if (top.kind === 'dino') detail += `<ellipse cx="100" cy="182" rx="22" ry="28" fill="${c2}"/><path d="M90,166 h20 M88,180 h24 M90,194 h20" stroke="${shade(c2, 0.85)}" stroke-width="2"/>`;
   if (top.kind === 'palhaco') detail += `<g clip-path="url(#${id}t)">${[[76, 160], [116, 166], [92, 186], [124, 196], [72, 200], [106, 208]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="6" fill="${c2}"/>`).join('')}</g><path d="M70,146 q8,10 15,0 q8,10 15,0 q8,10 15,0 q8,10 15,0" stroke="#fff" stroke-width="7" fill="none" stroke-linecap="round"/>`;
+  if (top.kind === 'semcamisa') detail += `<path d="M78,166 q22,10 44,0 M100,170 v40 M84,186 h12 M104,186 h12 M86,200 h10 M104,200 h10" stroke="${shade(skin, 0.78)}" stroke-width="2.5" fill="none" stroke-linecap="round"/>`;
   if (top.kind === 'regata') detail += `<path d="M76,142 v-4 M124,142 v-4" stroke="${tc}" stroke-width="8"/>`;
   const shine = top.shine ? `<path d="M74,158 l6,-6 M122,196 l6,-6" stroke="#ffffffcc" stroke-width="4" stroke-linecap="round"/>` : '';
 
@@ -397,22 +411,23 @@ export function avatarSVG(look, opts = {}) {
   const ears = `<circle cx="50" cy="104" r="10" fill="${skin}"/><circle cx="150" cy="104" r="10" fill="${skin}"/>`;
   const earrings = f && !L.neck ? '' : '';
 
-  const headIt = CLOTH[L.head];
+  const headIt = piece(L.head);
   const beard = beardSVG(L.beard, hair);
   const hideFrontHair = headIt && ['bone', 'gorro', 'cartola', 'elmo', 'viking', 'dinocapuz', 'faixa'].includes(headIt.kind) && L.hair !== 'black';
   const hideBackHair = headIt && ['elmo', 'dinocapuz'].includes(headIt.kind);
   const size = opts.size || 160;
   return `<svg class="avatar" viewBox="0 -10 200 295" width="${size * 200 / 295}" height="${size}" xmlns="http://www.w3.org/2000/svg">
     <defs><clipPath id="${id}t"><rect x="64" y="142" width="72" height="72" rx="20"/></clipPath></defs>
+    ${L.aura ? auraSVG(L.aura, id) : ''}
     <ellipse cx="100" cy="276" rx="56" ry="9" fill="#0003"/>
-    ${backAcc(CLOTH[L.back])}
+    ${backAcc(piece(L.back))}
     ${hideBackHair ? '' : hairBack(L.hair, hair)}
-    ${legs}${shoes}${arms}${torso}${detail}${shine}${neckAcc(CLOTH[L.neck])}
+    ${legs}${shoes}${arms}${torso}${detail}${shine}${neckAcc(piece(L.neck))}
     <rect x="88" y="132" width="24" height="16" fill="${shade(skin, 0.92)}"/>
     ${ears}<circle cx="100" cy="98" r="52" fill="${skin}"/>
     ${blush}${brows}${eyes}${lashes}${beard.under}${mouth}${beard.over}${earrings}
     ${hideFrontHair ? '' : hairFront(L.hair, hair)}
-    ${faceAcc(CLOTH[L.face], L.skin)}
+    ${faceAcc(piece(L.face), L.skin)}
     ${headwear(headIt)}
   </svg>`;
 }
@@ -430,3 +445,62 @@ export function randomLook(sex) {
     head: Math.random() < 0.2 ? r(['h_bone', 'h_laco', 'h_chapeu']) : null, face: Math.random() < 0.25 ? r(['f_oculos', 'f_sol']) : null, neck: null,
   };
 }
+
+// ===== Skins lendárias (inspiradas em arquétipos de anime; nomes e visuais próprios) =====
+const P = (kind, c, x = {}) => ({ kind, c, ...x });
+export const LEGENDS = [
+  // ---- Masculinas ----
+  { id: 'l_imperador', sex: 'm', name: 'Imperador dos Mares', bonus: 0.18, aura: null,
+    look: { sex: 'm', hair: 'careca', hairColor: '#f2f2f2', beard: 'bigodao', skin: 2 }, pieces: { top: P('regata', '#d9c7a3', { sleeve: 'none' }), bottom: P('calca', '#3a3a46'), shoes: P(null, '#2a1a10'), head: P('faixa', '#1d2b5a'), back: P('capa', '#f2efe6', { c2: '#c9b98f' }) } },
+  { id: 'l_capitao', sex: 'm', name: 'Capitão da Tropa de Elite', bonus: 0.15, aura: null,
+    look: { sex: 'm', hair: 'lateral', hairColor: '#141414', skin: 0, eyes: 4 }, pieces: { top: P('jaqueta', '#6b4a2b', { sleeve: 'long', c2: '#f4f4f4' }), bottom: P('calca', '#e8e2d4'), shoes: P(null, '#3a2414'), neck: P('cachecol', '#f4f4f4'), back: P('capa', '#2f5a3a') } },
+  { id: 'l_lorde', sex: 'm', name: 'Lorde Eterno dos Seis Caminhos', bonus: 0.2, aura: '#8f6bff',
+    look: { sex: 'm', hair: 'longo', hairColor: '#e9e9f0', skin: 1, eyes: 5 }, pieces: { top: P('mago', '#f2f0f7', { sleeve: 'long', c2: '#2a2a3a' }), shoes: P(null, '#2a2a3a'), head: P('chifres', '#d9d6e6'), face: P('losango', '#c81d3a') } },
+  { id: 'l_sol', sex: 'm', name: 'Avatar da Raposa Solar', bonus: 0.2, aura: '#ffb300',
+    look: { sex: 'm', hair: 'espetado', hairColor: '#ffd23c', skin: 1, eyes: 3 }, pieces: { top: P('mago', '#ffb300', { sleeve: 'long', c2: '#2a1a00' }), shoes: P(null, '#2a1a00'), face: P('marcas', '#2a1a00') } },
+  { id: 'l_infinito', sex: 'm', name: 'Feiticeiro do Infinito', bonus: 0.2, aura: '#4dd2ff',
+    look: { sex: 'm', hair: 'espetado', hairColor: '#f5f7ff', skin: 0, eyes: 3 }, pieces: { top: P('marinheiro', '#1d2238', { sleeve: 'long', c2: '#1d2238', tie: '#1d2238' }), bottom: P('calca', '#1d2238'), shoes: P(null, '#111') , face: P('venda', '#151515') } },
+  { id: 'l_maldito', sex: 'm', name: 'Rei Maldito de Quatro Olhos', bonus: 0.2, aura: '#c81d3a',
+    look: { sex: 'm', hair: 'espetado', hairColor: '#ff8fbf', skin: 1, eyes: 5 }, pieces: { top: P('kimono', '#f4f1ea', { sleeve: 'long', c2: '#1d1d1d' }), bottom: P('largo', '#1d1d1d'), shoes: P(null, '#1d1d1d'), face: P('marcas', '#1d1d1d') } },
+  { id: 'l_fusao', sex: 'm', name: 'Guerreiro da Fusão Suprema', bonus: 0.2, aura: '#b026ff',
+    look: { sex: 'm', hair: 'anime', hairColor: '#7a1fbf', skin: 1, eyes: 5 }, pieces: { top: P('jaqueta', '#1d1d24', { sleeve: 'none', c2: '#ffffff' }), bottom: P('largo', '#f2f2f2'), shoes: P(null, '#c81d3a'), neck: P('pingente', '#ffd23c') } },
+  { id: 'l_selvagem', sex: 'm', name: 'Guerreiro Selvagem da Floresta', bonus: 0.12, aura: null,
+    look: { sex: 'm', hair: 'longo', hairColor: '#1d2b5a', skin: 1, eyes: 2 }, pieces: { top: P('semcamisa', '#000', { sleeve: 'none' }), bottom: P('largo', '#5d6b8a'), shoes: P(null, '#c9b98f'), back: P('katana', '#9aa3b0') } },
+  { id: 'l_aguas', sex: 'm', name: 'Espadachim das Águas Calmas', bonus: 0.15, aura: '#4da3ff',
+    look: { sex: 'm', hair: 'rabo', hairColor: '#141414', skin: 1, eyes: 3 }, pieces: { top: P('kimono', '#1d2238', { sleeve: 'long', c2: '#8e1b3e' }), bottom: P('largo', '#1d2238'), shoes: P(null, '#f4f1ea'), back: P('katana', '#4da3ff') } },
+  { id: 'l_careca', sex: 'm', name: 'Herói Careca Imbatível', bonus: 0.2, aura: '#ffd23c',
+    look: { sex: 'm', hair: 'careca', hairColor: '#000', skin: 0, eyes: 5 }, pieces: { top: P('heroi', '#ffd23c', { sleeve: 'long', c2: '#ffd23c' }), bottom: P('calca', '#ffd23c'), shoes: P(null, '#c81d3a'), back: P('capa', '#ffffff') } },
+  { id: 'l_simbolo', sex: 'm', name: 'Herói Número Um', bonus: 0.18, aura: '#4da3ff',
+    look: { sex: 'm', hair: 'espetado', hairColor: '#ffd23c', skin: 1, eyes: 3 }, pieces: { top: P('heroi', '#2a6bff', { sleeve: 'long', c2: '#e8263f' }), bottom: P('calca', '#2a6bff'), shoes: P(null, '#e8263f') } },
+  { id: 'l_patriarca', sex: 'm', name: 'Patriarca de Outro Planeta', bonus: 0.18, aura: null,
+    look: { sex: 'm', hair: 'curto', hairColor: '#141414', beard: 'bigode', skin: 1, eyes: 0 }, pieces: { top: P('heroi', '#f4f4f4', { sleeve: 'long', c2: '#c81d3a' }), bottom: P('calca', '#f4f4f4'), shoes: P(null, '#c81d3a'), back: P('capa', '#c81d3a') } },
+  // ---- Femininas ----
+  { id: 'l_princesa', sex: 'f', name: 'Princesa Chifruda Pilota', bonus: 0.18, aura: '#ff4f8f',
+    look: { sex: 'f', hair: 'longo', hairColor: '#ff8fbf', skin: 0, eyes: 2 }, pieces: { top: P('heroi', '#e8263f', { sleeve: 'long', c2: '#ffffff' }), bottom: P('calca', '#e8263f'), shoes: P(null, '#ffffff'), head: P('chifres', '#c81d3a') } },
+  { id: 'l_oni', sex: 'f', name: 'Oni Desperta', bonus: 0.18, aura: '#ff6bb5',
+    look: { sex: 'f', hair: 'longo', hairColor: '#1d1010', skin: 0, eyes: 2 }, pieces: { top: P('kimono', '#ff8fbf', { sleeve: 'long', c2: '#3a1d1d' }), bottom: P('largo', '#3a1d1d'), shoes: P(null, '#c9b98f'), head: P('chifres', '#ffb3cf'), face: P('marcas', '#c81d3a') } },
+  { id: 'l_soldado', sex: 'f', name: 'Soldado Implacável', bonus: 0.15, aura: null,
+    look: { sex: 'f', hair: 'chanel', hairColor: '#141414', skin: 1, eyes: 4 }, pieces: { top: P('jaqueta', '#6b4a2b', { sleeve: 'long', c2: '#f4f4f4' }), bottom: P('calca', '#e8e2d4'), shoes: P(null, '#3a2414'), neck: P('cachecol', '#c81d3a'), back: P('capa', '#2f5a3a') } },
+  { id: 'l_elfa', sex: 'f', name: 'Elfa do Vento', bonus: 0.12, aura: '#7dffb5',
+    look: { sex: 'f', hair: 'rabo', hairColor: '#b6e8c9', skin: 0, eyes: 2 }, pieces: { top: P('mago', '#f4f4f4', { sleeve: 'long', c2: '#2bc46f' }), shoes: P(null, '#6b4a2b') } },
+  { id: 'l_maga', sex: 'f', name: 'Maga de Tranças Azuis', bonus: 0.12, aura: '#4da3ff',
+    look: { sex: 'f', hair: 'tranca', hairColor: '#2a6bff', skin: 0, eyes: 3 }, pieces: { top: P('mago', '#1d2b5a', { sleeve: 'long', c2: '#ffffff' }), shoes: P(null, '#3a2414'), head: P('magochapeu', '#1d2b5a', { c2: '#ffffff' }) } },
+  { id: 'l_ruiva', sex: 'f', name: 'Espadachim Ruiva Furiosa', bonus: 0.15, aura: '#ff5d3c',
+    look: { sex: 'f', hair: 'longo', hairColor: '#d4381e', skin: 0, eyes: 2 }, pieces: { top: P('jaqueta', '#c81d3a', { sleeve: 'long', c2: '#f4f4f4' }), bottom: P('saia', '#f4f4f4'), shoes: P(null, '#3a2414'), back: P('espada', '#cfd6e0') } },
+  { id: 'l_felina', sex: 'f', name: 'Rainha Felina Espadachim', bonus: 0.15, aura: null,
+    look: { sex: 'f', hair: 'longo', hairColor: '#3a2414', skin: 5, eyes: 0 }, pieces: { top: P('regata', '#1d1d1d', { sleeve: 'none' }), bottom: P('calca', '#4a3a2a'), shoes: P(null, '#1d1d1d'), head: P('gato', '#3a2414'), back: P('espada', '#cfd6e0') } },
+  { id: 'l_curandeira', sex: 'f', name: 'Curandeira Lendária', bonus: 0.18, aura: '#2bc46f',
+    look: { sex: 'f', hair: 'chiquinhas', hairColor: '#f2d27a', skin: 0, eyes: 1 }, pieces: { top: P('jaqueta', '#2f7a4a', { sleeve: 'long', c2: '#9aa0a8' }), bottom: P('calca', '#3a3a46'), shoes: P(null, '#1d1d1d'), face: P('losango', '#8f6bff') } },
+  { id: 'l_idol', sex: 'f', name: 'Idol Gótica', bonus: 0.12, aura: null,
+    look: { sex: 'f', hair: 'chiquinhas', hairColor: '#ffe27a', skin: 0, eyes: 0 }, pieces: { top: P('vestido', '#151515', { sleeve: 'none' }), shoes: P(null, '#151515'), neck: P('corrente', '#cfd6e0'), head: P('laco', '#151515') } },
+  { id: 'l_atomica', sex: 'f', name: 'Heroína Atômica', bonus: 0.18, aura: '#ff6bb5',
+    look: { sex: 'f', hair: 'chanel', hairColor: '#d4381e', skin: 0, eyes: 3 }, pieces: { top: P('heroi', '#ff6bb5', { sleeve: 'long', c2: '#ffffff' }), bottom: P('calca', '#ff6bb5'), shoes: P(null, '#ffffff') } },
+  { id: 'l_navegadora', sex: 'f', name: 'Navegadora dos Sete Mares', bonus: 0.12, aura: null,
+    look: { sex: 'f', hair: 'longo', hairColor: '#ff8a3c', skin: 1, eyes: 1 }, pieces: { top: P('camiseta', '#4da3ff', { sleeve: 'none', c2: '#ffffff', stripes: true }), bottom: P('short', '#1d2b5a'), shoes: P(null, '#ffc93c'), neck: P('corrente', '#ffc93c') } },
+  { id: 'l_borboleta', sex: 'f', name: 'Espadachim Borboleta', bonus: 0.15, aura: '#b98cff',
+    look: { sex: 'f', hair: 'coque', hairColor: '#3a1d4a', skin: 0, eyes: 2 }, pieces: { top: P('kimono', '#151515', { sleeve: 'long', c2: '#c9a9ff' }), bottom: P('largo', '#151515'), shoes: P(null, '#f4f1ea'), head: P('laco', '#b98cff'), back: P('katana', '#c9a9ff') } },
+  { id: 'l_amor', sex: 'f', name: 'Espadachim do Amor', bonus: 0.15, aura: '#ff8fbf',
+    look: { sex: 'f', hair: 'tranca', hairColor: '#ff8fbf', skin: 0, eyes: 2 }, pieces: { top: P('kimono', '#151515', { sleeve: 'long', c2: '#ff8fbf' }), bottom: P('saia', '#151515'), shoes: P(null, '#f4f1ea'), back: P('katana', '#ff8fbf') } },
+];
+export const LEGEND = Object.fromEntries(LEGENDS.map((x) => [x.id, x]));
+export const LEGEND_COST = 1e6;

@@ -1,6 +1,6 @@
 // ===== Estado do jogador, economia e ações =====
 import { regime, BLOCK } from './market.js';
-import { CLOTH, CLOTHES, defaultLook, randomLook } from './avatar.js';
+import { CLOTH, CLOTHES, defaultLook, randomLook, LEGEND, LEGEND_COST } from './avatar.js';
 import {
   DAY_MS, BUSINESSES, BIZ_GROWTH, BIZ_MILESTONES, COURSES, JOBS, PROPERTIES, GOODS, GOOD, ALL_GOODS,
   CARDS, LEVEL_BONUS, TRADE_FEE, LOAN_RATE, RENT_NO_HOME, ASSETS, CRYPTOS, UNLOCKS, SECTORS,
@@ -79,11 +79,26 @@ export const lifeMult = (s) => 1 + loveBonus(s) + restBonus(s);
 export function vehicleBonus(s) {
   return [...GOODS.veiculos, ...GOODS.ceumar].filter((g) => s.goods[g.id]).reduce((m, g) => Math.max(m, g.bonus), 0);
 }
+// Skin lendária vestida dá bônus no salário
+export const legendBonus = (s) => (s.look && s.look.lend && (s.legends || {})[s.look.lend] && LEGEND[s.look.lend] ? LEGEND[s.look.lend].bonus : 0);
+export function buyLegend(s, id) {
+  const l = LEGEND[id]; if (!l) return 'Skin inválida';
+  s.legends = s.legends || {};
+  if (!s.legends[id]) {
+    const e = shop(s, LEGEND_COST); if (e) return e;
+    s.legends[id] = Date.now();
+    addXP(s, 120);
+  }
+  s.look = s.look || defaultLook();
+  s.look.lend = id;
+  return null;
+}
+export function takeOffLegend(s) { if (s.look) s.look.lend = null; return null; }
 export function homeOf(s) {
   const owned = GOODS.moradia.filter((g) => s.goods[g.id]);
   return owned.length ? owned[owned.length - 1] : null;
 }
-export const styleOf = (s) => Object.keys(s.wardrobe || {}).reduce((t, id) => t + (CLOTH[id] ? CLOTH[id].style : 0), 0);
+export const styleOf = (s) => Object.keys(s.wardrobe || {}).reduce((t, id) => t + (CLOTH[id] ? CLOTH[id].style : 0), 0) + Object.keys(s.legends || {}).length * 300;
 export const tripPrestige = (s) => Object.keys(s.trips || {}).reduce((t, id) => { const tr = TRIPS.find((x) => x.id === id); return t + (tr ? Math.max(1, Math.round(Math.log10(tr.cost) ** 2 - 10)) : 0); }, 0);
 export const prestige = (s) => ALL_GOODS.filter((g) => s.goods[g.id]).reduce((p, g) => p + g.prestige, 0) + styleOf(s) + tripPrestige(s) + (s.love && s.love.wedding ? (WEDDINGS.find((w) => w.id === s.love.wedding) || { prestige: 0 }).prestige : 0);
 export function offlineHours(s) {
@@ -103,13 +118,14 @@ export function buffMult(s, id) {
 
 export function salary(s) {
   const j = JOBS.find((x) => x.id === s.job);
-  return j.salary * (1 + vehicleBonus(s)) * levelMult(s);
+  return j.salary * (1 + vehicleBonus(s)) * (1 + legendBonus(s)) * levelMult(s);
 }
 
 // Renda e gastos por dia de jogo, detalhado
 export function incomeBreakdown(s, mk) {
   const sal = salary(s);
   const salVeh = sal - sal / (1 + vehicleBonus(s)); // parte do salário que vem do veículo
+  const salLend = sal - sal / (1 + legendBonus(s)); // parte que vem da skin lendária
   const bizGross = BUSINESSES.reduce((t, b) => t + bizProfit(s, b, mk), 0);
   const biz = bizGross * (1 - corpFloat(s)); // a fatia vendida na bolsa vai para os acionistas
   const rent = PROPERTIES.reduce((t, p) => t + (s.props[p.id] || 0) * p.rent, 0) * levelMult(s);
@@ -125,7 +141,7 @@ export function incomeBreakdown(s, mk) {
   const loan = s.debt * LOAN_RATE;
   const inc = sal + biz + rent + divs + juros;
   const exp = moradia + manut + loan;
-  return { sal, salVeh, biz, rent, divs, juros, moradia, manut, loan, inc, exp, net: inc - exp };
+  return { sal, salVeh, salLend, biz, rent, divs, juros, moradia, manut, loan, inc, exp, net: inc - exp };
 }
 
 export function netWorth(s, mk) {
@@ -472,6 +488,8 @@ export const ACHIEVEMENTS = [
   { id: 'socio_familia', icon: '🤝', name: 'Sócio(a) da família', desc: 'Compre ações da empresa de um amigo', test: (s) => Object.keys(s.fport || {}).length >= 1 },
   { id: 'precavido', icon: '🛡️', name: 'Precavido(a)', desc: 'Tenha 3 seguros ao mesmo tempo', test: (s) => Object.keys(s.ins || {}).length >= 3 },
   { id: 'salvo_seguro', icon: '☂️', name: 'Salvo pelo seguro', desc: 'Economize R$ 100 mil com seguros', test: (s) => (s.stats.insSaved || 0) >= 1e5 },
+  { id: 'lendaria1', icon: '🌟', name: 'Lendário(a)', desc: 'Compre uma skin lendária', test: (s) => Object.keys(s.legends || {}).length >= 1 },
+  { id: 'lendaria5', icon: '🏯', name: 'Colecionador(a) de lendas', desc: 'Tenha 5 skins lendárias', test: (s) => Object.keys(s.legends || {}).length >= 5 },
   { id: 'nivel10', icon: '⭐', name: 'Experiente', desc: 'Alcance o nível 10', test: (s) => level(s) >= 10 },
   { id: 'nivel25', icon: '🌟', name: 'Lenda', desc: 'Alcance o nível 25', test: (s) => level(s) >= 25 },
 ];

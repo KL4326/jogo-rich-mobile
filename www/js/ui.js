@@ -4,7 +4,7 @@ import {
   DAY_MS, SECTORS, SECTOR, STOCKS, CRYPTOS, ASSETS, BUSINESSES, COURSES, JOBS, PROPERTIES, GOODS, CARDS, UNLOCKS, TRADE_FEE, LOAN_RATE, LEVEL_BONUS, RENT_NO_HOME,
 } from './data.js';
 import * as G from './game.js';
-import { avatarSVG, defaultLook, SKINS, HAIR_COLORS, EYE_COLORS, HAIRS, BEARDS, CLOTHES, SLOTS, SETS, CLOTH } from './avatar.js';
+import { avatarSVG, defaultLook, LEGENDS, LEGEND, LEGEND_COST, SKINS, HAIR_COLORS, EYE_COLORS, HAIRS, BEARDS, CLOTHES, SLOTS, SETS, CLOTH } from './avatar.js';
 import { townSVG } from './town.js';
 import * as A from './audio.js';
 import { tickToMs } from './market.js';
@@ -297,6 +297,9 @@ const handlers = {
     const pr = G.insPremium(C.s, C.mk, d.id, plan);
     confirmBox(`Contratar ${x.name} (${plan === 'completo' ? 'Completo' : 'Básico'}) por ${money(pr)} a cada 30 dias do jogo? A primeira mensalidade é cobrada agora.`, () => { if (act(() => G.setInsurance(C.s, C.mk, d.id, plan), `🛡️ ${x.name} contratado!`)) keepScroll(render); });
   },
+  lsex: (d) => { ui.lsex = d.v; if (!refreshVisual()) keepScroll(render); },
+  lend: (d, el) => { const owned = !!(C.s.legends || {})[d.id]; if (act(() => G.buyLegend(C.s, d.id), null, owned ? null : el)) { if (!owned) { confetti(); toast(`🌟 Skin lendária: ${esc(LEGEND[d.id].name)}! +${Math.round(LEGEND[d.id].bonus * 100)}% no salário`, 'gold'); } else toast(`✨ Usando ${esc(LEGEND[d.id].name)}`, 'ok'); if (!refreshVisual()) keepScroll(render); } },
+  lendoff: () => { G.takeOffLegend(C.s); C.afterAction(); toast('Skin lendária guardada', 'ok'); if (!refreshVisual()) keepScroll(render); },
   confirmyes: () => { const f = pendingConfirm; closeModal(); f && f(); },
 };
 const keepScroll = (fn) => { const sc = $('#view').scrollTop; fn(); $('#view').scrollTop = sc; };
@@ -463,8 +466,8 @@ function lookPanel(tab, L, size = 110) {
   return '';
 }
 const tabChip = (act, t, cur) => `<button class="${cur === t.id ? 'on' : ''}" data-act="${act}" data-t="${t.id}"><span>${t.icon}</span>${t.name}</button>`;
-const visBar = (cur) => LOOK_TABS.map((t) => tabChip('vis', t, cur)).join('') + '<span class="tabsep">🛍️ Loja</span>' + SLOTS.map((t) => tabChip('vis', t, cur)).join('');
-const visPanel = (tab) => (isLookTab(tab) ? lookPanel(tab, C.s.look) : `${payBar()}<div class="closet" data-cardable>${closetHTML(tab)}</div>`);
+const visBar = (cur) => LOOK_TABS.map((t) => tabChip('vis', t, cur)).join('') + '<span class="tabsep">🛍️ Loja</span>' + tabChip('vis', { id: 'lendas', icon: '🌟', name: 'Lendárias' }, cur) + SLOTS.map((t) => tabChip('vis', t, cur)).join('');
+const visPanel = (tab) => (tab === 'lendas' ? legendsPanel() : isLookTab(tab) ? lookPanel(tab, C.s.look) : `${payBar()}<div class="closet" data-cardable>${closetHTML(tab)}</div>`);
 function vVisual() {
   const s = C.s;
   const tab = ui.vis || 'corpo';
@@ -472,6 +475,22 @@ function vVisual() {
   <div class="mirror"><div class="mirrorav" id="mirrorav">${avatarSVG(s.look, { size: 230 })}</div><div class="stylebadge">👗 Estilo <b id="stylev">${fmt(G.styleOf(s))}</b></div></div>
   <div class="subtabs vistabs" id="vistabs">${visBar(tab)}</div>
   <div id="vispanel">${visPanel(tab)}</div>`;
+}
+function legendsPanel() {
+  const s = C.s;
+  const sx = ui.lsex || (s.look && s.look.sex) || 'm';
+  const cur = s.look && s.look.lend;
+  const list = LEGENDS.filter((l) => l.sex === sx);
+  return `<div class="legendhead"><b>🌟 Skins Lendárias</b><small>Visual completo e exclusivo + <b>bônus no salário</b> enquanto estiver usando. ${money(LEGEND_COST)} cada.</small></div>
+  ${cur ? `<div class="paybar lendnow"><span>Usando: <b>${esc(LEGEND[cur].name)}</b> (+${Math.round(LEGEND[cur].bonus * 100)}% salário)</span><button class="btn ghost sm" data-act="lendoff">Tirar</button></div>` : ''}
+  ${payBar()}
+  <div class="seg2 lsex">${[['m', '♂️ Masculinas'], ['f', '♀️ Femininas']].map(([v, n]) => `<button class="${sx === v ? 'on' : ''}" data-act="lsex" data-v="${v}">${n}</button>`).join('')}</div>
+  <div class="closet" data-cardable>${list.map((l) => {
+    const own = !!(s.legends || {})[l.id];
+    const worn = cur === l.id;
+    const btn = worn ? '<span class="pill ok">✨ Usando</span>' : own ? `<button class="btn sm" data-act="lend" data-id="${l.id}">Usar</button>` : `<button class="btn gold sm" data-act="lend" data-id="${l.id}" data-cost="${LEGEND_COST}"><span>${money(LEGEND_COST)}</span></button>`;
+    return `<div class="citem legend ${worn ? 'worn' : ''}"><span class="lrar">LENDÁRIA</span><div class="cprev">${avatarSVG({ ...(s.look || defaultLook(l.sex)), lend: l.id }, { size: 128 })}</div><b>${l.name}</b><span class="pill money">+${Math.round(l.bonus * 100)}% salário</span>${btn}</div>`;
+  }).join('')}</div>`;
 }
 function setCost(s, st) { return Object.values(st.pieces).filter((id) => id && !s.wardrobe[id]).reduce((t, id) => t + CLOTH[id].cost, 0); }
 function closetHTML(slot) {
@@ -787,7 +806,7 @@ function quest() {
 function flowHTML() {
   const ib = G.incomeBreakdown(C.s, C.mk);
   const rows = [
-    ['💼 Salário', ib.sal - ib.salVeh], ['🚗 Bônus do veículo', ib.salVeh], ['🏭 Negócios', ib.biz], ['🔑 Aluguéis', ib.rent], ['💸 Dividendos', ib.divs], ['🏦 Juros', ib.juros],
+    ['💼 Salário', ib.sal - ib.salVeh - ib.salLend], ['🚗 Bônus do veículo', ib.salVeh], ['🌟 Bônus da skin lendária', ib.salLend], ['🏭 Negócios', ib.biz], ['🔑 Aluguéis', ib.rent], ['💸 Dividendos', ib.divs], ['🏦 Juros', ib.juros],
     ['🏠 Aluguel da moradia', -ib.moradia], ['🔧 Manutenção', -ib.manut], ['💳 Juros da dívida', -ib.loan],
   ].filter((r) => Math.abs(r[1]) > 0.0001);
   return rows.map(([n, v]) => `<div class="fr"><span>${n}</span><b class="${v < 0 ? 'down' : 'up'}">${v < 0 ? '-' : '+'}${money(Math.abs(v))}</b></div>`).join('') +
@@ -866,6 +885,7 @@ function salaryBreakdown() {
   return `<details class="box col salbox"><summary><b>🧾 Como seu salário é calculado</b></summary>
     ${row('💵', `Salário-base de ${job.name}`, money(job.salary), '')}
     ${row('🚗', veh ? `Veículo: ${veh.name}` : 'Veículo (nenhum)', `+${Math.round(vb * 100)}%`, vb ? 'up' : 'muted')}
+    ${G.legendBonus(s) ? row('🌟', `Skin lendária: ${LEGEND[s.look.lend].name}`, `+${Math.round(G.legendBonus(s) * 100)}%`) : ''}
     ${row('⭐', `Nível ${G.level(s)}`, `+${Math.round(lv * 100)}%`, lv ? 'up' : 'muted')}
     ${life ? row('😊', 'Felicidade e descanso', `+${Math.round(life * 100)}%`) : ''}
     <div class="fr total"><span>Você recebe</span><b class="up" data-live="salary"></b></div>
