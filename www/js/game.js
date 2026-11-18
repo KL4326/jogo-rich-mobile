@@ -457,7 +457,12 @@ export function checkAchievements(s) {
 const MIN = 60_000;
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 const ownedBiz = (s) => BUSINESSES.filter((b) => s.biz[b.id]);
-const hasVeh = (s) => [...GOODS.veiculos].some((g) => s.goods[g.id] && g.id !== 'bike' && g.id !== 'patinete');
+// O que a pessoa realmente tem (para os acontecimentos combinarem com a vida dela)
+const bestOwned = (s, list) => list.filter((g) => s.goods[g.id]).sort((a, b) => b.cost - a.cost)[0] || null;
+const myCar = (s) => bestOwned(s, GOODS.veiculos.filter((g) => !['pedala', 'trovao'].includes(g.brand)));
+const myMoto = (s) => bestOwned(s, GOODS.veiculos.filter((g) => g.brand === 'trovao'));
+const myBoat = (s) => bestOwned(s, GOODS.ceumar.filter((g) => ['jetski', 'lancha', 'veleiro', 'iate', 'megaiate', 'submarino'].includes(g.id)));
+const myAircraft = (s) => bestOwned(s, GOODS.ceumar.filter((g) => ['heli', 'jato', 'aviao'].includes(g.id)));
 const R = (x) => Math.max(1, Math.round(x));
 
 function eventPool(s, mk) {
@@ -477,7 +482,7 @@ function eventPool(s, mk) {
   add(3, { k: 'heranca', icon: '🎁', title: 'Herança inesperada', text: 'Um tio-avô distante deixou uma herança para você!', gain: R(day * 25), yes: 'Receber', fx: { cash: R(day * 25) } });
   add(4, { k: 'rua', icon: '💵', title: 'Achou dinheiro na rua', text: 'Você encontrou umas notas dobradas na calçada. Ninguém por perto…', gain: R(day * 2), yes: 'Guardar', fx: { cash: R(day * 2) } });
   add(3, { k: 'restituicao', icon: '🧾', title: 'Restituição do imposto', text: 'A Receita liberou sua restituição do imposto de renda!', gain: R(day * 8), yes: 'Receber', fx: { cash: R(day * 8) } });
-  add(3, { k: 'bonus', icon: '🏅', title: 'Bônus no trabalho', text: `Seu chefe gostou do seu trabalho como ${job.name} e liberou um bônus!`, gain: R(salary(s) * 10), yes: 'Uhuu!', fx: { cash: R(salary(s) * 10), xp: 10 } });
+  if (!['entregador', 'influencer', 'garcom'].includes(s.job)) add(3, { k: 'bonus', icon: '🏅', title: 'Bônus no trabalho', text: `Seu chefe gostou do seu trabalho como ${job.name} e liberou um bônus!`, gain: R(salary(s) * 10), yes: 'Uhuu!', fx: { cash: R(salary(s) * 10), xp: 10 } });
   add(2, { k: 'bolao', icon: '🎱', title: 'Bolão do trabalho', text: 'O bolão da firma acertou a quina! Sua parte chegou.', gain: R(day * 15), yes: 'Receber', fx: { cash: R(day * 15) } });
   add(3, { k: 'brecho', icon: '📦', title: 'Desapego', text: 'Você vendeu umas coisas velhas que estavam encostadas.', gain: R(day * 3), yes: 'Vender tudo', fx: { cash: R(day * 3) } });
   add(2, { k: 'concurso', icon: '🍰', title: 'Campeão de culinária', text: 'Seu bolo ganhou o concurso do bairro!', gain: R(day * 4), yes: 'Pegar o prêmio', fx: { cash: R(day * 4), xp: 15 } });
@@ -492,11 +497,20 @@ function eventPool(s, mk) {
   add(2, { k: 'geladeira', icon: '🧊', title: 'Geladeira pifou', text: 'A geladeira parou de gelar bem no calor.', pay: R(day * 6), yes: 'Comprar outra', fx: {} });
   add(2, { k: 'aniversario', icon: '🎂', title: 'Aniversário de amigo', text: 'É aniversário do seu melhor amigo. Vai dar presente, né?', pay: R(day * 2), yes: 'Dar presente', no: 'Esquecer…', fx: { xp: 5 }, nofx: { msg: '😅 Seu amigo ficou chateado…' } });
   add(2, { k: 'casamentoamigo', icon: '💒', title: 'Casamento de amigo', text: 'Você foi convidado(a) para ser padrinho/madrinha! Terno, presente e festa…', pay: R(day * 8), yes: 'Ir ao casamento', no: 'Dar uma desculpa', fx: { xp: 15, rest: 60 }, nofx: { msg: '😬 Pegou mal faltar…' } });
-  if (hasVeh(s)) {
-    add(3, { k: 'multa', icon: '🚓', title: 'Multa de trânsito', text: 'Chegou uma multa por excesso de velocidade. Pagar com desconto agora?', pay: R(day * 3), yes: 'Pagar com desconto', no: 'Pagar depois', fx: {}, nofx: { pay: R(day * 5), msg: '🚓 Pagou a multa cheia.' } });
-    add(2, { k: 'pneu', icon: '🛞', title: 'Pneu furado', text: 'Furou o pneu no meio do caminho. Guincho e borracharia!', pay: R(day * 2), yes: 'Pagar', fx: {} });
-    add(2, { k: 'granizo', icon: '🌨️', title: 'Chuva de granizo', text: 'Uma chuva de granizo amassou seu carro todo.', pay: R(day * 7), yes: 'Funilaria', fx: {} });
+  const car = myCar(s), moto = myMoto(s), boat = myBoat(s), air = myAircraft(s);
+  const road = car || moto;
+  if (road) {
+    add(3, { k: 'multa', icon: '🚓', title: 'Multa de trânsito', text: `Chegou uma multa por excesso de velocidade com ${car ? 'seu' : 'sua'} ${road.name}. Pagar com desconto agora?`, pay: R(day * 3), yes: 'Pagar com desconto', no: 'Pagar depois', fx: {}, nofx: { pay: R(day * 5), msg: '🚓 Pagou a multa cheia.' } });
+    add(2, { k: 'pneu', icon: '🛞', title: 'Pneu furado', text: `Furou o pneu ${car ? 'do seu' : 'da sua'} ${road.name} no meio do caminho. Guincho e borracharia!`, pay: R(day * 2), yes: 'Pagar', fx: {} });
   }
+  if (car) {
+    add(2, { k: 'granizo', icon: '🌨️', title: 'Chuva de granizo', text: `Uma chuva de granizo amassou seu ${car.name} todo.`, pay: R(Math.max(day * 4, car.cost * 0.01)), yes: 'Funilaria', fx: {} });
+    add(1, { k: 'revisao', icon: '🔧', title: 'Revisão do carro', text: `Chegou a hora da revisão do seu ${car.name}. Fazer agora evita prejuízo maior depois (30% de chance de quebrar feio).`, cost: R(Math.max(day * 2, car.cost * 0.004)), yes: 'Fazer revisão', no: 'Deixar pra depois', fx: { msg: '🔧 Carro revisado, tudo certo!' }, nofx: { chance: { p: 0.7, win: { msg: '😅 Desta vez deu sorte…' }, lose: { pay: R(Math.max(day * 6, car.cost * 0.02)), msg: '💥 O carro quebrou! Conserto caro.' } } } });
+  }
+  if (moto) add(1, { k: 'capacete', icon: '🪖', title: 'Capacete rachado', text: `O capacete que você usa com a ${moto.name} rachou. Segurança em primeiro lugar!`, pay: R(day * 1.5), yes: 'Comprar outro', fx: {} });
+  if (boat) add(2, { k: 'marina', icon: '⚓', title: 'Taxa da marina', text: `A marina cobrou a taxa anual de ${boat.name}.`, pay: R(Math.max(day * 3, boat.cost * 0.005)), yes: 'Pagar', fx: {} });
+  if (air) add(2, { k: 'hangar', icon: '🛫', title: 'Manutenção da aeronave', text: `${air.name} precisa da manutenção obrigatória de voo.`, pay: R(Math.max(day * 5, air.cost * 0.004)), yes: 'Pagar', fx: {} });
+  if (!road && !air) add(2, { k: 'onibus', icon: '🚌', title: 'Greve de ônibus', text: 'Greve no transporte público! Vai de táxi para o trabalho?', cost: R(day * 0.8), yes: 'Pegar táxi', no: 'Faltar ao trabalho', fx: { msg: '🚕 Chegou no horário!' }, nofx: { pay: R(salary(s) * 2), msg: '📉 Faltou e teve o dia descontado.' } });
   if (homeOf(s)) {
     add(3, { k: 'vazamento', icon: '🚿', title: 'Vazamento em casa', text: 'Um cano estourou e alagou a cozinha!', pay: R(day * 5), yes: 'Chamar encanador', fx: {} });
     add(2, { k: 'iptu', icon: '🏛️', title: 'IPTU chegou', text: 'Chegou o carnê do IPTU da sua casa.', pay: R(day * 6), yes: 'Pagar', fx: {} });
@@ -535,8 +549,8 @@ function eventPool(s, mk) {
   // ===== Vida amorosa =====
   if (L) {
     add(2, { k: 'aniv_par', icon: '🎉', title: `Aniversário de ${L.partner.name}`, text: `Hoje é aniversário de ${L.partner.name}! Uma festa surpresa ia fazer sucesso…`, cost: R(day * 5), yes: 'Fazer festa surpresa', no: 'Só dar parabéns', fx: { aff: 25, msg: '🥳 Amou a surpresa!' }, nofx: { aff: -15, msg: '😒 Esperava mais…' } });
-    add(2, { k: 'briga', icon: '😤', title: 'Briguinha de casal', text: `Vocês discutiram por uma bobagem. Um jantar para fazer as pazes?`, cost: R(day * 2), yes: 'Pedir desculpas com jantar', no: 'Deixar esfriar', fx: { aff: 8, msg: '🥰 Fizeram as pazes!' }, nofx: { aff: -12, msg: '💔 Clima ficou pesado…' } });
-    add(1, { k: 'sogra', icon: '👵', title: 'Visita da sogra', text: `A família de ${L.partner.name} vem passar o fim de semana. Capricha no almoço?`, cost: R(day * 3), yes: 'Caprichar', no: 'Pedir pizza', fx: { aff: 12, msg: '😋 Todos amaram o almoço!' }, nofx: { aff: -5 } });
+    if (L.stage >= 1) add(2, { k: 'briga', icon: '😤', title: 'Briguinha de casal', text: `Vocês discutiram por uma bobagem. Um jantar para fazer as pazes?`, cost: R(day * 2), yes: 'Pedir desculpas com jantar', no: 'Deixar esfriar', fx: { aff: 8, msg: '🥰 Fizeram as pazes!' }, nofx: { aff: -12, msg: '💔 Clima ficou pesado…' } });
+    if (L.stage >= 2) add(1, { k: 'sogra', icon: '👵', title: 'Visita da sogra', text: `A família de ${L.partner.name} vem passar o fim de semana. Capricha no almoço?`, cost: R(day * 3), yes: 'Caprichar', no: 'Pedir pizza', fx: { aff: 12, msg: '😋 Todos amaram o almoço!' }, nofx: { aff: -5 } });
   } else {
     add(1, { k: 'crush', icon: '💘', title: 'Alguém de olho em você', text: 'Parece que tem alguém interessado em você… Vá em 👤 Vida → ❤️ Amor e procure!', gain: 0, yes: 'Ficar curioso', fx: { xp: 5 } });
   }
