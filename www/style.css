@@ -756,3 +756,19 @@ details.appear[open] summary { margin-bottom: 8px; }
 .salbox .fr { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 2px dashed #ece4f8; }
 .salbox .fr.total { border-bottom: 0; font-size: 16px; }
 .pill.money small { opacity: .7; font-weight: 600; }
+/* holding */
+.corpcard { background: linear-gradient(135deg, #fff, #f3ecff); border: 3px solid #fff; border-radius: 22px; padding: 14px; margin-bottom: 12px; box-shadow: 0 5px 0 var(--edge); display: flex; flex-direction: column; gap: 8px; }
+.corpcard.empty { text-align: center; align-items: stretch; }
+.corpcard .cbig { font-size: 54px; }
+.corpcard h3 { margin: 0; }
+.corpcard h4 { margin: 6px 0 0; font-size: 15px; }
+.rqs.center { justify-content: center; }
+.crow { display: flex; align-items: center; gap: 10px; }
+.crow b { font-family: var(--display); font-weight: 400; font-size: 20px; }
+.crow small { color: var(--ink2); font-weight: 600; display: block; }
+.clogo, .clogo2 { width: 48px; height: 48px; border-radius: 14px; display: grid; place-items: center; font-family: var(--display); font-size: 26px; color: #fff; background: linear-gradient(135deg, var(--purple), #3b2a8f); box-shadow: 0 3px 0 #2a1d70; flex: none; }
+.clogo2 { width: 42px; height: 42px; font-size: 22px; background: linear-gradient(135deg, #2bc46f, #1a944f); box-shadow: 0 3px 0 #127040; }
+.cstats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.cstats > div { background: #fff; border-radius: 14px; padding: 8px 10px; display: flex; flex-direction: column; }
+.cstats small { color: var(--ink2); font-weight: 600; }
+.chipbtn small { display: block; font-size: 10.5px; color: var(--green-d); }

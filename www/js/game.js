@@ -101,9 +101,10 @@ export function salary(s) {
 // Renda e gastos por dia de jogo, detalhado
 export function incomeBreakdown(s, mk) {
   const sal = salary(s);
-  const biz = BUSINESSES.reduce((t, b) => t + bizProfit(s, b, mk), 0);
+  const bizGross = BUSINESSES.reduce((t, b) => t + bizProfit(s, b, mk), 0);
+  const biz = bizGross * (1 - corpFloat(s)); // a fatia vendida na bolsa vai para os acionistas
   const rent = PROPERTIES.reduce((t, p) => t + (s.props[p.id] || 0) * p.rent, 0) * levelMult(s);
-  let divs = 0;
+  let divs = familyDivs(s);
   for (const a of ASSETS) {
     const h = s.port[a.sym];
     if (h && h.q > 0) { const t = ownTier(ownPct(s, a.sym)); const d = ((a.div || 0) + (t ? t.extra : 0)) * (t ? t.mult : 1); if (d) divs += h.q * mk.price(a.sym) * d; }
@@ -127,7 +128,8 @@ export function netWorth(s, mk) {
   const idx = mk.realEstateIndex();
   v += PROPERTIES.reduce((t, p) => t + (s.props[p.id] || 0) * p.cost * idx, 0);
   // empresas valem 60% do que foi investido
-  v += BUSINESSES.reduce((t, b) => t + (s.biz[b.id] ? bizCost(b, 0, s.biz[b.id]) * 0.6 : 0), 0);
+  v += BUSINESSES.reduce((t, b) => t + (s.biz[b.id] ? bizCost(b, 0, s.biz[b.id]) * 0.6 : 0), 0) * (1 - corpFloat(s));
+  v += Object.values(s.fport || {}).reduce((t, h) => t + h.q * h.price, 0);
   v += ALL_GOODS.filter((g) => s.goods[g.id]).reduce((t, g) => t + g.cost * sellRate(g), 0);
   return v - s.debt - ccOwed(s);
 }
@@ -435,6 +437,9 @@ export const ACHIEVEMENTS = [
   { id: 'jackpot', icon: '7️⃣', name: 'JACKPOT!', desc: 'Tire 7️⃣7️⃣7️⃣ no caça-níquel', test: (s) => !!s.casino && !!s.casino.jackpot },
   { id: 'sortudo', icon: '🍀', name: 'Sortudo', desc: 'Ganhe 30x a aposta numa jogada', test: (s) => !!s.casino && s.casino.bestMult >= 30 },
   { id: 'cartao1', icon: '💳', name: 'Passa no crédito', desc: 'Faça uma compra no cartão', test: (s) => (s.stats.cardUse || 0) >= 1 },
+  { id: 'fundador', icon: '🏢', name: 'Fundador(a)', desc: 'Funde sua própria empresa', test: (s) => !!s.corp },
+  { id: 'ipo', icon: '🔔', name: 'Toque do sino', desc: 'Abra o capital da sua empresa na bolsa', test: (s) => !!s.corp && !!s.corp.ipoAt },
+  { id: 'socio_familia', icon: '🤝', name: 'Sócio(a) da família', desc: 'Compre ações da empresa de um amigo', test: (s) => Object.keys(s.fport || {}).length >= 1 },
   { id: 'nivel10', icon: '⭐', name: 'Experiente', desc: 'Alcance o nível 10', test: (s) => level(s) >= 10 },
   { id: 'nivel25', icon: '🌟', name: 'Lenda', desc: 'Alcance o nível 25', test: (s) => level(s) >= 25 },
 ];
@@ -831,3 +836,73 @@ export function playScratch(s, amt) {
   for (const [p, m] of SCRATCH) { if (r < p) { mult = m; break; } r -= p; }
   return { mult, win: Math.floor(amt) * mult };
 }
+
+// ---------- Sua própria empresa na bolsa (holding) ----------
+export const CORP = { minNW: 5e7, minBiz: 3, cost: 1e6, shares: 1e7, pe: 400, maxFloat: 0.49, fee: 0.005 };
+export const corpFloat = (s) => (s.corp ? s.corp.float || 0 : 0);
+export const grossBizProfit = (s, mk) => BUSINESSES.reduce((t, b) => t + bizProfit(s, b, mk), 0);
+// Valor da ação = lucro diário dos negócios × 400 ÷ 10 milhões de ações
+export const corpPrice = (s, mk) => (s.corp ? Math.max(0.01, (grossBizProfit(s, mk) * CORP.pe) / CORP.shares) : 0);
+export function canFound(s) { return (s.peakNW || 0) >= CORP.minNW && Object.values(s.biz).filter((x) => x > 0).length >= CORP.minBiz; }
+export function tickerFrom(name) { return (name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[^A-Z]/g, '') + 'XXXX').slice(0, 4) + '3'; }
+export function foundCorp(s, name, ticker) {
+  if (s.corp) return 'Você já tem uma empresa';
+  if (!canFound(s)) return 'Ainda não cumpre os requisitos';
+  name = (name || '').trim().slice(0, 22);
+  ticker = (ticker || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4);
+  if (name.length < 3) return 'Escolha um nome com pelo menos 3 letras';
+  if (ticker.length !== 4) return 'O código precisa de 4 letras';
+  const e = spend(s, CORP.cost); if (e) return e;
+  s.corp = { name, ticker: ticker + '3', founded: Date.now(), float: 0 };
+  addXP(s, 150);
+  return null;
+}
+export function ipo(s, mk, pct) {
+  const c = s.corp; if (!c) return 'Funde sua empresa primeiro';
+  if (!(pct > 0) || c.float + pct > CORP.maxFloat + 1e-9) return `Você pode vender no máximo ${Math.round(CORP.maxFloat * 100)}% (para continuar no controle)`;
+  const got = pct * CORP.shares * corpPrice(s, mk) * (1 - CORP.fee * 4);
+  c.float += pct; c.ipoAt = c.ipoAt || Date.now();
+  s.cash += got;
+  s.stats.ipoCash = (s.stats.ipoCash || 0) + got;
+  addXP(s, 100);
+  return { got };
+}
+export function buyback(s, mk, pct) {
+  const c = s.corp; if (!c || c.float <= 0) return 'Não há ações no mercado para recomprar';
+  pct = Math.min(pct, c.float);
+  const cost = pct * CORP.shares * corpPrice(s, mk) * (1 + CORP.fee * 4);
+  const e = spend(s, cost); if (e) return e;
+  c.float -= pct; if (c.float < 1e-9) c.float = 0;
+  return { cost };
+}
+// Ações das empresas dos amigos (compradas do mercado)
+export function updateFriendCorp(s, uid, corp) {
+  const h = (s.fport || {})[uid];
+  if (h && corp) Object.assign(h, { price: corp.price, profit: corp.profit, float: corp.float, name: corp.name, ticker: corp.ticker });
+}
+export function tradeFriendCorp(s, uid, corp, qty, side) {
+  qty = Math.floor(qty);
+  if (!(qty >= 1)) return 'Quantidade inválida';
+  s.fport = s.fport || {};
+  const h = s.fport[uid] || (s.fport[uid] = { q: 0, cost: 0 });
+  Object.assign(h, { price: corp.price, profit: corp.profit, float: corp.float, name: corp.name, ticker: corp.ticker });
+  if (side === 'buy') {
+    const max = Math.floor(CORP.shares * corp.float);
+    if (h.q + qty > max) return `O mercado só tem ${max.toLocaleString('pt-BR')} ações dessa empresa`;
+    const total = qty * corp.price * (1 + CORP.fee);
+    const e = spend(s, total); if (e) return e;
+    h.q += qty; h.cost += total;
+    s.stats.trades++;
+    return null;
+  }
+  if (qty > h.q) return 'Você não tem tudo isso';
+  const avg = h.cost / h.q;
+  const recv = qty * corp.price * (1 - CORP.fee);
+  h.cost -= avg * qty; h.q -= qty;
+  s.cash += recv;
+  if (h.q <= 0) delete s.fport[uid];
+  s.stats.trades++;
+  return { profit: recv - avg * qty };
+}
+// Dividendos das empresas da família: sua fatia do lucro diário dos negócios do dono
+export const familyDivs = (s) => Object.values(s.fport || {}).reduce((t, h) => t + (h.q / CORP.shares) * (h.profit || 0), 0);

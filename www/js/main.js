@@ -112,6 +112,7 @@ function profileOf(s) {
     name: s.name, tag: s.tag || '', nw: Math.round(G.netWorth(s, mk)), level: G.level(s), card: s.cardMax,
     ach: Object.keys(s.ach).length, prestige: G.prestige(s), net: Math.round(G.incomeBreakdown(s, mk).net),
     job: s.job, home: home ? home.icon : '🏚️', updated: Date.now(),
+    corp: s.corp ? { name: s.corp.name, ticker: s.corp.ticker, float: s.corp.float, price: G.corpPrice(s, mk), profit: G.grossBizProfit(s, mk) } : null,
     look: s.look || null, partner: s.love ? { name: s.love.partner.name, look: s.love.partner.look, stage: s.love.stage } : null,
     trips: Object.keys(s.trips || {}).length, ctrl: G.controlled(s), jobName: (JOBS.find((j) => j.id === s.job) || {}).name, jobIcon: (JOBS.find((j) => j.id === s.job) || {}).icon,
     veh: ([...GOODS.veiculos, ...GOODS.ceumar].filter((g) => s.goods[g.id]).sort((a, b) => a.cost - b.cost).pop() || {}).icon || '',
@@ -128,6 +129,7 @@ function watchFriends() {
   if (!ctx.uid) return;
   Cloud.watchFriends(ctx.s.friends, (uid, p) => {
     if (p) ctx.friends[uid] = p; else delete ctx.friends[uid];
+    if (p && p.corp) G.updateFriendCorp(ctx.s, uid, p.corp);
     UI.onFriends();
   });
 }

@@ -277,6 +277,11 @@ const handlers = {
   paymode: (d) => { G.setPay(C.s, d.m); C.afterAction(); if (!refreshVisual()) keepScroll(render); },
   parc: (d) => { G.setPay(C.s, 'card', +d.n); C.afterAction(); if (!refreshVisual()) keepScroll(render); },
   payfatura: () => act(() => G.payFaturaNow(C.s), '🧾 Fatura paga!') && keepScroll(render),
+  found: (d, el) => { if (act(() => G.foundCorp(C.s, ($('#cname') || {}).value, ($('#cticker') || {}).value), '🏢 Empresa fundada!', el)) { confetti(); render(); } },
+  ipo: (d, el) => confirmBox(`Vender ${Math.round(+d.p * 100)}% da sua empresa no mercado? Essa fatia do lucro dos seus negócios passa a ir para os acionistas.`, () => { const r = act(() => G.ipo(C.s, C.mk, +d.p)); if (r) { A.sfx('cash'); toast(`🔔 IPO! Você recebeu ${money(r.got)}`, 'gold', false); confetti(); render(); } }),
+  buyback: (d, el) => { const r = act(() => G.buyback(C.s, C.mk, +d.p), null, el); if (r) { toast(`🔁 Recompra feita: ${money(r.cost)}`, 'ok'); render(); } },
+  fcorp: (d) => openFriendCorp(d.id),
+  fctrade: (d) => { const uid = ui.fcorp; const p = C.friends[uid]; const r = act(() => G.tradeFriendCorp(C.s, uid, p.corp, parseFloat($('#qty').value), d.side)); if (r) { A.sfx('cash'); toast(d.side === 'buy' ? `🤝 Agora você é sócio(a) de ${esc(p.name)}!` : `💰 Vendeu ${r.profit >= 0 ? 'com lucro de ' : 'com prejuízo de '}${money(Math.abs(r.profit))}`, 'ok', false); closeModal(); render(); } },
   confirmyes: () => { const f = pendingConfirm; closeModal(); f && f(); },
 };
 const keepScroll = (fn) => { const sc = $('#view').scrollTop; fn(); $('#view').scrollTop = sc; };
@@ -316,6 +321,7 @@ const INFO = {
   renda: `<h3>🏦 Renda fixa</h3><p>Dinheiro guardado que rende sempre, sem risco. Rende menos que negócios e ações em alta, mas nunca perde.</p>
     <p>🐷 <b>Poupança:</b> saque quando quiser.<br>📄 <b>CDB:</b> rende mais, fica preso 1 hora.<br>🏛️ <b>Tesouro:</b> rende mais ainda, fica preso 4 horas.</p><p>A taxa (CDI) muda a cada 6 horas.</p>`,
   imoveis: `<h3>🔑 Imóveis</h3><p>Compre imóveis e receba aluguel todo dia. O preço deles sobe e desce junto com o setor Imobiliário — dá pra comprar barato na crise e vender caro na alta!</p>`,
+  holding: `<h3>🏢 Sua empresa na bolsa</h3><p>Com R$ 50 mi de patrimônio e 3 tipos de negócio você pode <b>fundar sua holding</b>, que reúne todos os seus negócios.</p><p>🔔 No <b>IPO</b> você vende até 49% das ações para o mercado e recebe o dinheiro na hora. Em troca, essa fatia dos lucros dos seus negócios passa a ir para os acionistas. Dá para <b>recomprar</b> depois.</p><p>📈 O preço da ação acompanha o lucro dos seus negócios (lucro diário × 400 ÷ 10 milhões de ações).</p><p>🤝 Em <b>Empresas da família</b> você compra ações das holdings dos amigos e recebe dividendos quando eles lucram. O dinheiro vai para o mercado, não para o dono.</p>`,
   credito: `<h3>💳 Cartão de crédito</h3><p>Nas telas de compra (bens, roupas, viagens, presentes e programas) escolha <b>Pagar com 💳 Cartão</b>: à vista ou em 3x, 6x ou 12x sem juros. Só no cartão você ganha <b>cashback</b>.</p><p>A fatura fecha a cada 30 dias do jogo (30 min) e é paga sozinha com seu dinheiro. Se faltar, o resto vira dívida no <b>rotativo</b>, com juros.</p><p>Negócios, imóveis e ações só podem ser comprados à vista.</p><h3>🏦 Empréstimo</h3><p>Pegue dinheiro emprestado para abrir negócios mais cedo. Mas cuidado: os juros (${(LOAN_RATE * 100).toFixed(2)}% ao dia) correm sem parar! O limite depende do seu cartão.</p>`,
   bens: `<h3>🛍️ Coleção de bens</h3><p>🚗🛥️ <b>Carros, barcos e aeronaves</b> aumentam seu salário (vale o melhor que você tiver).</p><p>🏠 <b>Moradia</b> acaba com o aluguel de ${money(RENT_NO_HOME)}/dia e aumenta as horas que você ganha com o jogo fechado.</p><p>💍🖼️ <b>Luxo e Coleção</b> dão muito prestígio ✨ para se exibir no ranking.</p><p>Bens têm uma pequena manutenção diária e, se vender, você recebe só parte do valor.</p>`,
   visual: `<h3>👗 Visual</h3><p>Mude sua aparência de graça quando quiser. Na loja, compre roupas, calçados e acessórios — tudo que você compra fica no guarda-roupa e soma <b>estilo</b> ✨, que entra no seu prestígio do ranking.</p>`,
@@ -565,6 +571,56 @@ function vViagens() {
   }).join('')}`;
 }
 
+// ---------- HOLDING / EMPRESAS DA FAMÍLIA ----------
+function vHolding() {
+  const s = C.s, mk = C.mk;
+  const c = s.corp;
+  let mine;
+  if (!c) {
+    const ok = G.canFound(s);
+    const nbiz = Object.values(s.biz).filter((x) => x > 0).length;
+    mine = `<div class="corpcard empty"><div class="cbig">🏢</div><h3>Funde sua própria empresa</h3>
+      <div class="rqs center"><span class="rq ${s.peakNW >= G.CORP.minNW ? 'ok' : ''}">${s.peakNW >= G.CORP.minNW ? '✓' : '○'} Patrimônio ${money(G.CORP.minNW)}</span><span class="rq ${nbiz >= G.CORP.minBiz ? 'ok' : ''}">${nbiz >= G.CORP.minBiz ? '✓' : '○'} ${G.CORP.minBiz} tipos de negócio (${nbiz})</span></div>
+      ${ok ? `<input id="cname" maxlength="22" placeholder="Nome da empresa (ex: ${esc(s.name)} Holding)"><input id="cticker" maxlength="4" placeholder="Código de 4 letras (ex: ${G.tickerFrom(s.name).slice(0, 4)})" autocapitalize="characters">
+      <button class="btn gold full" data-act="found" data-cost="${G.CORP.cost}"><em>Fundar empresa</em><span>${money(G.CORP.cost)}</span></button>` : '<p class="muted small">Continue crescendo para fundar sua holding!</p>'}</div>`;
+  } else {
+    const price = G.corpPrice(s, mk);
+    const val = price * G.CORP.shares;
+    const left = G.CORP.maxFloat - c.float;
+    mine = `<div class="corpcard"><div class="crow"><span class="clogo">${esc(c.ticker.slice(0, 1))}</span><div class="grow"><b>${esc(c.name)}</b><small>${esc(c.ticker)} · fundada ${ago(c.founded)}</small></div><div class="right"><small>Ação</small><b>${price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</b></div></div>
+      <div class="cstats"><div><small>Valor de mercado</small><b>${money(val)}</b></div><div><small>Lucro/dia dos negócios</small><b class="up">${money(G.grossBizProfit(s, mk))}</b></div></div>
+      <div class="lrow"><span>Você controla</span><b>${Math.round((1 - c.float) * 100)}%</b></div>
+      <div class="bar"><i style="width:${(1 - c.float) * 100}%"></i></div>
+      <small class="muted">${c.float > 0 ? `${Math.round(c.float * 100)}% das ações estão no mercado: essa fatia do lucro dos negócios vai para os acionistas.` : 'Empresa fechada: 100% do lucro é seu.'}</small>
+      ${left > 0.0001 ? `<h4>🔔 Vender ações no mercado (IPO)</h4><div class="quick">${[0.05, 0.1, 0.2, 0.3, 0.49].filter((p) => p <= left + 1e-9).map((p) => `<button class="chipbtn" data-act="ipo" data-p="${p}">${Math.round(p * 100)}% <small>+${money(p * val * 0.98)}</small></button>`).join('')}</div>` : ''}
+      ${c.float > 0 ? `<h4>🔁 Recomprar ações</h4><div class="quick">${[0.05, 0.1, 0.2, c.float].filter((p, i, a) => p <= c.float + 1e-9 && a.indexOf(p) === i).map((p) => `<button class="chipbtn" data-act="buyback" data-p="${p}" data-cost="${p * val * 1.02}">${p === c.float ? 'Tudo' : Math.round(p * 100) + '%'} <small>${money(p * val * 1.02)}</small></button>`).join('')}</div>` : ''}
+    </div>`;
+  }
+  const fam = Object.entries(C.friends).filter(([, p]) => p.corp);
+  const held = Object.entries(s.fport || {});
+  return `${mine}
+  <h4 class="sec">🤝 Empresas da família</h4>
+  ${fam.length ? fam.map(([uid, p]) => { const h = (s.fport || {})[uid]; return `<div class="asset" data-act="fcorp" data-id="${uid}"><span class="aico clogo2">${esc(p.corp.ticker.slice(0, 1))}</span><div class="grow"><b>${esc(p.corp.name)}</b><small>${esc(p.corp.ticker)} · de ${esc(p.name)} · ${Math.round(p.corp.float * 100)}% no mercado</small>${h ? `<small class="up">🎒 ${fmt(h.q)} ações · +${money(h.q / G.CORP.shares * h.profit)}/dia</small>` : ''}</div><div class="right"><b>${price2(p.corp.price)}</b></div></div>`; }).join('')
+    : `<p class="emptyf">${C.cloud ? 'Nenhum amigo fundou empresa ainda.' : 'Disponível com a conta online.'}</p>`}
+  ${held.filter(([uid]) => !C.friends[uid]).map(([uid, h]) => `<div class="asset"><div class="grow"><b>${esc(h.name)}</b><small>${esc(h.ticker)} · 🎒 ${fmt(h.q)} ações</small></div><div class="right"><b>${price2(h.price)}</b></div></div>`).join('')}`;
+}
+const price2 = (n) => 'R$ ' + (n >= 1000 ? fmt(n) : n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+function openFriendCorp(uid) {
+  const p = C.friends[uid]; if (!p || !p.corp) return;
+  const h = (C.s.fport || {})[uid];
+  const max = Math.floor(G.CORP.shares * p.corp.float);
+  ui.fcorp = uid;
+  modal(`<h3>🏢 ${esc(p.corp.name)} <small class="muted">${esc(p.corp.ticker)}</small></h3>
+    <p class="muted">Empresa de ${esc(p.name)} · lucro dos negócios ${money(p.corp.profit)}/dia</p>
+    <div class="pricehead"><b class="bigprice">${price2(p.corp.price)}</b></div>
+    <div class="ownbox"><div class="lrow"><span>No mercado</span><b>${fmt(max)} ações (${Math.round(p.corp.float * 100)}%)</b></div>
+    <div class="lrow"><span>Você tem</span><b>${fmt(h ? h.q : 0)} ações</b></div>
+    <small class="muted">Cada ação rende ${money(p.corp.profit / G.CORP.shares)}/dia em dividendos (0,25% ao dia no preço atual).</small></div>
+    <input id="qty" type="number" inputmode="numeric" min="1" value="1000">
+    <div class="quick">${[[1000, '1 mil'], [10000, '10 mil'], [100000, '100 mil']].map(([v, n]) => `<button class="chipbtn" data-act="qty" data-v="${v}">${n}</button>`).join('')}<button class="chipbtn" data-act="qty" data-v="${Math.max(0, Math.min(max - (h ? h.q : 0), Math.floor(C.s.cash / (p.corp.price * 1.005))))}">Máx</button>${h ? `<button class="chipbtn" data-act="qty" data-v="${h.q}">Tudo meu</button>` : ''}</div>
+    <div class="btns"><button class="btn red" data-act="fctrade" data-side="sell">Vender</button><button class="btn" data-act="fctrade" data-side="buy">Comprar</button></div>`);
+}
+
 // ---------- CASSINO ----------
 function vCassino() {
   const s = C.s;
@@ -802,7 +858,7 @@ function openJobPath(id) {
 function vEmpresas() {
   const s = C.s;
   const mk = C.mk;
-  const total = BUSINESSES.reduce((t, b) => t + G.bizProfit(s, b, mk), 0);
+  const total = BUSINESSES.reduce((t, b) => t + G.bizProfit(s, b, mk), 0) * (1 - G.corpFloat(s));
   let shownLocked = false;
   const cards = BUSINESSES.map((b, i) => {
     const lvl = s.biz[b.id] || 0;
@@ -829,6 +885,7 @@ function vEmpresas() {
     </div>`;
   }).join('');
   return `${title('🏭', 'Negócios', 'empresas')}
+  ${G.corpFloat(s) > 0 ? `<p class="hint small">🏢 ${Math.round(G.corpFloat(s) * 100)}% dos lucros vão para os acionistas da ${esc(s.corp.name)}.</p>` : ''}
   <div class="bizhead"><div><small>Lucro total</small><b class="up">${money(total)}<small>/dia</small></b></div>
     <div class="seg">${[1, 10, 'max'].map((n) => `<button class="${ui.bizN === n ? 'on' : ''}" data-act="bizn" data-n="${n}">${n === 'max' ? 'MÁX' : 'x' + n}</button>`).join('')}</div></div>
   ${cards}`;
@@ -838,7 +895,7 @@ function vEmpresas() {
 function vInvestir() {
   const s = C.s;
   const sub = ui.sub.investir;
-  const head = subtabs([['bolsa', '📈', 'Bolsa'], ['cripto', '🪙', 'Cripto'], ['renda', '🐷', 'Poupar'], ['imoveis', '🔑', 'Imóveis'], ['credito', '💳', 'Cartão']]);
+  const head = subtabs([['bolsa', '📈', 'Bolsa'], ['cripto', '🪙', 'Cripto'], ['renda', '🐷', 'Poupar'], ['imoveis', '🔑', 'Imóveis'], ['credito', '💳', 'Cartão'], ['holding', '🏢', 'Empresas']]);
   const L = G.level(s);
   let body = '';
   if (sub === 'bolsa') body = L < UNLOCKS.bolsa ? lockBox(UNLOCKS.bolsa, 'Bolsa de Valores') : vBolsa(STOCKS, true);
@@ -846,7 +903,8 @@ function vInvestir() {
   if (sub === 'renda') body = vRenda();
   if (sub === 'imoveis') body = L < UNLOCKS.imoveis ? lockBox(UNLOCKS.imoveis, 'Imóveis') : vImoveis();
   if (sub === 'credito') body = vCredito();
-  const helpKey = { bolsa: 'bolsa', cripto: 'cripto', renda: 'renda', imoveis: 'imoveis', credito: 'credito' }[sub];
+  if (sub === 'holding') body = vHolding();
+  const helpKey = { holding: 'holding', bolsa: 'bolsa', cripto: 'cripto', renda: 'renda', imoveis: 'imoveis', credito: 'credito' }[sub];
   return title('📈', 'Investir', helpKey) + head + body;
 }
 
@@ -1278,7 +1336,7 @@ export function onMarketTick() {
   if (ui.tab === 'empresas' && !modalOpen()) { const sc = $('#view').scrollTop; render(); $('#view').scrollTop = sc; }
 }
 export function onEvent() { renderTabs(); if (ui.tab === 'inicio' && !modalOpen()) { const sc = $('#view').scrollTop; render(); $('#view').scrollTop = sc; } }
-export function onFriends() { if (ui.tab === 'perfil' && ui.sub.perfil === 'ranking' && !modalOpen()) { const sc = $('#view').scrollTop; render(); $('#view').scrollTop = sc; } }
+export function onFriends() { if (((ui.tab === 'perfil' && ui.sub.perfil === 'ranking') || (ui.tab === 'investir' && ui.sub.investir === 'holding')) && !modalOpen()) { const sc = $('#view').scrollTop; render(); $('#view').scrollTop = sc; } }
 export function slowRefresh() {
   document.querySelectorAll('[data-live-html="flow"]').forEach((el) => { el.innerHTML = flowHTML(); });
 }
