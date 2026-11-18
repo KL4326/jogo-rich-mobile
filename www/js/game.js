@@ -40,7 +40,7 @@ export function load() {
   return null;
 }
 export function save(s) {
-  s.last = Date.now();
+  // s.last só muda quando a renda é calculada (no loop ou ao voltar), nunca ao salvar
   try { localStorage.setItem(SAVE_KEY, JSON.stringify(s)); } catch (e) { }
 }
 export function wipe() { localStorage.removeItem(SAVE_KEY); }

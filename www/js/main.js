@@ -242,6 +242,10 @@ let lastLevel = 0;
 function tick() {
   const s = ctx.s;
   const now = Date.now();
+  // Em segundo plano não conta aqui: tudo é calculado de uma vez ao voltar (com o limite offline)
+  if (document.hidden) return;
+  // Se o app ficou congelado (celular bloqueado / outro app), trata como tempo offline
+  if (now - s.last > 15_000) { offlineProgress(); return; }
   const dt = Math.min(now - s.last, 5000);
   s.last = now;
   if (dt > 0) G.accrue(s, mk, dt);
@@ -281,15 +285,17 @@ function offlineProgress() {
   const s = ctx.s;
   const now = Date.now();
   const away = now - s.last;
-  if (away < 30_000) return;
+  if (away < 1000) return;
   const cap = G.offlineHours(s) * 3600_000;
   const eff = Math.min(away, cap);
   const before = G.netWorth(s, mk);
   let left = eff;
   while (left > 0) { const d = Math.min(left, 60_000); G.accrue(s, mk, d); left -= d; }
   s.last = now;
+  mk.update(now);
   const gain = G.netWorth(s, mk) - before;
   const h = away / 3600_000;
+  if (away < 120_000) return; // ausências curtas: soma em silêncio
   UI.modal(`<div class="celebrate"><h3>👋 Bem-vindo de volta!</h3>
     <p>Você ficou fora por <b>${h >= 1 ? h.toFixed(1) + ' horas' : Math.round(away / 60000) + ' minutos'}</b>.</p>
     <div class="offgain ${gain >= 0 ? 'up' : 'down'}">${gain >= 0 ? '+' : ''}${money(gain)}</div>
@@ -312,9 +318,11 @@ function start(s) {
   setInterval(() => G.save(ctx.s), 5000);
   setInterval(UI.slowRefresh, 3000);
   setInterval(() => { if (Date.now() - lastPush > 55_000) pushCloud().catch(() => {}); }, 15_000);
+  // Capacitor (app Android) avisa ao voltar do segundo plano
+  document.addEventListener('resume', () => { offlineProgress(); UI.render(); });
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) { A.pause(); G.save(ctx.s); pushCloud().catch(() => {}); }
-    else { A.resume(); mk.update(); offlineProgress(); UI.render(); checkUpdate(); }
+    else { A.resume(); offlineProgress(); UI.render(); checkUpdate(); }
   });
   checkUpdate();
   setInterval(checkUpdate, 10 * 60_000);
