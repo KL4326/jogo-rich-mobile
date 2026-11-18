@@ -61,7 +61,7 @@ const $ = (sel, root = document) => root.querySelector(sel);
 export function init(ctx) {
   C = ctx;
   document.addEventListener('click', onClick);
-  document.addEventListener('input', (e) => { const k = e.target.dataset && e.target.dataset.vol; if (k) { A.setVol(k, +e.target.value); if (k === 'svol') A.sfx('coin'); } });
+  document.addEventListener('input', (e) => { if (e.target.id === 'amt') updProj(); const k = e.target.dataset && e.target.dataset.vol; if (k) { A.setVol(k, +e.target.value); if (k === 'svol') A.sfx('coin'); } });
   // No PC: rodinha do mouse rola as faixas horizontais
   document.addEventListener('wheel', (e) => {
     const el = e.target.closest('.subtabs, .wxrow, .street, .lifechips');
@@ -156,10 +156,10 @@ const handlers = {
     else act(() => G.applyFixed(C.s, d.kind, v, (ui.term || {})[d.kind] ?? 1), '✅ Dinheiro aplicado');
     closeModal(); render();
   },
-  pctamt: (d) => { const inp = $('#amt'); inp.value = Math.floor(+d.base * +d.p * 100) / 100; },
+  pctamt: (d) => { const inp = $('#amt'); inp.value = Math.floor(+d.base * +d.p * 100) / 100; updProj(); },
   redeem: (d, el) => act(() => G.redeem(C.s, d.kind, +d.i), '💰 Resgatado', el) && keepScroll(render),
   redeemearly: (d) => { const x = C.s[d.kind][+d.i]; confirmBox(`Resgatar antes do prazo? Você recebe ${money(x.principal || x.amt)} e perde ${money(x.amt - (x.principal || x.amt))} de rendimento.`, () => { if (act(() => G.redeem(C.s, d.kind, +d.i, true), '💸 Resgatado antes do prazo')) keepScroll(render); }); },
-  term: (d, el) => { ui.term = ui.term || {}; ui.term[d.k] = +d.i; el.parentElement.querySelectorAll('.tp').forEach((b) => b.classList.toggle('on', b === el)); },
+  term: (d, el) => { ui.term = ui.term || {}; ui.term[d.k] = +d.i; el.parentElement.querySelectorAll('.tp').forEach((b) => b.classList.toggle('on', b === el)); updProj(); },
   buyprop: (d, el) => act(() => G.buyProp(C.s, C.mk, d.id), '🔑 Imóvel comprado!', el) && render(),
   sellprop: (d) => confirmBox('Vender este imóvel?', () => act(() => G.sellProp(C.s, C.mk, d.id), 'Imóvel vendido') && render()),
   good: (d) => openGood(d.id),
@@ -1056,8 +1056,13 @@ function vRenda() {
   const list = (kind) => s[kind].map((x, i) => {
     const ready = now >= x.until;
     const gain = x.amt - (x.principal || x.amt);
-    return `<div class="lock"><div class="grow"><b>${money(x.amt)}</b><small>${x.principal ? `aplicou ${money(x.principal)} · <span class="up">rendeu +${money(gain)}</span> · ` : ''}${Math.round(G.fixedRate(kind, x) * 100)}% do CDI</small></div>
-      ${ready ? `<button class="btn sm" data-act="redeem" data-kind="${kind}" data-i="${i}">Resgatar</button>` : `<div class="col"><span class="timer sm">🔒 ${dur(x.until - now)}</span><button class="lnk" data-act="redeemearly" data-kind="${kind}" data-i="${i}">resgatar antes</button></div>`}</div>`;
+    const fin = ready ? x.amt : projFixed(x.amt, G.fixedRate(kind, x), (x.until - now) / 60000);
+    return `<div class="lock2">
+      <div class="lrow"><b>${money(x.amt)}</b>${ready ? '<span class="pill ok">✓ Liberado</span>' : `<span class="timer sm">🔒 ${dur(x.until - now)}</span>`}</div>
+      <small>Aplicou ${money(x.principal || x.amt)} · ${Math.round(G.fixedRate(kind, x) * 100)}% do CDI · <span class="up">já rendeu +${money(gain)}</span></small>
+      ${ready ? '' : `<small class="up"><b>No vencimento: ≈ ${money(fin)}</b> (lucro +${money(fin - (x.principal || x.amt))})</small>`}
+      ${ready ? `<button class="btn sm full" data-act="redeem" data-kind="${kind}" data-i="${i}">Resgatar ${money(x.amt)}</button>` : `<button class="lnk" data-act="redeemearly" data-kind="${kind}" data-i="${i}">resgatar antes (perde o rendimento)</button>`}
+    </div>`;
   }).join('');
   const sum = (k) => s[k].reduce((t, x) => t + x.amt, 0);
   const terms = (k) => G.TERMS[k].map((t) => `<span>${t.mins >= 60 ? t.mins / 60 + 'h' : t.mins + ' min'}: <b>${Math.round(t.rate * 100)}%</b></span>`).join('');
@@ -1072,6 +1077,23 @@ function vRenda() {
   <small class="muted center-block">CDI de hoje: ${(cdi * 100).toFixed(3)}% ao dia (muda a cada 6h)</small>`;
 }
 function readAmount() { return parseFloat(($('#amt') || {}).value) || 0; }
+const projFixed = (amt, rate, mins) => amt * Math.pow(1 + C.mk.cdi() * rate, mins);
+const durLabel = (m) => (m >= 60 ? m / 60 + (m === 60 ? ' hora' : ' horas') : m + ' min');
+// Atualiza a simulação de lucro no modal de aplicação
+function updProj() {
+  const box = $('#proj'); if (!box) return;
+  const v = parseFloat(($('#amt') || {}).value) || 0;
+  const kind = box.dataset.kind;
+  if (kind === 'poup') {
+    box.innerHTML = v > 0 ? `<b>📈 Simulação</b><div class="fr"><span>Em 1 hora</span><b class="up">+${money(projFixed(v, 0.7, 60) - v)}</b></div><div class="fr"><span>Em 4 horas</span><b class="up">+${money(projFixed(v, 0.7, 240) - v)}</b></div><small class="muted">Saque quando quiser. Estimativa com o CDI de agora.</small>` : '<small class="muted">Digite um valor para ver quanto vai render.</small>';
+    return;
+  }
+  const terms = G.TERMS[kind];
+  document.querySelectorAll('.tp').forEach((b, i) => { const g = b.querySelector('.tpgain'); if (g) g.textContent = v > 0 ? `lucro +${money(projFixed(v, terms[i].rate, terms[i].mins) - v)}` : ''; });
+  const t = terms[(ui.term || {})[kind] ?? 1];
+  const fin = projFixed(v, t.rate, t.mins);
+  box.innerHTML = v > 0 ? `<b>📈 Simulação</b><div class="fr"><span>Você aplica</span><b>${money(v)}</b></div><div class="fr"><span>Recebe em ${durLabel(t.mins)}</span><b class="up">≈ ${money(fin)}</b></div><div class="fr total"><span>Seu lucro</span><b class="up">+${money(fin - v)} (${pct(fin / v - 1, 2)})</b></div><small class="muted">Estimativa com o CDI de agora (ele muda a cada 6h). Resgatar antes do prazo devolve só o valor aplicado.</small>` : '<small class="muted">Digite um valor para ver quanto vai lucrar.</small>';
+}
 function amountModal(ttl, desc, base, go, kind, extra = '') {
   modal(`<h3>${ttl}</h3><p class="muted">${desc}</p>${extra}
     <input id="amt" type="number" inputmode="decimal" min="0" placeholder="Valor em R$">
@@ -1087,9 +1109,11 @@ function openFixed(kind) {
     const cdi = C.mk.cdi();
     ui.term = ui.term || {};
     const cur = ui.term[kind] ?? 1;
-    extra = `<b class="lbl">Prazo de resgate</b><div class="termpick">${G.TERMS[kind].map((t, i) => `<button class="tp ${i === cur ? 'on' : ''}" data-act="term" data-k="${kind}" data-i="${i}"><b>${t.mins >= 60 ? t.mins / 60 + (t.mins === 60 ? ' hora' : ' horas') : t.mins + ' min'}</b><small>${Math.round(t.rate * 100)}% do CDI</small><small class="up">+${(cdi * t.rate * 100).toFixed(3)}%/dia</small></button>`).join('')}</div>`;
+    extra = `<b class="lbl">Prazo de resgate</b><div class="termpick">${G.TERMS[kind].map((t, i) => `<button class="tp ${i === cur ? 'on' : ''}" data-act="term" data-k="${kind}" data-i="${i}"><b>${t.mins >= 60 ? t.mins / 60 + (t.mins === 60 ? ' hora' : ' horas') : t.mins + ' min'}</b><small>${Math.round(t.rate * 100)}% do CDI</small><small class="up">+${(cdi * t.rate * 100).toFixed(3)}%/dia</small><small class="tpgain"></small></button>`).join('')}</div>`;
   }
   amountModal(names[kind], `Você tem ${money(s.cash)}`, s.cash, 'fixedgo', kind, extra);
+  const go = $('#modal-root .btns');
+  if (go) { go.insertAdjacentHTML('beforebegin', `<div class="proj" id="proj" data-kind="${kind}"></div>`); updProj(); }
 }
 
 function vImoveis() {
