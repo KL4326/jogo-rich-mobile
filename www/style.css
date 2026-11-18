@@ -715,3 +715,12 @@ details.appear[open] summary { margin-bottom: 8px; }
 .tgl.on { background: var(--green); }
 .tgl.on i { left: 25px; }
 .pixbtn { margin-top: 12px; } .pixlog .fr { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 2px dashed #ece4f8; } .pixlog .fr:last-child { border-bottom: 0; }
+.inbox { background: linear-gradient(180deg, #fff, #e8f7ff); border: 3px solid #fff; border-radius: 22px; padding: 12px 14px; margin-bottom: 12px; box-shadow: 0 5px 0 #9fd0f0, 0 10px 20px #0003; animation: pop .5s cubic-bezier(.2, 1.5, .4, 1); }
+.ibhead { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+.ibhead b { font-family: var(--display); font-weight: 400; font-size: 18px; }
+.ibn { background: var(--red); color: #fff; font-weight: 700; font-size: 12px; border-radius: 10px; padding: 1px 8px; }
+.ibitem { display: flex; gap: 10px; align-items: flex-start; padding: 7px 0; border-bottom: 2px dashed #dcebf5; }
+.ibitem:last-of-type { border-bottom: 0; }
+.ibitem > span { font-size: 22px; width: 34px; height: 34px; display: grid; place-items: center; background: #dff1ff; border-radius: 12px; flex: none; }
+.ibitem p { margin: 0; font-size: 14px; font-weight: 600; line-height: 1.3; }
+.ibitem small { display: block; color: var(--ink2); font-weight: 500; font-size: 11.5px; }

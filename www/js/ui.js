@@ -272,6 +272,7 @@ const handlers = {
     if (err) { if (btn) btn.disabled = false; return toast('⚠️ ' + err, 'err'); }
     closeModal(); A.sfx('cash'); toast(`💸 Pix de ${money(v)} enviado para ${esc(C.friends[d.id].name)}!`, 'ok', false); render();
   },
+  inboxok: () => { C.clearInbox(); keepScroll(render); },
   confirmyes: () => { const f = pendingConfirm; closeModal(); f && f(); },
 };
 const keepScroll = (fn) => { const sc = $('#view').scrollTop; fn(); $('#view').scrollTop = sc; };
@@ -331,7 +332,7 @@ const TABS = [
   { id: 'perfil', icon: '🏆', name: 'Ranking' },
 ];
 function renderTabs() {
-  $('#tabs').innerHTML = TABS.map((t) => `<button class="${ui.tab === t.id ? 'on' : ''}" data-act="tab" data-tab="${t.id}"><span>${t.icon}</span><small>${t.name}</small>${t.id === 'inicio' && C.s.event && ui.tab !== 'inicio' ? '<i class="dot"></i>' : ''}</button>`).join('');
+  $('#tabs').innerHTML = TABS.map((t) => `<button class="${ui.tab === t.id ? 'on' : ''}" data-act="tab" data-tab="${t.id}"><span>${t.icon}</span><small>${t.name}</small>${t.id === 'inicio' && (C.s.event || (C.s.inbox || []).length) && ui.tab !== 'inicio' ? '<i class="dot"></i>' : ''}</button>`).join('');
 }
 
 export function render(anim = false) {
@@ -641,6 +642,7 @@ function vInicio() {
     <div><small>Gasta por dia</small><b class="down" data-live="exp"></b></div>
     <div class="more">›</div>
   </div>
+  ${inboxCard()}
   ${eventCard()}
   ${q ? `<div class="quest"><span class="qi">⭐</span><div><small>MISSÃO</small><p>${q}</p></div></div>` : ''}
   ${course ? `<div class="box studying"><span class="bi">${course.icon}</span><div class="grow"><b>${course.name}</b><div class="bar"><i data-live-w="course"></i></div></div><span class="timer" data-live="coursetime"></span></div>` : ''}
@@ -649,6 +651,14 @@ function vInicio() {
     <div class="nhead"><b>📺 Jornal do Mercado</b><span class="lnk">ver tudo ›</span></div>
     <div class="news" data-live-html="news3"></div>
   </div>`;
+}
+function inboxCard() {
+  const list = C.s.inbox || [];
+  if (!list.length) return '';
+  return `<div class="inbox"><div class="ibhead"><b>📬 Novidades</b><span class="ibn">${list.length}</span></div>
+    ${list.slice(0, 6).map((n) => `<div class="ibitem"><span>${n.icon}</span><p>${n.text}<small>${ago(n.t)}</small></p></div>`).join('')}
+    ${list.length > 6 ? `<small class="muted">+ ${list.length - 6} mais antigas</small>` : ''}
+    <button class="btn full sm" data-act="inboxok">Entendi 👍</button></div>`;
 }
 function eventCard() {
   const e = C.s.event;

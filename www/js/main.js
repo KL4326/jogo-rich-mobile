@@ -145,6 +145,14 @@ async function addFriend(raw) {
   pushCloud().catch(() => {});
   return null;
 }
+// ---------- Notificações (ficam no Início até o jogador ver) ----------
+function notify(icon, text) {
+  const s = ctx.s;
+  s.inbox = [{ icon, text, t: Date.now() }, ...(s.inbox || [])].slice(0, 15);
+  UI.onEvent();
+}
+ctx.clearInbox = () => { ctx.s.inbox = []; G.save(ctx.s); };
+
 // ---------- Pix ----------
 function pixLog(s, e) { s.pixLog = [e, ...(s.pixLog || [])].slice(0, 20); }
 async function sendPix(uid, amount) {
@@ -181,6 +189,7 @@ function watchPix() {
       ctx.s.stats.pixIn = (ctx.s.stats.pixIn || 0) + t.amount;
       pixLog(ctx.s, { dir: 'in', name: t.fromName, amount: t.amount, t: Date.now() });
       UI.toast(`💸 Pix recebido de <b>${esc(t.fromName)}</b>: +${money(t.amount)}!`, 'gold');
+      notify('💸', `Você recebeu um Pix de <b>${esc(t.fromName)}</b>: <b class="up">+${money(t.amount)}</b>`);
       UI.confetti();
       afterAction();
       UI.render();
@@ -234,22 +243,22 @@ function tick() {
   if (dt > 0) G.accrue(s, mk, dt);
   if (mk.update(now)) UI.onMarketTick();
   const done = G.checkCourse(s);
-  if (done) { UI.toast(`🎓 Você concluiu: <b>${done.name}</b>!`, 'gold'); afterAction(); UI.render(); }
+  if (done) { notify('🎓', `Você concluiu o curso <b>${done.name}</b>!`); UI.toast(`🎓 Você concluiu: <b>${done.name}</b>!`, 'gold'); afterAction(); UI.render(); }
   const tr = G.checkTrip(s);
-  if (tr) { UI.toast(`🧳 Você voltou de <b>${tr.trip.name}</b>! Descansado: +10% de renda por 3h${tr.first ? ' · 🛂 novo carimbo!' : ''}`, 'gold'); UI.confetti(); afterAction(); UI.render(); }
+  if (tr) { notify('🧳', `Você voltou de <b>${tr.trip.name}</b> descansado(a): +10% de renda por 3h.`); UI.toast(`🧳 Você voltou de <b>${tr.trip.name}</b>! Descansado: +10% de renda por 3h${tr.first ? ' · 🛂 novo carimbo!' : ''}`, 'gold'); UI.confetti(); afterAction(); UI.render(); }
   const lv = G.checkLove(s);
   if (lv) {
-    if (lv.broke) UI.toast(`💔 ${lv.broke} foi embora… o carinho acabou.`, 'err');
-    else if (lv.wedding) { UI.toast('💒 Vocês se casaram! Felicidades! 🎉', 'gold'); UI.confetti(); }
+    if (lv.broke) { notify('💔', `<b>${esc(lv.broke)}</b> foi embora… o carinho acabou.`); UI.toast(`💔 ${lv.broke} foi embora… o carinho acabou.`, 'err'); }
+    else if (lv.wedding) { notify('💒', 'Vocês se casaram! Felicidades!'); UI.toast('💒 Vocês se casaram! Felicidades! 🎉', 'gold'); UI.confetti(); }
     else if (lv.firstDate) UI.toast(`😊 O encontro foi ótimo! Vocês estão ficando.`, 'gold');
     else UI.toast('💕 Programa a dois concluído! Carinho aumentou.', 'ok');
     afterAction(); UI.render();
   }
   for (const ev of G.eventTick(s, mk)) {
-    if (typeof ev === 'string') UI.toast(ev, 'err');
+    if (typeof ev === 'string') { notify('📌', ev); UI.toast(ev, 'err'); }
     else if (ev.newEvent) { UI.toast(`📨 Nova oportunidade: <b>${s.event.title}</b>`, 'gold'); UI.onEvent(); }
-    else if (ev.pay) UI.toast(`💰 ${ev.label}: +${money(ev.pay)}!`, 'gold');
-    else if (ev.fail) UI.toast(`😢 ${ev.fail} não pagou…`, 'err');
+    else if (ev.pay) { notify('💰', `${ev.label} rendeu <b class="up">+${money(ev.pay)}</b>!`); UI.toast(`💰 ${ev.label}: +${money(ev.pay)}!`, 'gold'); }
+    else if (ev.fail) { notify('😢', `${ev.label === 'Seu amigo' ? 'Seu amigo não pagou o empréstimo' : ev.fail + ' não deu certo'}… o dinheiro foi perdido.`); UI.toast(`😢 ${ev.fail} não pagou…`, 'err'); }
   }
   const L = G.level(s);
   if (lastLevel && L > lastLevel) { UI.toast(`⭐ Subiu para o nível <b>${L}</b>! Renda +3%`, 'gold'); UI.confetti(); UI.render(); }
