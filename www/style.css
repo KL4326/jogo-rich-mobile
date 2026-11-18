@@ -964,3 +964,8 @@ details.appear[open] summary { margin-bottom: 8px; }
 .pframe.lt .pstatus { color: #222; text-shadow: none; }
 .fav svg { height: 230% !important; width: auto !important; margin-top: 3%; }
 .chrow b { font-size: 15px; }
+.fav.gico { align-items: center; font-size: 26px; background: linear-gradient(135deg, #4da3ff, #3ddc84); }
+.chrow.geral { background: #e3f6e8; }
+.gtag { font: 600 10px system-ui; color: #1a944f; background: #fff; border-radius: 8px; padding: 1px 6px; vertical-align: middle; }
+.mname { display: block; font-size: 12px; margin-bottom: 1px; }
+.msg .mname small { display: inline; font-size: 10px; font-weight: 400; opacity: .6; }

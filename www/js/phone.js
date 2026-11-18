@@ -27,12 +27,22 @@ export function setup(ctx) {
     badge();
     if (el && app === 'papo') draw();
   });
+  // Geral: no fundo escuta só a última mensagem (leve)
+  st.offGeral = Cloud.watchGeral(1, (list) => {
+    if (!list || !list.length) return;
+    const m = list[0], was = st.geral && st.geral.id;
+    st.geral = m;
+    if (was && was !== m.id && m.from !== C.uid && !(el && app === 'chat' && st.chat && st.chat.cid === 'geral')) { A.sfx('notify'); toast(`🌎 ${esc(m.name || 'Jogador')}: ${esc(m.text || '📷 Foto').slice(0, 40)}`, 'gold', false); }
+    badge();
+    if (el && app === 'papo') draw();
+  });
 }
+const geralUnread = () => !!(st.geral && st.geral.from !== C.uid && st.geral.t > (seen().geral || 0));
 const other = (c) => c.members.find((u) => u !== C.uid);
 const nameOf = (uid) => (C.friends[uid] && C.friends[uid].name) || 'Amigo';
 const seen = () => (C.s.chatSeen = C.s.chatSeen || {});
 const isUnread = (c) => c.last && c.last.from !== C.uid && c.last.t > (seen()[c.id] || 0);
-export const unread = () => st.chats.filter(isUnread).length;
+export const unread = () => st.chats.filter(isUnread).length + (geralUnread() ? 1 : 0);
 export function badge() {
   const n = unread();
   document.querySelectorAll('.phonebtn .pdot').forEach((d) => { d.textContent = n || ''; d.style.display = n ? '' : 'none'; });
@@ -148,10 +158,14 @@ function photoView(t) {
 function papo() {
   if (!online()) return needNet('Papo');
   const friends = C.s.friends || [];
-  if (!friends.length) return `${bar('Papo')}<div class="pempty">💬<p>Adicione amigos pela tag no 🏆 Perfil para conversar.</p></div>`;
+  const g = st.geral;
+  const geralRow = `<button class="chrow geral" data-pa="go" data-a="chat" data-uid="geral"><span class="fav gico">🌎</span>
+      <div class="grow"><b>Geral <span class="gtag">todos os jogadores</span></b><small>${g ? `${g.from === C.uid ? 'Você' : esc(g.name || 'Jogador')}: ${esc(g.text || '📷 Foto')}` : 'Converse com todo mundo do jogo'}</small></div>
+      <div class="cmeta">${g ? `<small>${ago(g.t)}</small>` : ''}${geralUnread() ? '<i class="udot"></i>' : ''}</div></button>`;
+  if (!friends.length) return `${bar(st.share ? 'Enviar foto para…' : 'Papo')}<div class="clist">${geralRow}</div><div class="pempty sm">💬<p>Adicione amigos pela tag no 🏆 Perfil para conversar no privado.</p></div>`;
   const byUid = Object.fromEntries(st.chats.map((c) => [other(c), c]));
   const rows = friends.map((uid) => ({ uid, c: byUid[uid] })).sort((a, b) => ((b.c && b.c.last && b.c.last.t) || 0) - ((a.c && a.c.last && a.c.last.t) || 0));
-  return `${bar(st.share ? 'Enviar foto para…' : 'Papo')}<div class="clist">${rows.map(({ uid, c }) => {
+  return `${bar(st.share ? 'Enviar foto para…' : 'Papo')}<div class="clist">${geralRow}${rows.map(({ uid, c }) => {
     const p = C.friends[uid];
     const on = p && Date.now() - p.updated < 3 * 60_000;
     return `<button class="chrow" data-pa="go" data-a="chat" data-uid="${uid}"><span class="fav ${on ? 'on' : ''}">${p && p.look ? avatarSVG(p.look, { size: 70 }) : '👤'}</span>
@@ -161,9 +175,10 @@ function papo() {
 }
 function openChat(uid) {
   stopMsgs();
-  const cid = Cloud.chatId(C.uid, uid);
+  const cid = uid === 'geral' ? 'geral' : Cloud.chatId(C.uid, uid);
   st.chat = { uid, cid }; st.msgs = [];
-  st.offMsgs = Cloud.watchMsgs(cid, (list, err) => {
+  const watch = cid === 'geral' ? (cb) => Cloud.watchGeral(80, cb) : (cb) => Cloud.watchMsgs(cid, cb);
+  st.offMsgs = watch((list, err) => {
     if (!list) { st.msgs = []; st.err = err; } else { st.msgs = list; st.err = null; }
     seen()[cid] = Date.now(); badge();
     if (el && app === 'chat') { const box = $('.msgs'); if (box) { box.innerHTML = msgsHTML(); box.scrollTop = box.scrollHeight; } }
@@ -172,12 +187,13 @@ function openChat(uid) {
   if (st.share) { const p = st.share; st.share = null; send({ photo: p }); }
 }
 const msgsHTML = () => (st.err ? '<div class="pempty">⚠️<p>Sem acesso às mensagens. Peça para quem cuida do jogo publicar as regras novas do Firebase.</p></div>'
-  : st.msgs.length ? st.msgs.map((m) => `<div class="msg ${m.from === C.uid ? 'me' : ''}">${m.photo ? photoHTML(m.photo) : ''}${m.text ? `<p>${esc(m.text)}</p>` : ''}<small>${new Date(m.t).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</small></div>`).join('')
+  : st.msgs.length ? st.msgs.map((m, i) => `<div class="msg ${m.from === C.uid ? 'me' : ''}">${st.chat.cid === 'geral' && m.from !== C.uid && (i === 0 || st.msgs[i - 1].from !== m.from) ? `<b class="mname" style="color:hsl(${hash(m.from) % 360} 60% 40%)">${esc(m.name || 'Jogador')}${m.tag ? ` <small>${esc(m.tag)}</small>` : ''}</b>` : ''}${m.photo ? photoHTML(m.photo) : ''}${m.text ? `<p>${esc(m.text)}</p>` : ''}<small>${new Date(m.t).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</small></div>`).join('')
     : '<div class="pempty sm">👋<p>Diga oi!</p></div>');
 function chat() {
   if (!online() || !st.chat) return needNet('Papo');
   const p = C.friends[st.chat.uid];
-  return `${bar(esc(p ? p.name : 'Amigo'), 'papo', p && p.look ? `<span class="fav sm">${avatarSVG(p.look, { size: 52 })}</span>` : '')}
+  const head = st.chat.cid === 'geral' ? bar('🌎 Geral', 'papo', '<small>todos os jogadores</small>') : bar(esc(p ? p.name : 'Amigo'), 'papo', p && p.look ? `<span class="fav sm">${avatarSVG(p.look, { size: 52 })}</span>` : '');
+  return `${head}
     <div class="msgs">${msgsHTML()}</div>
     <div class="compose"><input id="msgin" maxlength="300" placeholder="Mensagem" data-enter="sendmsg" autocomplete="off"><button data-pa="sendmsg">➤</button></div>`;
 }
@@ -188,7 +204,7 @@ async function send(extra = {}) {
   const { cid, uid } = st.chat;
   const msg = { from: C.uid, text, t: Date.now(), ...extra };
   if (inp) inp.value = '';
-  try { await Cloud.sendMsg(cid, [C.uid, uid], msg); A.sfx('tick'); } catch (e) { toast('⚠️ ' + Cloud.errMsg(e), 'err'); if (inp) inp.value = text; }
+  try { if (cid === 'geral') await Cloud.sendGeral({ ...msg, name: C.s.name, tag: C.s.tag || '' }); else await Cloud.sendMsg(cid, [C.uid, uid], msg); A.sfx('tick'); } catch (e) { toast('⚠️ ' + Cloud.errMsg(e), 'err'); if (inp) inp.value = text; }
 }
 
 // ---------- Vitrine (rede social) ----------

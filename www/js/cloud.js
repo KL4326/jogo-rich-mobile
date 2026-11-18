@@ -148,3 +148,10 @@ export function watchMsgs(cid, cb) {
   const q = F.query(F.collection(db, 'chats', cid, 'msgs'), F.orderBy('t', 'desc'), F.limit(60));
   return F.onSnapshot(q, (snap) => cb(snap.docs.map((d) => ({ id: d.id, ...d.data() })).reverse()), (e) => cb(null, e));
 }
+
+// ---------- Celular: chat Geral (todos os jogadores) ----------
+export const sendGeral = (msg) => F.addDoc(F.collection(db, 'geral'), msg);
+export function watchGeral(n, cb) {
+  const q = F.query(F.collection(db, 'geral'), F.orderBy('t', 'desc'), F.limit(n));
+  return F.onSnapshot(q, (snap) => cb(snap.docs.map((d) => ({ id: d.id, ...d.data() })).reverse()), (e) => cb(null, e));
+}
