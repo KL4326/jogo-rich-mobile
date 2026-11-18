@@ -258,6 +258,20 @@ const handlers = {
   },
   snd: () => { const on = A.settings().music || A.settings().sfx; A.setMusic(!on); A.setSfx(!on); renderTop(); toast(on ? '🔇 Som desligado' : '🔊 Som ligado', '', false); },
   sndset: (d) => { const v = !A.settings()[d.k]; if (d.k === 'music') A.setMusic(v); else A.setSfx(v); keepScroll(render); },
+  pix: (d) => {
+    const p = C.friends[d.id];
+    modal(`<h3>💸 Pix para ${esc(p.name)}</h3><p class="muted">O dinheiro sai da sua conta e cai na hora para ${esc(p.name)}. Não tem como desfazer!</p>
+      <input id="amt" type="number" inputmode="numeric" min="1" placeholder="Valor em R$">
+      <div class="quick">${[[1000, '1 mil'], [10000, '10 mil'], [100000, '100 mil'], [1e6, '1 mi']].map(([v, n]) => `<button class="chipbtn" data-act="pctamt" data-p="1" data-base="${v}">${n}</button>`).join('')}<button class="chipbtn" data-act="pctamt" data-p="0.1" data-base="${Math.max(0, C.s.cash)}">10%</button></div>
+      <div class="btns"><button class="btn ghost" data-act="close">Cancelar</button><button class="btn" id="pixgo" data-act="pixgo" data-id="${d.id}">Enviar Pix</button></div>`);
+  },
+  pixgo: async (d) => {
+    const v = readAmount();
+    const btn = $('#pixgo'); if (btn) btn.disabled = true;
+    const err = await C.sendPix(d.id, v);
+    if (err) { if (btn) btn.disabled = false; return toast('⚠️ ' + err, 'err'); }
+    closeModal(); A.sfx('cash'); toast(`💸 Pix de ${money(v)} enviado para ${esc(C.friends[d.id].name)}!`, 'ok', false); render();
+  },
   confirmyes: () => { const f = pendingConfirm; closeModal(); f && f(); },
 };
 const keepScroll = (fn) => { const sc = $('#view').scrollTop; fn(); $('#view').scrollTop = sc; };
@@ -610,7 +624,8 @@ function friendView(uid) {
       <div><small>Troféus</small><b>🎖️ ${p.ach}</b></div><div><small>Veículo</small><b>${p.veh || '🚶'}</b></div>
       <div><small>Empresas controladas</small><b>👑 ${p.ctrl || 0}</b></div>
     </div>
-    <small class="muted">${Date.now() - p.updated < 180000 ? '🟢 jogando agora' : '⚪ visto ' + ago(p.updated)}</small></div>`);
+    <small class="muted">${Date.now() - p.updated < 180000 ? '🟢 jogando agora' : '⚪ visto ' + ago(p.updated)}</small>
+    <button class="btn full pixbtn" data-act="pix" data-id="${uid}">💸 Enviar Pix para ${esc(p.name)}</button></div>`);
 }
 
 function vInicio() {
@@ -1032,7 +1047,8 @@ function vRanking() {
       <div class="right"><b>${p.loading ? '…' : money(p.w)}</b>${p.me ? '' : `<button class="lnk" data-act="delfriend" data-id="${p.id}">remover</button>`}</div></div>`).join('')}</div>
   ${s.friends.length ? '' : '<p class="muted center">Ainda só você aqui! Adicione a família pela tag 👇</p>'}
   ${C.cloud ? '<button class="btn full blue" data-act="friendadd">👥 Adicionar amigo pela tag</button>' : '<p class="muted center">Ranking online disponível quando as contas estiverem ativadas.</p>'}
-  <p class="muted center small">O ranking atualiza ao vivo. O mercado é o mesmo para todos — vence quem decidir melhor! 😎</p>`;
+  ${(s.pixLog || []).length ? `<div class="box col pixlog"><b>💸 Últimos Pix</b>${s.pixLog.slice(0, 6).map((x) => `<div class="fr"><span>${x.dir === 'in' ? '⬇️ de' : '⬆️ para'} ${esc(x.name)} <small class="muted">${ago(x.t)}</small></span><b class="${x.dir === 'in' ? 'up' : 'down'}">${x.dir === 'in' ? '+' : '-'}${money(x.amount)}</b></div>`).join('')}</div>` : ''}
+  <p class="muted center small">💸 Toque num amigo para ver a vida dele e enviar Pix. O ranking atualiza ao vivo. O mercado é o mesmo para todos — vence quem decidir melhor! 😎</p>`;
 }
 function vCartoes() {
   const s = C.s;

@@ -5,5 +5,5 @@ export {
   sendPasswordResetEmail, signOut, updateProfile, setPersistence, browserLocalPersistence,
 } from 'firebase/auth';
 export {
-  initializeFirestore, doc, getDoc, setDoc, onSnapshot, runTransaction,
+  initializeFirestore, doc, getDoc, setDoc, onSnapshot, runTransaction, collection, addDoc, query, where,
 } from 'firebase/firestore';

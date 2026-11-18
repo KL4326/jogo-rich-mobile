@@ -217,24 +217,24 @@ function hairBack(id, c) {
   }
 }
 function hairFront(id, c) {
-  const cap = `M47,98 C42,40 158,40 153,98 C146,72 120,62 100,64 C80,62 54,72 47,98 Z`;
+  const cap = `M47,98 C42,18 158,18 153,98 C146,72 120,62 100,64 C80,62 54,72 47,98 Z`;
   switch (id) {
     case 'curto': return `<path d="${cap}" fill="${c}"/>`;
-    case 'espetado': return `<path d="M47,96 L50,56 L64,64 L70,36 L86,54 L100,28 L114,54 L130,36 L136,64 L150,56 L153,96 C146,72 120,64 100,66 C80,64 54,72 47,96 Z" fill="${c}"/>`;
-    case 'lateral': return `<path d="M47,100 C40,38 160,36 153,96 C150,80 140,66 120,62 C110,76 80,84 56,82 C52,88 49,94 47,100 Z" fill="${c}"/>`;
-    case 'longo': return `<path d="M47,104 C40,38 160,38 153,104 C148,80 132,64 110,62 C96,76 70,80 52,78 C50,86 48,94 47,104 Z" fill="${c}"/>`;
-    case 'rabo': case 'coque': return `<path d="M47,96 C42,40 158,40 153,96 C146,70 120,58 100,58 C80,58 54,70 47,96 Z" fill="${c}"/>`;
+    case 'espetado': return `<path d="M47,96 L46,58 L62,50 L68,30 L86,40 L100,22 L114,40 L132,30 L138,50 L154,58 L153,96 C146,72 120,64 100,66 C80,64 54,72 47,96 Z" fill="${c}"/>`;
+    case 'lateral': return `<path d="M47,100 C40,16 160,14 153,96 C150,80 140,66 120,62 C110,76 80,84 56,82 C52,88 49,94 47,100 Z" fill="${c}"/>`;
+    case 'longo': return `<path d="M47,104 C40,18 160,18 153,104 C148,80 132,64 110,62 C96,76 70,80 52,78 C50,86 48,94 47,104 Z" fill="${c}"/>`;
+    case 'rabo': case 'coque': return `<path d="M47,96 C42,18 158,18 153,96 C146,70 120,58 100,58 C80,58 54,70 47,96 Z" fill="${c}"/>`;
     case 'cacheado': return `<path d="${cap}" fill="${c}"/>` + [[60, 52], [80, 42], [100, 38], [120, 42], [140, 52]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="15" fill="${c}"/>`).join('');
     case 'black': return `<path d="M50,94 C48,60 152,60 150,94 C140,74 60,74 50,94 Z" fill="${c}"/>`;
-    case 'franja': return `<path d="M47,100 C42,36 158,36 153,100 L153,84 L47,84 Z" fill="${c}"/><path d="M50,86 C50,60 150,60 150,86 L150,88 L50,88 Z" fill="${c}"/>`;
-    case 'anime': return `<path d="M46,100 L40,74 L56,78 L52,46 L72,62 L78,26 L94,54 L104,16 L114,52 L132,28 L134,62 L154,50 L148,78 L160,76 L154,100 C146,76 124,66 100,74 C80,64 56,74 46,100 Z" fill="${c}"/>`;
-    case 'topete': return `<path d="M47,96 C42,50 58,30 88,24 C118,16 152,26 152,48 C142,42 124,42 112,50 C134,56 152,70 153,96 C146,72 120,64 100,66 C80,64 54,72 47,96 Z" fill="${c}"/>`;
-    case 'raspado': return `<path d="M48,92 C46,44 154,44 152,92 C146,64 54,64 48,92 Z" fill="${c}" opacity=".8"/>`;
-    case 'samurai': return `<path d="M48,92 C46,46 154,46 152,92 C146,66 54,66 48,92 Z" fill="${c}"/>`;
-    case 'rasta': return `<path d="M47,96 C42,40 158,40 153,96 C146,72 120,62 100,64 C80,62 54,72 47,96 Z" fill="${c}"/>` + [60, 76, 92, 108, 124, 140].map((x) => `<circle cx="${x}" cy="${54 + Math.abs(100 - x) / 5}" r="8" fill="${shade(c, 0.9)}"/>`).join('');
-    case 'ondulado': return `<path d="M47,102 C40,38 160,38 153,102 C150,82 138,66 116,62 C106,74 88,80 70,78 C60,86 52,94 47,102 Z" fill="${c}"/>`;
-    case 'chanel': return `<path d="M47,100 C42,38 158,38 153,100 C150,80 140,68 124,64 C112,76 80,80 58,78 C52,86 48,94 47,100 Z" fill="${c}"/>`;
-    case 'chiquinhas': case 'tranca': return `<path d="M47,96 C42,40 158,40 153,96 C146,70 120,60 100,62 C80,60 54,70 47,96 Z" fill="${c}"/><path d="M100,48 L100,64" stroke="${shade(c, 0.75)}" stroke-width="3"/>`;
+    case 'franja': return `<path d="M47,100 C42,14 158,14 153,100 L153,84 L47,84 Z" fill="${c}"/><path d="M50,86 C50,60 150,60 150,86 L150,88 L50,88 Z" fill="${c}"/>`;
+    case 'anime': return `<path d="M46,100 L38,72 L54,66 L50,40 L72,48 L78,22 L94,40 L104,12 L114,40 L132,24 L134,48 L156,40 L146,64 L162,72 L154,100 C146,76 124,66 100,74 C80,64 56,74 46,100 Z" fill="${c}"/>`;
+    case 'topete': return `<path d="M47,96 C42,50 58,30 88,24 C118,16 152,26 152,48 C142,42 124,42 112,50 C136,46 156,66 153,96 C146,72 120,64 100,66 C80,64 54,72 47,96 Z" fill="${c}"/>`;
+    case 'raspado': return `<path d="M48,92 C46,22 154,22 152,92 C146,64 54,64 48,92 Z" fill="${c}" opacity=".8"/>`;
+    case 'samurai': return `<path d="M48,92 C46,24 154,24 152,92 C146,66 54,66 48,92 Z" fill="${c}"/>`;
+    case 'rasta': return `<path d="M47,96 C42,18 158,18 153,96 C146,72 120,62 100,64 C80,62 54,72 47,96 Z" fill="${c}"/>` + [60, 76, 92, 108, 124, 140].map((x) => `<circle cx="${x}" cy="${54 + Math.abs(100 - x) / 5}" r="8" fill="${shade(c, 0.9)}"/>`).join('');
+    case 'ondulado': return `<path d="M47,102 C40,16 160,16 153,102 C150,82 138,66 116,62 C106,74 88,80 70,78 C60,86 52,94 47,102 Z" fill="${c}"/>`;
+    case 'chanel': return `<path d="M47,100 C42,16 158,16 153,100 C150,80 140,68 124,64 C112,76 80,80 58,78 C52,86 48,94 47,100 Z" fill="${c}"/>`;
+    case 'chiquinhas': case 'tranca': return `<path d="M47,96 C42,18 158,18 153,96 C146,70 120,60 100,62 C80,60 54,70 47,96 Z" fill="${c}"/><path d="M100,48 L100,64" stroke="${shade(c, 0.75)}" stroke-width="3"/>`;
     case 'moicano': return `<path d="M86,70 C84,40 90,22 100,18 C110,22 116,40 114,70 C108,64 92,64 86,70 Z" fill="${c}"/>`;
     default: return '';
   }

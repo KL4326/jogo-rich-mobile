@@ -8,7 +8,7 @@ import * as A from './audio.js';
 import { JOBS, GOODS } from './data.js';
 
 const mk = new Market();
-const ctx = { s: null, mk, afterAction, friends: {}, cloud: Cloud.enabled, uid: null, addFriend, removeFriend, logout, answerEvent };
+const ctx = { s: null, mk, afterAction, friends: {}, cloud: Cloud.enabled, uid: null, addFriend, removeFriend, logout, answerEvent, sendPix };
 const $ = (id) => document.getElementById(id);
 const esc = (t) => String(t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -145,6 +145,49 @@ async function addFriend(raw) {
   pushCloud().catch(() => {});
   return null;
 }
+// ---------- Pix ----------
+function pixLog(s, e) { s.pixLog = [e, ...(s.pixLog || [])].slice(0, 20); }
+async function sendPix(uid, amount) {
+  const s = ctx.s;
+  amount = Math.floor(amount);
+  if (!ctx.uid) return 'Pix só funciona com internet e conta conectada.';
+  if (!(amount >= 1)) return 'Digite um valor válido.';
+  if (amount > s.cash) return 'Dinheiro insuficiente.';
+  const f = ctx.friends[uid];
+  if (!f) return 'Amigo não encontrado.';
+  s.cash -= amount;
+  G.save(s);
+  try {
+    await Cloud.withTimeout(Cloud.sendPix(ctx.uid, s.name, uid, amount), 10000);
+  } catch (e) {
+    s.cash += amount; G.save(s);
+    return e && e.code === 'permission-denied' ? 'O Pix ainda não foi liberado no servidor (falta atualizar as regras do Firebase).' : Cloud.errMsg(e);
+  }
+  s.stats.pixOut = (s.stats.pixOut || 0) + amount;
+  pixLog(s, { dir: 'out', name: f.name, amount, t: Date.now() });
+  afterAction();
+  pushCloud().catch(() => {});
+  return null;
+}
+const claiming = new Set();
+function watchPix() {
+  if (!ctx.uid) return;
+  Cloud.watchIncoming(ctx.uid, async (id, d) => {
+    if (claiming.has(id)) return;
+    claiming.add(id);
+    try {
+      const t = await Cloud.claimPix(id);
+      ctx.s.cash += t.amount;
+      ctx.s.stats.pixIn = (ctx.s.stats.pixIn || 0) + t.amount;
+      pixLog(ctx.s, { dir: 'in', name: t.fromName, amount: t.amount, t: Date.now() });
+      UI.toast(`💸 Pix recebido de <b>${esc(t.fromName)}</b>: +${money(t.amount)}!`, 'gold');
+      UI.confetti();
+      afterAction();
+      UI.render();
+      pushCloud().catch(() => {});
+    } catch (e) { /* outro aparelho já resgatou */ }
+  });
+}
 function removeFriend(uid) {
   ctx.s.friends = ctx.s.friends.filter((f) => f !== uid);
   delete ctx.friends[uid];
@@ -243,6 +286,7 @@ function start(s) {
   offlineProgress();
   afterAction();
   watchFriends();
+  watchPix();
   if (!s.look) UI.openCreator();
   setInterval(tick, 250);
   setInterval(() => G.save(ctx.s), 5000);

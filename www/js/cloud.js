@@ -102,3 +102,23 @@ export function watchFriends(uids, cb) {
 }
 
 export const withTimeout = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(Object.assign(new Error('timeout'), { code: 'unavailable' })), ms))]);
+
+// ---------- Pix entre amigos ----------
+export async function sendPix(from, fromName, to, amount) {
+  await F.addDoc(F.collection(db, 'transfers'), { from, fromName, to, amount, created: Date.now(), claimed: false });
+}
+// Escuta Pix recebidos ainda não resgatados
+export function watchIncoming(uid, cb) {
+  const q = F.query(F.collection(db, 'transfers'), F.where('to', '==', uid), F.where('claimed', '==', false));
+  return F.onSnapshot(q, (snap) => snap.docs.forEach((d) => cb(d.id, d.data())), () => {});
+}
+// Resgata um Pix (transação: impede receber duas vezes)
+export async function claimPix(id) {
+  const ref = F.doc(db, 'transfers', id);
+  return F.runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref);
+    if (!snap.exists() || snap.data().claimed) throw new Error('já resgatado');
+    tx.update(ref, { claimed: true, claimedAt: Date.now() });
+    return snap.data();
+  });
+}

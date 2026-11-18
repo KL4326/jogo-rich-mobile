@@ -714,3 +714,4 @@ details.appear[open] summary { margin-bottom: 8px; }
 .tgl i { position: absolute; top: 3px; left: 3px; width: 24px; height: 24px; border-radius: 50%; background: #fff; box-shadow: 0 2px 4px #0003; transition: left .2s; }
 .tgl.on { background: var(--green); }
 .tgl.on i { left: 25px; }
+.pixbtn { margin-top: 12px; } .pixlog .fr { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 2px dashed #ece4f8; } .pixlog .fr:last-child { border-bottom: 0; }
