@@ -277,6 +277,7 @@ function faceAcc(it, skin) {
     case 'mascara': return `<path d="M58,92 C70,84 90,86 100,94 C110,86 130,84 142,92 L140,108 C128,114 112,110 100,104 C88,110 72,114 60,108 Z" fill="${it.c}"/><ellipse cx="80" cy="99" rx="8" ry="6" fill="#fff"/><ellipse cx="120" cy="99" rx="8" ry="6" fill="#fff"/><circle cx="80" cy="99" r="3.5" fill="#222"/><circle cx="120" cy="99" r="3.5" fill="#222"/>`;
     case 'venda': return `<path d="M46,88 Q100,80 154,88 L154,110 Q100,102 46,110 Z" fill="${it.c}"/><path d="M154,92 l14,6 l-12,6 Z" fill="${it.c}"/>`;
     case 'marcas': return `<path d="M64,112 l12,2 M64,118 l12,1 M124,114 l12,-2 M124,119 l12,-1 M94,70 l6,-6 l6,6" stroke="${it.c}" stroke-width="3" fill="none" stroke-linecap="round"/>`;
+    case 'seta': return `<path d="M100,40 L100,74 M90,62 L100,76 L110,62" stroke="${it.c}" stroke-width="6" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`;
     case 'losango': return `<path d="M100,62 l5,7 l-5,7 l-5,-7 Z" fill="${it.c}"/>`;
     case 'tapaolho': return `<path d="M50,80 L150,112" stroke="#111" stroke-width="3"/><ellipse cx="120" cy="101" rx="13" ry="12" fill="${it.c}"/>`;
     case 'nariz': return `<circle cx="100" cy="112" r="10" fill="${it.c}"/><circle cx="97" cy="108" r="3" fill="#fff" opacity=".7"/>`;
@@ -474,6 +475,24 @@ export const LEGENDS = [
     look: { sex: 'm', hair: 'espetado', hairColor: '#ffd23c', skin: 1, eyes: 3 }, pieces: { top: P('heroi', '#2a6bff', { sleeve: 'long', c2: '#e8263f' }), bottom: P('calca', '#2a6bff'), shoes: P(null, '#e8263f') } },
   { id: 'l_patriarca', sex: 'm', name: 'Patriarca de Outro Planeta', bonus: 0.18, aura: null,
     look: { sex: 'm', hair: 'curto', hairColor: '#141414', beard: 'bigode', skin: 1, eyes: 0 }, pieces: { top: P('heroi', '#f4f4f4', { sleeve: 'long', c2: '#c81d3a' }), bottom: P('calca', '#f4f4f4'), shoes: P(null, '#c81d3a'), back: P('capa', '#c81d3a') } },
+  { id: 'l_grimorio', sex: 'm', name: 'Guerreiro do Grimório Sombrio', bonus: 0.18, aura: '#4a1d6a',
+    look: { sex: 'm', hair: 'espetado', hairColor: '#cfd2d8', skin: 1, eyes: 5 }, pieces: { top: P('regata', '#151515', { sleeve: 'none' }), bottom: P('largo', '#151515'), shoes: P(null, '#151515'), head: P('chifres', '#151515'), face: P('marcas', '#151515'), back: P('espada', '#2a2a33') } },
+  { id: 'l_tempo', sex: 'm', name: 'Imperador do Tempo', bonus: 0.2, aura: '#9be7ff',
+    look: { sex: 'm', hair: 'cacheado', hairColor: '#d8d2c4', skin: 0, eyes: 1 }, pieces: { top: P('mago', '#f4f4f4', { sleeve: 'long', c2: '#d4a017' }), shoes: P(null, '#3a2414'), neck: P('pingente', '#ffd23c') } },
+  { id: 'l_juventude', sex: 'm', name: 'Mestre da Juventude Ardente', bonus: 0.2, aura: '#ff3b3b',
+    look: { sex: 'm', hair: 'franja', hairColor: '#141414', skin: 3, eyes: 5 }, pieces: { top: P('camiseta', '#2f8a3a', { sleeve: 'long' }), bottom: P('calca', '#2f8a3a'), shoes: P(null, '#e8a07a'), neck: P('cachecol', '#e8384f') } },
+  { id: 'l_floresta', sex: 'm', name: 'Sábio da Floresta Eterna', bonus: 0.2, aura: '#2bc46f',
+    look: { sex: 'm', hair: 'longo', hairColor: '#141414', skin: 2, eyes: 0 }, pieces: { top: P('armadura', '#a8322a', { sleeve: 'long', c2: '#1d1d1d' }), bottom: P('largo', '#1d1d24'), shoes: P(null, '#1d1d24'), face: P('marcas', '#c81d3a') } },
+  { id: 'l_lampejo', sex: 'm', name: 'Lampejo Dourado', bonus: 0.18, aura: '#ffe27a',
+    look: { sex: 'm', hair: 'espetado', hairColor: '#ffd23c', skin: 0, eyes: 3 }, pieces: { top: P('jaqueta', '#5a7a3a', { sleeve: 'long', c2: '#1d2b5a' }), bottom: P('calca', '#1d2b5a'), shoes: P(null, '#1d2b5a'), back: P('capa', '#f4f4f4', { c2: '#e8384f' }) } },
+  { id: 'l_leao', sex: 'm', name: 'Leão do Meio-Dia', bonus: 0.2, aura: '#ff9a1f',
+    look: { sex: 'm', hair: 'topete', hairColor: '#b8641e', beard: 'bigode', skin: 1, eyes: 0 }, pieces: { top: P('semcamisa', '#000', { sleeve: 'none' }), bottom: P('largo', '#f4f1ea'), shoes: P(null, '#3a2414'), back: P('capa', '#f4f1ea', { c2: '#d4a017', shine: true }) } },
+  { id: 'l_ira', sex: 'm', name: 'Dragão da Ira', bonus: 0.2, aura: '#5a2a8a',
+    look: { sex: 'm', hair: 'espetado', hairColor: '#f2d27a', skin: 0, eyes: 2 }, pieces: { top: P('jaqueta', '#151515', { sleeve: 'none', c2: '#f4f4f4', tie: '#2bc46f' }), bottom: P('calca', '#1d1d24'), shoes: P(null, '#3a2414'), face: P('marcas', '#151515'), back: P('espada', '#9aa3b0') } },
+  { id: 'l_tres_laminas', sex: 'm', name: 'Espadachim de Três Lâminas', bonus: 0.18, aura: null,
+    look: { sex: 'm', hair: 'curto', hairColor: '#3a9a4a', skin: 2, eyes: 5 }, pieces: { top: P('kimono', '#2f7a4a', { sleeve: 'long', c2: '#151515' }), bottom: P('largo', '#151515'), shoes: P(null, '#151515'), neck: P('cachecol', '#151515'), back: P('katana', '#e9eef5') } },
+  { id: 'l_ar', sex: 'm', name: 'Último Mestre do Ar', bonus: 0.18, aura: '#9be7ff',
+    look: { sex: 'm', hair: 'careca', hairColor: '#000', skin: 1, eyes: 1 }, pieces: { top: P('kimono', '#ff8a1f', { sleeve: 'long', c2: '#ffd23c' }), bottom: P('largo', '#ffd23c'), shoes: P(null, '#8a5a2b'), face: P('seta', '#2a74d1') } },
   // ---- Femininas ----
   { id: 'l_princesa', sex: 'f', name: 'Princesa Chifruda Pilota', bonus: 0.18, aura: '#ff4f8f',
     look: { sex: 'f', hair: 'longo', hairColor: '#ff8fbf', skin: 0, eyes: 2 }, pieces: { top: P('heroi', '#e8263f', { sleeve: 'long', c2: '#ffffff' }), bottom: P('calca', '#e8263f'), shoes: P(null, '#ffffff'), head: P('chifres', '#c81d3a') } },
