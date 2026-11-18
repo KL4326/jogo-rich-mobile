@@ -1,11 +1,12 @@
 // ===== Interface (visual de jogo) =====
 import {
-  OWN_TIERS, TRIP_CATS, TRIPS, LOVE_STAGES, DATES, GIFTS, RING_COST, WEDDINGS,
+  BRANDS, TIERS, OWN_TIERS, TRIP_CATS, TRIPS, LOVE_STAGES, DATES, GIFTS, RING_COST, WEDDINGS,
   DAY_MS, SECTORS, SECTOR, STOCKS, CRYPTOS, ASSETS, BUSINESSES, COURSES, JOBS, PROPERTIES, GOODS, CARDS, UNLOCKS, TRADE_FEE, LOAN_RATE, LEVEL_BONUS, RENT_NO_HOME,
 } from './data.js';
 import * as G from './game.js';
 import { avatarSVG, defaultLook, SKINS, HAIR_COLORS, EYE_COLORS, HAIRS, BEARDS, CLOTHES, SLOTS, SETS, CLOTH } from './avatar.js';
 import { townSVG } from './town.js';
+import * as A from './audio.js';
 import { tickToMs } from './market.js';
 
 // ---------- formatação ----------
@@ -60,6 +61,7 @@ const $ = (sel, root = document) => root.querySelector(sel);
 export function init(ctx) {
   C = ctx;
   document.addEventListener('click', onClick);
+  document.addEventListener('input', (e) => { const k = e.target.dataset && e.target.dataset.vol; if (k) { A.setVol(k, +e.target.value); if (k === 'svol') A.sfx('coin'); } });
   // No PC: rodinha do mouse rola as faixas horizontais
   document.addEventListener('wheel', (e) => {
     const el = e.target.closest('.subtabs, .wxrow, .street, .lifechips');
@@ -70,7 +72,8 @@ export function init(ctx) {
 }
 
 // ---------- efeitos ----------
-export function toast(msg, kind = '') {
+export function toast(msg, kind = '', snd) {
+  if (snd !== false) A.sfx(snd || (kind === 'err' ? 'error' : kind === 'gold' ? 'notify' : ''));
   const el = document.createElement('div');
   el.className = 'toast ' + kind;
   el.innerHTML = msg;
@@ -81,6 +84,7 @@ export function toast(msg, kind = '') {
 }
 function burst(el, glyph = '🪙', n = 7) {
   if (!el || !el.getBoundingClientRect) return;
+  A.sfx(glyph === '❤️' ? 'love' : 'coin');
   const r = el.getBoundingClientRect();
   for (let i = 0; i < n; i++) {
     const p = document.createElement('span');
@@ -96,6 +100,7 @@ function burst(el, glyph = '🪙', n = 7) {
   }
 }
 export function confetti() {
+  A.sfx('fanfare');
   const colors = ['#ffc93c', '#ff6b9a', '#4dabff', '#3ddc84', '#b07bff'];
   for (let i = 0; i < 60; i++) {
     const p = document.createElement('i');
@@ -251,6 +256,8 @@ const handlers = {
     const cv = $('#cover'); cv.textContent = 'RASPE AQUI'; cv.classList.add('scratching');
     setTimeout(() => casinoResult(r, el), 1100);
   },
+  snd: () => { const on = A.settings().music || A.settings().sfx; A.setMusic(!on); A.setSfx(!on); renderTop(); toast(on ? '🔇 Som desligado' : '🔊 Som ligado', '', false); },
+  sndset: (d) => { const v = !A.settings()[d.k]; if (d.k === 'music') A.setMusic(v); else A.setSfx(v); keepScroll(render); },
   confirmyes: () => { const f = pendingConfirm; closeModal(); f && f(); },
 };
 const keepScroll = (fn) => { const sc = $('#view').scrollTop; fn(); $('#view').scrollTop = sc; };
@@ -260,9 +267,12 @@ function onClick(e) {
   const el = e.target.closest('[data-act]');
   if (!el) return;
   const h = handlers[el.dataset.act];
+  A.unlock();
+  if (!QUIET.has(el.dataset.act)) A.sfx('click');
   if (h) { e.preventDefault(); h(el.dataset, el); }
 }
 
+const QUIET = new Set(['buybiz', 'buygood', 'buyprop', 'buycloth', 'buyset', 'trade', 'spin', 'roulette', 'scratch', 'gift', 'event']);
 let pendingConfirm = null;
 function confirmBox(msg, fn) {
   pendingConfirm = fn;
@@ -330,6 +340,7 @@ function renderTop() {
         <b class="pname">${esc(s.name)}</b>
         <div class="xpbar"><i data-live-w="xp"></i><span data-live="xptxt"></span></div>
       </div>
+      <button class="sndbtn" data-act="snd">${A.settings().music || A.settings().sfx ? '🔊' : '🔇'}</button>
       <div class="minicard ${c.cls}" data-act="tab" data-tab="perfil" data-sub="cartoes"><span>${c.name}</span></div>
     </div>
     <div class="cashpill"><span class="cicon">🪙</span><span class="cash" data-live="cash"></span><span class="rate" data-live="rate"></span></div>`;
@@ -368,7 +379,7 @@ function scene() {
     <div class="homebig">${trip ? trip.icon : home ? home.icon : '🏚️'}</div>
     <div class="ground"></div>
     <div class="cast ${showPartner ? 'duo' : ''}">
-      ${veh && !trip ? `<span class="vehbig">${veh.icon}</span>` : ''}
+      ${veh && !trip ? `<span class="vehbig" style="filter:hue-rotate(${veh.hue || 0}deg) drop-shadow(0 4px 0 #0002)">${veh.icon}</span>` : ''}
       <div class="me" data-act="tab" data-tab="vida" data-sub="visual">${avatarSVG(s.look, { size: showPartner ? 175 : 190 })}</div>
       ${showPartner ? `<div class="partner" data-act="tab" data-tab="vida" data-sub="amor"><span class="heart">${L.stage >= 4 ? '💞' : '❤️'}</span>${avatarSVG(L.partner.look, { size: 160 })}</div>` : ''}
     </div>
@@ -565,14 +576,14 @@ const readBet = () => { const v = Math.floor(parseFloat(($('#bet') || {}).value)
 function casinoResult(r, el) {
   G.payout(C.s, r.win, r.mult);
   ui.busy = false;
-  if (r.win > 0) { toast(`🎉 Ganhou ${money(r.win)}! (${r.mult}x)`, 'gold'); burst(el, '🪙', 10); if (r.mult >= 10) confetti(); }
-  else toast('😬 Não foi dessa vez…', 'err');
+  if (r.win > 0) { A.sfx('win'); toast(`🎉 Ganhou ${money(r.win)}! (${r.mult}x)`, 'gold', false); burst(el, '🪙', 10); if (r.mult >= 10) confetti(); }
+  else { A.sfx('lose'); toast('😬 Não foi dessa vez…', 'err', false); }
   C.afterAction();
   keepScroll(render);
 }
 function animate(ms, step, done) {
   const t0 = Date.now();
-  const iv = setInterval(() => { step(); if (Date.now() - t0 > ms) { clearInterval(iv); done(); } }, 70);
+  const iv = setInterval(() => { A.sfx('tick'); step(); if (Date.now() - t0 > ms) { clearInterval(iv); done(); } }, 70);
 }
 
 export function openCreator() {
@@ -759,14 +770,27 @@ function vBolsa(list, stocks) {
   <div class="wallet"><div><small>💼 Sua carteira</small><b data-live="pv:${k}"></b></div><div class="right"><small>Lucro</small><b data-live="pl:${k}"></b></div></div>
   <div class="wxhead"><b>Clima dos setores</b><small>muda em <span data-live="nextblock"></span></small></div>
   <div class="wxrow" data-live-html="${stocks ? 'sectors' : 'cryptosector'}"></div>
-  <div class="assets">${list.map((a) => `
+  ${assetFilters(list, stocks)}
+  <div class="assets">${filterAssets(list, stocks).map((a) => `
     <div class="asset" data-act="asset" data-sym="${a.sym}">
       <span class="aico s-${a.sector}">${SECTOR[a.sector].icon}</span>
       <div class="grow"><b>${a.name}${a.div ? ' <em class="divtag">💸</em>' : ''}</b><small class="held" data-live="held:${a.sym}"></small>${a.shares && G.ownPct(C.s, a.sym) > 0 ? `<div class="ownmini"><i style="width:${Math.max(3, Math.min(100, G.ownPct(C.s, a.sym) / 0.51 * 100))}%"></i></div>` : ''}</div>
       <svg class="spark" data-spark="${a.sym}" viewBox="0 0 64 28" preserveAspectRatio="none"></svg>
       <div class="right"><b data-live="price:${a.sym}"></b><span class="chg" data-live="chg:${a.sym}"></span></div>
-    </div>`).join('')}</div>
+    </div>`).join('') || '<p class="emptyf">Nenhum ativo aqui ainda 🙃</p>'}</div>
   <div class="box newsbox" data-act="news"><div class="nhead"><b>📺 Jornal do Mercado</b><span class="lnk">ver tudo ›</span></div><div class="news" data-live-html="news3"></div></div>`;
+}
+function assetFilters(list, stocks) {
+  const key = stocks ? 'sf' : 'cf';
+  const cur = ui[key] || 'all';
+  const secs = [...new Set(list.map((a) => a.sector))];
+  const opts = [['all', '📋', 'Todas'], ['mine', '🎒', 'Minhas'], ...(stocks ? secs.map((id) => [id, SECTOR[id].icon, SECTOR[id].name]) : [])];
+  return `<div class="subtabs vistabs filt">${opts.map(([id, ic, n]) => `<button class="${cur === id ? 'on' : ''}" data-act="pt" data-g="${key}" data-t="${id}"><span>${ic}</span>${n}</button>`).join('')}</div>`;
+}
+function filterAssets(list, stocks) {
+  const f = ui[stocks ? 'sf' : 'cf'] || 'all';
+  const out = f === 'all' ? list : f === 'mine' ? list.filter((a) => (C.s.port[a.sym] || {}).q > 0) : list.filter((a) => a.sector === f);
+  return out.length ? out : [];
 }
 function sectorsHTML(ids) {
   const mk = C.mk;
@@ -863,7 +887,7 @@ function doTrade(sym, side) {
   if (!G.isCrypto(sym)) q = Math.floor(q);
   const r = act(() => G.trade(C.s, C.mk, sym, q, side));
   if (!r) return;
-  if (side === 'buy') toast(`✅ Comprou ${fmt(q)} ${sym}`, 'ok');
+  if (side === 'buy') { A.sfx('cash'); toast(`✅ Comprou ${fmt(q)} ${sym}`, 'ok'); }
   else if (r.profit >= 0) { toast(`💰 Lucro de ${money(r.profit)}!`, 'gold'); confetti(); }
   else toast(`📉 Prejuízo de ${money(-r.profit)}`, 'err');
   closeModal(); render();
@@ -940,27 +964,46 @@ function vBens() {
   const sub = ui.sub.bens;
   const list = GOODS[sub];
   const owned = list.filter((g) => s.goods[g.id]).length;
-  return title('💎', 'Coleção', 'bens') + subtabs([['veiculos', '🚗', 'Carros'], ['ceumar', '🛥️', 'Céu e Mar'], ['moradia', '🏠', 'Casas'], ['luxo', '💍', 'Luxo'], ['colecao', '🖼️', 'Coleção']]) + `
-  <div class="wallet"><div><small>✨ Prestígio</small><b>${fmt(G.prestige(s))}</b></div><div class="right"><small>Coleção</small><b>${owned}/${list.length}</b></div></div>
-  <div class="goods">${list.map((g, i) => {
+  const head = title('💎', 'Coleção', 'bens') + subtabs([['veiculos', '🚗', 'Carros'], ['ceumar', '🛥️', 'Céu e Mar'], ['moradia', '🏠', 'Casas'], ['luxo', '💍', 'Luxo'], ['colecao', '🖼️', 'Coleção']]) + `
+  <div class="wallet"><div><small>✨ Prestígio</small><b>${fmt(G.prestige(s))}</b></div><div class="right"><small>Coleção</small><b>${owned}/${list.length}</b></div></div>`;
+  if (sub === 'veiculos') return head + vCarros();
+  return head + `
+  <div class="goods">${list.map((g, i) => goodCard(g, RAR[i])).join('')}</div>`;
+}
+const TIER_RAR = { Entrada: 'comum', 'Intermediário': 'raro', Luxo: 'epico', Esportivo: 'lendario' };
+const vIcon = (g) => `<span class="vic" style="filter:hue-rotate(${g.hue || 0}deg)">${g.icon}</span>`;
+function goodCard(g, r) {
+  const s = C.s;
+  {
     const own = !!s.goods[g.id];
-    const r = RAR[i];
     const perk = g.bonus ? `+${Math.round(g.bonus * 100)}% salário` : g.hours ? `+${g.hours}h offline` : `✨ ${g.prestige}`;
     return `<div class="gcard ${r} ${own ? 'own' : ''}" data-act="good" data-id="${g.id}">
       <span class="rar">${RARN[r]}</span>${own ? '<span class="owned">✓</span>' : ''}
-      <div class="gi">${g.icon}</div><b>${g.name}</b><small>${perk}</small>
+      <div class="gi">${g.brand ? vIcon(g) : g.icon}</div><b>${g.name}</b><small>${perk}</small>
       <div class="gprice" data-cost="${own ? 0 : g.cost}">${own ? 'É seu!' : money(g.cost)}</div></div>`;
-  }).join('')}</div>`;
+  }
+}
+const brandBadge = (b, big) => `<span class="bmono ${big ? 'big' : ''}" style="background:linear-gradient(135deg, ${b.c1}, ${b.c2})">${b.mono}</span>`;
+function vCarros() {
+  const s = C.s;
+  const brand = BRANDS.find((b) => b.id === ui.brand) || BRANDS[0];
+  const models = GOODS.veiculos.filter((g) => g.brand === brand.id);
+  return `
+  <div class="subtabs brands">${BRANDS.map((b) => { const n = GOODS.veiculos.filter((g) => g.brand === b.id && s.goods[g.id]).length; return `<button class="${b.id === brand.id ? 'on' : ''}" data-act="pt" data-g="brand" data-t="${b.id}">${brandBadge(b)}${b.name}${n ? ` <i class="bown">${n}</i>` : ''}</button>`; }).join('')}</div>
+  <div class="brandhead">${brandBadge(brand, true)}<div><b>${brand.name}</b><small>${brand.slogan}</small></div></div>
+  ${TIERS.filter((t) => models.some((g) => g.tier === t)).map((t) => `<h4 class="sec tierh">${{ Entrada: '🟢', 'Intermediário': '🔵', Luxo: '🟣', Esportivo: '🔥' }[t]} ${t}</h4>
+    <div class="goods">${models.filter((g) => g.tier === t).map((g) => goodCard(g, TIER_RAR[t])).join('')}</div>`).join('')}`;
 }
 function openGood(id) {
   const s = C.s;
   const list = Object.values(GOODS).flat();
   const g = list.find((x) => x.id === id);
   const cat = Object.keys(GOODS).find((k) => GOODS[k].some((x) => x.id === id));
-  const r = RAR[GOODS[cat].indexOf(g)];
+  const r = g.tier ? TIER_RAR[g.tier] : RAR[GOODS[cat].indexOf(g)];
   const own = !!s.goods[id];
   const rate = cat === 'veiculos' || cat === 'ceumar' ? 0.6 : cat === 'moradia' ? 0.9 : 0.75;
-  modal(`<div class="goodmodal ${r}"><div class="gi">${g.icon}</div><span class="rar">${RARN[r]}</span><h3>${g.name}</h3>
+  const br = g.brand ? BRANDS.find((b) => b.id === g.brand) : null;
+  modal(`<div class="goodmodal ${r}"><div class="gi">${g.brand ? vIcon(g) : g.icon}</div><span class="rar">${g.tier ? g.tier : RARN[r]}</span><h3>${g.name}</h3>${br ? `<p class="muted">${brandBadge(br)} ${br.name} · ${br.slogan}</p>` : ''}
     <div class="tags">${g.bonus ? `<span class="pill">💼 +${Math.round(g.bonus * 100)}% salário</span>` : ''}${g.hours ? `<span class="pill">🌙 +${g.hours}h offline</span><span class="pill">🏠 sem aluguel</span>` : ''}<span class="pill">✨ ${g.prestige} prestígio</span></div>
     ${own ? `<p class="muted">Você é dono disso! Se vender, recebe ${money(g.cost * rate)}.</p><button class="btn red full" data-act="sellgood" data-id="${id}">Vender</button>`
       : `<p class="muted">Cashback do seu cartão: ${Math.round(G.card(s).cashback * 100)}%</p><button class="btn gold full" data-act="buygood" data-id="${id}" data-cost="${g.cost}"><em>Comprar</em><span>${money(g.cost)}</span></button>`}</div>`);
@@ -1006,6 +1049,12 @@ function vConquistas() {
 function vAjustes() {
   const s = C.s;
   return `<div class="box col"><b>✏️ Seu nome</b><input id="newname" maxlength="18" value="${esc(s.name)}"><button class="btn full" data-act="rename">Salvar</button></div>
+  <div class="box col sndbox"><b>🔊 Som</b>
+    <div class="lrow"><span>🎵 Música de fundo</span><button class="tgl ${A.settings().music ? 'on' : ''}" data-act="sndset" data-k="music"><i></i></button></div>
+    <input type="range" min="0" max="1" step="0.05" value="${A.settings().mvol}" data-vol="mvol">
+    <div class="lrow"><span>🔔 Efeitos sonoros</span><button class="tgl ${A.settings().sfx ? 'on' : ''}" data-act="sndset" data-k="sfx"><i></i></button></div>
+    <input type="range" min="0" max="1" step="0.05" value="${A.settings().svol}" data-vol="svol">
+  </div>
   <button class="btn ghost full" data-act="help">📖 Como jogar</button>
   <div class="box col stats">
     <div class="fr"><span>📅 Dias jogados</span><b>${fmt(Math.floor((Date.now() - s.created) / DAY_MS))}</b></div>

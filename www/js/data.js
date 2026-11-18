@@ -130,17 +130,41 @@ export const PROPERTIES = [
 // Bens. bonus = bônus no salário (veículos, só o melhor conta). hours = horas extras de renda offline (moradia, só a melhor conta)
 export const GOODS = {
   veiculos: [
-    { id: 'bike', name: 'Bicicleta', icon: '🚲', cost: 900, prestige: 1, bonus: 0.05 },
-    { id: 'patinete', name: 'Patinete Elétrico', icon: '🛴', cost: 3500, prestige: 2, bonus: 0.07 },
-    { id: 'moto', name: 'Moto', icon: '🏍️', cost: 14000, prestige: 3, bonus: 0.10 },
-    { id: 'popular', name: 'Carro Popular', icon: '🚗', cost: 60000, prestige: 6, bonus: 0.15 },
-    { id: 'picape', name: 'Picape', icon: '🛻', cost: 180000, prestige: 10, bonus: 0.18 },
-    { id: 'suv', name: 'SUV', icon: '🚙', cost: 350000, prestige: 14, bonus: 0.20 },
-    { id: 'sedan', name: 'Sedan de Luxo', icon: '🚘', cost: 900000, prestige: 25, bonus: 0.25 },
-    { id: 'esportivo', name: 'Superesportivo', icon: '🏎️', cost: 4e6, prestige: 60, bonus: 0.30 },
-    { id: 'limusine', name: 'Limusine', icon: '🚐', cost: 1.2e7, prestige: 100, bonus: 0.33 },
-    { id: 'hipercarro', name: 'Hipercarro', icon: '🏁', cost: 3.5e7, prestige: 180, bonus: 0.36 },
+    { id: 'bike', brand: 'pedala', tier: 'Entrada', name: 'Pedala Urbana', icon: '🚲', hue: 0, cost: 900, prestige: 1, bonus: 0.05 },
+    { id: 'patinete', brand: 'pedala', tier: 'Entrada', name: 'Pedala Patinete Elétrico', icon: '🛴', hue: 0, cost: 3500, prestige: 2, bonus: 0.093 },
+    { id: 'ebike', brand: 'pedala', tier: 'Intermediário', name: 'Pedala Bike Elétrica', icon: '🚲', hue: 140, cost: 9000, prestige: 3, bonus: 0.123 },
+    { id: 'moto', brand: 'trovao', tier: 'Entrada', name: 'Trovão 150', icon: '🛵', hue: 0, cost: 14000, prestige: 4, bonus: 0.138 },
+    { id: 'moto600', brand: 'trovao', tier: 'Intermediário', name: 'Trovão 600', icon: '🏍️', hue: 0, cost: 45000, prestige: 7, bonus: 0.175 },
+    { id: 'mototour', brand: 'trovao', tier: 'Luxo', name: 'Trovão Touring', icon: '🏍️', hue: 200, cost: 95000, prestige: 10, bonus: 0.199 },
+    { id: 'motoesp', brand: 'trovao', tier: 'Esportivo', name: 'Trovão Raio 1000', icon: '🏍️', hue: 100, cost: 160000, prestige: 13, bonus: 0.215 },
+    { id: 'popular', brand: 'volta', tier: 'Entrada', name: 'Volta Pingo', icon: '🚗', hue: 0, cost: 60000, prestige: 8, bonus: 0.184 },
+    { id: 'volta_urb', brand: 'volta', tier: 'Entrada', name: 'Volta Urbano', icon: '🚗', hue: 200, cost: 85000, prestige: 10, bonus: 0.195 },
+    { id: 'volta_avanti', brand: 'volta', tier: 'Intermediário', name: 'Volta Avanti Sedan', icon: '🚘', hue: 0, cost: 130000, prestige: 12, bonus: 0.209 },
+    { id: 'volta_trilha', brand: 'volta', tier: 'Intermediário', name: 'Volta Trilha SUV', icon: '🚙', hue: 150, cost: 170000, prestige: 14, bonus: 0.217 },
+    { id: 'kaz_haru', brand: 'kazumi', tier: 'Entrada', name: 'Kazumi Haru', icon: '🚗', hue: 110, cost: 90000, prestige: 10, bonus: 0.197 },
+    { id: 'kaz_sora', brand: 'kazumi', tier: 'Intermediário', name: 'Kazumi Sora Sedan', icon: '🚘', hue: 180, cost: 160000, prestige: 13, bonus: 0.215 },
+    { id: 'kaz_kumo', brand: 'kazumi', tier: 'Luxo', name: 'Kazumi Kumo Híbrido', icon: '🚙', hue: 260, cost: 420000, prestige: 22, bonus: 0.246 },
+    { id: 'kaz_ryu', brand: 'kazumi', tier: 'Esportivo', name: 'Kazumi Ryu Turbo', icon: '🏎️', hue: 200, cost: 650000, prestige: 27, bonus: 0.26 },
+    { id: 'picape', brand: 'brutus', tier: 'Intermediário', name: 'Brutus Ranchão', icon: '🛻', hue: 0, cost: 180000, prestige: 14, bonus: 0.219 },
+    { id: 'suv', brand: 'brutus', tier: 'Luxo', name: 'Brutus Colosso SUV', icon: '🚙', hue: 0, cost: 350000, prestige: 20, bonus: 0.24 },
+    { id: 'brutus_selva', brand: 'brutus', tier: 'Luxo', name: 'Brutus Selva 4x4', icon: '🚙', hue: 80, cost: 600000, prestige: 26, bonus: 0.258 },
+    { id: 'brutus_monstro', brand: 'brutus', tier: 'Esportivo', name: 'Brutus Monstro V8', icon: '🛻', hue: 300, cost: 950000, prestige: 32, bonus: 0.272 },
+    { id: 'ele_faisca', brand: 'eletrika', tier: 'Entrada', name: 'Elétrika Faísca', icon: '🚗', hue: 90, cost: 110000, prestige: 11, bonus: 0.203 },
+    { id: 'ele_volt', brand: 'eletrika', tier: 'Intermediário', name: 'Elétrika Volt S', icon: '🚘', hue: 190, cost: 380000, prestige: 21, bonus: 0.243 },
+    { id: 'ele_raio', brand: 'eletrika', tier: 'Luxo', name: 'Elétrika Raio GT', icon: '🏎️', hue: 170, cost: 1.4e+06, prestige: 39, bonus: 0.285 },
+    { id: 'sedan', brand: 'lumiere', tier: 'Luxo', name: 'Lumière Étoile', icon: '🚘', hue: 0, cost: 900000, prestige: 32, bonus: 0.27 },
+    { id: 'lum_coupe', brand: 'lumiere', tier: 'Luxo', name: 'Lumière Coupé', icon: '🏎️', hue: 240, cost: 1.6e+06, prestige: 42, bonus: 0.289 },
+    { id: 'lum_conv', brand: 'lumiere', tier: 'Esportivo', name: 'Lumière Conversível', icon: '🏎️', hue: 320, cost: 2.6e+06, prestige: 54, bonus: 0.304 },
+    { id: 'limusine', brand: 'lumiere', tier: 'Luxo', name: 'Lumière Grand Limusine', icon: '🚘', hue: 250, cost: 1.2e+07, prestige: 115, bonus: 0.353 },
+    { id: 'vit_strada', brand: 'vittoria', tier: 'Esportivo', name: 'Vittoria Strada', icon: '🏎️', hue: 40, cost: 2.2e+06, prestige: 49, bonus: 0.299 },
+    { id: 'esportivo', brand: 'vittoria', tier: 'Esportivo', name: 'Vittoria Furia', icon: '🏎️', hue: 0, cost: 4e+06, prestige: 67, bonus: 0.318 },
+    { id: 'vit_aperta', brand: 'vittoria', tier: 'Esportivo', name: 'Vittoria Aperta', icon: '🏎️', hue: 60, cost: 9e+06, prestige: 100, bonus: 0.344 },
+    { id: 'hipercarro', brand: 'vittoria', tier: 'Esportivo', name: 'Vittoria Tempesta', icon: '🏁', hue: 0, cost: 3.5e+07, prestige: 197, bonus: 0.387 },
+    { id: 'reg_imperial', brand: 'regalis', tier: 'Luxo', name: 'Regalis Imperial', icon: '🚘', hue: 220, cost: 6e+06, prestige: 82, bonus: 0.331 },
+    { id: 'reg_soberano', brand: 'regalis', tier: 'Luxo', name: 'Regalis Soberano', icon: '🚘', hue: 280, cost: 1.8e+07, prestige: 141, bonus: 0.366 },
+    { id: 'reg_ouro', brand: 'regalis', tier: 'Luxo', name: 'Regalis Edição Ouro', icon: '🚘', hue: 30, cost: 8e+07, prestige: 298, bonus: 0.4 },
   ],
+
   ceumar: [
     { id: 'jetski', name: 'Jet Ski', icon: '🌊', cost: 90000, prestige: 6, bonus: 0.12 },
     { id: 'lancha', name: 'Lancha', icon: '🚤', cost: 1.5e6, prestige: 35, bonus: 0.22 },
@@ -186,6 +210,19 @@ export const GOODS = {
     { id: 'estacao', name: 'Estação Espacial', icon: '🌌', cost: 2e12, prestige: 50000 },
   ],
 };
+// Marcas fictícias de veículos
+export const BRANDS = [
+  { id: 'pedala', name: 'Pedala', mono: 'P', c1: '#2bc46f', c2: '#1a944f', slogan: 'Mobilidade leve e esperta' },
+  { id: 'trovao', name: 'Trovão Motos', mono: 'T', c1: '#ffd23c', c2: '#e09a12', slogan: 'Duas rodas, muita emoção' },
+  { id: 'volta', name: 'Volta', mono: 'V', c1: '#4da3ff', c2: '#2a74d1', slogan: 'O carro do dia a dia' },
+  { id: 'kazumi', name: 'Kazumi', mono: 'K', c1: '#ff5d73', c2: '#c93a4f', slogan: 'Confiável como relógio' },
+  { id: 'brutus', name: 'Brutus', mono: 'B', c1: '#8a5a2b', c2: '#5a3418', slogan: 'Força para qualquer terreno' },
+  { id: 'eletrika', name: 'Elétrika', mono: 'E', c1: '#5ee0e0', c2: '#1fa6a6', slogan: 'Zero emissão, muito torque' },
+  { id: 'lumiere', name: 'Lumière', mono: 'L', c1: '#b8c0cc', c2: '#6b7280', slogan: 'Elegância francesa sobre rodas' },
+  { id: 'vittoria', name: 'Vittoria', mono: 'V', c1: '#e8263f', c2: '#8e0f26', slogan: 'Paixão italiana a 350 km/h' },
+  { id: 'regalis', name: 'Regalis', mono: 'R', c1: '#3b2a8f', c2: '#ffc93c', slogan: 'Para quem nasceu para reinar' },
+];
+export const TIERS = ['Entrada', 'Intermediário', 'Luxo', 'Esportivo'];
 export const ALL_GOODS = Object.entries(GOODS).flatMap(([cat, list]) => list.map((g) => ({ ...g, cat })));
 export const GOOD = Object.fromEntries(ALL_GOODS.map((g) => [g.id, g]));
 export const RENT_NO_HOME = 15; // aluguel por dia se não tiver moradia própria

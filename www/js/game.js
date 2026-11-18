@@ -358,7 +358,7 @@ export const ACHIEVEMENTS = [
   { id: 'tesouro', icon: '🏛️', name: 'Pensando no futuro', desc: 'Invista no Tesouro', test: (s) => s.tes.length > 0 },
   { id: 'imovel1', icon: '🔑', name: 'Senhorio', desc: 'Compre um imóvel para alugar', test: (s) => propCount(s) >= 1 },
   { id: 'imovel10', icon: '🏙️', name: 'Barão imobiliário', desc: 'Tenha 10 imóveis alugados', test: (s) => propCount(s) >= 10 },
-  { id: 'carro', icon: '🚗', name: 'Habilitado', desc: 'Compre um carro', test: (s) => ['popular', 'picape', 'suv', 'sedan', 'esportivo', 'limusine', 'hipercarro'].some((g) => s.goods[g]) },
+  { id: 'carro', icon: '🚗', name: 'Habilitado', desc: 'Compre um carro', test: (s) => GOODS.veiculos.some((g) => s.goods[g.id] && !['pedala', 'trovao'].includes(g.brand)) },
   { id: 'casa', icon: '🏠', name: 'Adeus, aluguel', desc: 'Compre sua moradia', test: (s) => !!homeOf(s) },
   { id: 'mansao', icon: '🏰', name: 'Vida de rico', desc: 'Compre uma mansão', test: (s) => ['mansao', 'fazenda', 'mansaopraia', 'castelo', 'ilha', 'lua'].some((g) => s.goods[g]) },
   { id: 'jato', icon: '🛩️', name: 'Ponte aérea', desc: 'Compre um jatinho', test: (s) => !!s.goods.jato },

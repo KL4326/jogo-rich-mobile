@@ -4,6 +4,7 @@ import { Market } from './market.js';
 import * as UI from './ui.js';
 import { money } from './ui.js';
 import * as Cloud from './cloud.js';
+import * as A from './audio.js';
 import { JOBS, GOODS } from './data.js';
 
 const mk = new Market();
@@ -248,8 +249,8 @@ function start(s) {
   setInterval(UI.slowRefresh, 3000);
   setInterval(() => { if (Date.now() - lastPush > 55_000) pushCloud().catch(() => {}); }, 15_000);
   document.addEventListener('visibilitychange', () => {
-    if (document.hidden) { G.save(ctx.s); pushCloud().catch(() => {}); }
-    else { mk.update(); offlineProgress(); UI.render(); checkUpdate(); }
+    if (document.hidden) { A.pause(); G.save(ctx.s); pushCloud().catch(() => {}); }
+    else { A.resume(); mk.update(); offlineProgress(); UI.render(); checkUpdate(); }
   });
   checkUpdate();
   setInterval(checkUpdate, 10 * 60_000);
@@ -294,6 +295,7 @@ function localOnboarding() {
 
 // ---------- Boot ----------
 async function boot() {
+  document.addEventListener('pointerdown', () => A.unlock(), { passive: true });
   startRain();
   splashMsg('Carregando…');
   const t0 = Date.now();

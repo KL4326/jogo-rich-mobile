@@ -693,3 +693,24 @@ details.appear[open] summary { margin-bottom: 8px; }
 .hint { font-size: 13px; color: #fff; background: #ffffff1a; border: 2px dashed #ffffff40; border-radius: 14px; padding: 10px 12px; margin: 0 0 12px; font-weight: 600; line-height: 1.4; }
 .sheet .hint, .box .hint { color: var(--ink); background: var(--card2); border-color: var(--edge); }
 .evgain { font-size: 15px; color: var(--green-d); margin-top: 6px !important; }
+
+/* marcas de veículos */
+.brands button { gap: 8px; }
+.bmono { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; color: #fff; font-family: var(--display); font-size: 14px; box-shadow: 0 2px 0 #0003, inset 0 0 0 2px #ffffff55; flex: none; }
+.bmono.big { width: 52px; height: 52px; font-size: 28px; }
+.bown { font-style: normal; background: var(--gold); color: #6b3d00; border-radius: 10px; padding: 0 6px; font-size: 11px; }
+.brandhead { display: flex; align-items: center; gap: 12px; background: var(--card); border-radius: 20px; padding: 10px 14px; margin-bottom: 4px; box-shadow: 0 5px 0 var(--edge); }
+.brandhead b { font-family: var(--display); font-weight: 400; font-size: 22px; display: block; }
+.brandhead small { color: var(--ink2); font-weight: 600; }
+.tierh { margin-top: 14px; }
+.vic { display: inline-block; }
+/* filtros e vazio */
+.filt { margin-top: -2px; }
+.emptyf { color: #ffffffcc; text-align: center; font-weight: 600; padding: 20px 0; }
+/* som */
+.sndbtn { width: 36px; height: 36px; border-radius: 50%; border: 2px solid #ffffff33; background: #0003; font-size: 17px; flex: none; }
+.sndbox input[type=range] { padding: 0; height: 26px; accent-color: var(--purple); border: 0; background: none; }
+.tgl { width: 52px; height: 30px; border-radius: 16px; border: 0; background: #ddd5ea; position: relative; padding: 0; transition: background .2s; }
+.tgl i { position: absolute; top: 3px; left: 3px; width: 24px; height: 24px; border-radius: 50%; background: #fff; box-shadow: 0 2px 4px #0003; transition: left .2s; }
+.tgl.on { background: var(--green); }
+.tgl.on i { left: 25px; }
