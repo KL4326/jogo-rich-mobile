@@ -289,6 +289,13 @@ const handlers = {
   buyback: (d, el) => { const r = act(() => G.buyback(C.s, C.mk, +d.p), null, el); if (r) { toast(`🔁 Recompra feita: ${money(r.cost)}`, 'ok'); render(); } },
   fcorp: (d) => openFriendCorp(d.id),
   fctrade: (d) => { const uid = ui.fcorp; const p = C.friends[uid]; const r = act(() => G.tradeFriendCorp(C.s, uid, p.corp, parseFloat($('#qty').value), d.side)); if (r) { A.sfx('cash'); toast(d.side === 'buy' ? `🤝 Agora você é sócio(a) de ${esc(p.name)}!` : `💰 Vendeu ${r.profit >= 0 ? 'com lucro de ' : 'com prejuízo de '}${money(Math.abs(r.profit))}`, 'ok', false); closeModal(); render(); } },
+  insplan: (d) => {
+    const plan = d.p || null;
+    const x = G.INSURANCES.find((i) => i.id === d.id);
+    if (!plan) { act(() => G.setInsurance(C.s, C.mk, d.id, null), `${x.icon} Seguro cancelado`); return keepScroll(render); }
+    const pr = G.insPremium(C.s, C.mk, d.id, plan);
+    confirmBox(`Contratar ${x.name} (${plan === 'completo' ? 'Completo' : 'Básico'}) por ${money(pr)} a cada 30 dias do jogo? A primeira mensalidade é cobrada agora.`, () => { if (act(() => G.setInsurance(C.s, C.mk, d.id, plan), `🛡️ ${x.name} contratado!`)) keepScroll(render); });
+  },
   confirmyes: () => { const f = pendingConfirm; closeModal(); f && f(); },
 };
 const keepScroll = (fn) => { const sc = $('#view').scrollTop; fn(); $('#view').scrollTop = sc; };
@@ -434,8 +441,8 @@ function scene() {
 
 function vVida() {
   const sub = ui.sub.vida;
-  const head = subtabs([['carreira', '🎓', 'Carreira'], ['visual', '👗', 'Visual'], ['amor', '❤️', 'Amor'], ['viagens', '✈️', 'Viagens'], ['cassino', '🎰', 'Cassino']]);
-  let body = sub === 'visual' ? vVisual() : sub === 'amor' ? vAmor() : sub === 'viagens' ? vViagens() : sub === 'cassino' ? vCassino() : vCarreira();
+  const head = subtabs([['carreira', '🎓', 'Carreira'], ['visual', '👗', 'Visual'], ['amor', '❤️', 'Amor'], ['viagens', '✈️', 'Viagens'], ['seguros', '🛡️', 'Seguros'], ['cassino', '🎰', 'Cassino']]);
+  let body = sub === 'visual' ? vVisual() : sub === 'amor' ? vAmor() : sub === 'viagens' ? vViagens() : sub === 'cassino' ? vCassino() : sub === 'seguros' ? vSeguros() : vCarreira();
   if (sub === 'amor' || sub === 'viagens') body = `<div data-cardable>${payBar()}${body}</div>`;
   return title('👤', 'Minha Vida', sub === 'carreira' ? 'carreira' : sub) + head + body;
 }
@@ -628,6 +635,23 @@ function openFriendCorp(uid) {
     <div class="btns"><button class="btn red" data-act="fctrade" data-side="sell">Vender</button><button class="btn" data-act="fctrade" data-side="buy">Comprar</button></div>`);
 }
 
+// ---------- SEGUROS ----------
+function vSeguros() {
+  const s = C.s, mk = C.mk;
+  const total = G.insMonthly(s, mk);
+  return `
+  <div class="inshead"><div><small>Mensalidade total</small><b>${money(total)}</b><small>a cada 30 dias do jogo</small></div>
+    <div><small>Próxima cobrança</small><b data-live="insnext"></b></div><div><small>Já economizou</small><b class="up">${money(s.stats.insSaved || 0)}</b></div></div>
+  <p class="hint small">🛡️ O seguro paga parte (Básico: 50%) ou tudo (Completo: 100%) dos imprevistos. O Completo também cobre situações extras, como roubo do carro. A primeira mensalidade é cobrada na contratação.</p>
+  ${G.INSURANCES.map((x) => {
+    const avail = G.insAvailable(s, x.id);
+    const cur = G.insPlan(s, x.id);
+    const plans = [[null, 'Nenhum', 0, 'Sem proteção'], ['basico', 'Básico', G.insPremium(s, mk, x.id, 'basico'), x.basic], ['completo', 'Completo', G.insPremium(s, mk, x.id, 'completo'), x.full]];
+    return `<div class="inscard ${cur ? 'on' : ''} ${avail ? '' : 'dim'}"><div class="crow"><span class="bi">${x.icon}</span><div class="grow"><b>${x.name}</b><small>${cur ? `✅ Plano ${cur === 'completo' ? 'Completo' : 'Básico'} ativo` : avail ? 'Sem seguro' : `🔒 Precisa ter ${x.need}`}</small></div></div>
+      ${avail ? `<div class="plans">${plans.map(([id, n, pr, d]) => `<button class="plan ${(cur || null) === id ? 'sel' : ''}" data-act="insplan" data-id="${x.id}" data-p="${id || ''}"><b>${n}</b>${id ? `<em>${money(pr)}/mês</em>` : '<em>R$ 0</em>'}<small>${d}</small></button>`).join('')}</div>` : ''}</div>`;
+  }).join('')}`;
+}
+
 // ---------- CASSINO ----------
 function vCassino() {
   const s = C.s;
@@ -738,7 +762,7 @@ function eventCard() {
   const e = C.s.event;
   if (!e) return '';
   return `<div class="event"><div class="evhead"><span class="evi">${e.icon}</span><div class="grow"><small>${e.gain ? 'BOA NOTÍCIA' : e.pay ? 'IMPREVISTO' : 'OPORTUNIDADE'}</small><b>${e.title}</b></div><span class="timer sm" data-live="evtime"></span></div>
-    <p>${e.text}</p>${e.cost || e.pay ? `<p class="evcost">${e.pay && !e.no ? 'Despesa obrigatória' : 'Custa'}: <b>${money(e.cost || e.pay)}</b></p>` : ''}${e.gain ? `<p class="evgain">Você recebe <b>${money(e.gain)}</b> 🎉</p>` : ''}
+    <p>${e.text}</p>${e.cost || e.pay ? `<p class="evcost">${e.pay && !e.no ? 'Despesa obrigatória' : 'Custa'}: <b>${money(e.cost || e.pay)}</b>${e.payOrig || e.costOrig ? ` <s>${money(e.payOrig || e.costOrig)}</s>` : ''}</p>` : (e.payOrig || e.costOrig) ? '<p class="evcost">Custo para você: <b class="up">R$ 0</b></p>' : ''}${e.gain ? `<p class="evgain">Você recebe <b>${money(e.gain)}</b> 🎉</p>` : ''}${e.covered ? `<p class="evins">🛡️ Seu ${esc(e.insName)} ${e.saved ? `cobriu <b>${money(e.saved)}</b>` : 'te protegeu'}!</p>` : e.noIns ? `<p class="evnoins">💡 Um ${esc(e.noIns)} teria ajudado aqui. Veja em Vida → Seguros.</p>` : ''}
     <div class="btns">${e.no ? `<button class="btn ghost" data-act="event" data-yes="0">${e.no}</button>` : ''}<button class="btn ${e.pay && !e.no ? 'red' : ''}" data-act="event" data-yes="1" ${e.cost ? `data-cost="${e.cost}"` : ''}>${e.yes}</button></div></div>`;
 }
 function buffsLine() {
@@ -1315,6 +1339,7 @@ function liveValue(key) {
     case 'giftcd': { const t = ((s.love || {}).cd || {})[arg] || 0; return t > Date.now() ? '⏳ ' + dur(t - Date.now()) : '✅ pronto'; }
     case 'ccavail': return money(G.ccAvail(s));
     case 'ccclose': return s.cc ? dur(s.cc.nextClose - Date.now()) : '30:00';
+    case 'insnext': return C.s.insNext && Object.keys(C.s.ins || {}).length ? dur(C.s.insNext - Date.now()) : '—';
     case 'coursetime': return s.course ? '⏱️ ' + dur(s.course.end - Date.now()) : '';
     case 'nextblock': return dur(mk.msToNextBlock());
     case 'price': return price(mk.price(arg));

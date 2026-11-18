@@ -462,6 +462,8 @@ export const ACHIEVEMENTS = [
   { id: 'fundador', icon: '🏢', name: 'Fundador(a)', desc: 'Funde sua própria empresa', test: (s) => !!s.corp },
   { id: 'ipo', icon: '🔔', name: 'Toque do sino', desc: 'Abra o capital da sua empresa na bolsa', test: (s) => !!s.corp && !!s.corp.ipoAt },
   { id: 'socio_familia', icon: '🤝', name: 'Sócio(a) da família', desc: 'Compre ações da empresa de um amigo', test: (s) => Object.keys(s.fport || {}).length >= 1 },
+  { id: 'precavido', icon: '🛡️', name: 'Precavido(a)', desc: 'Tenha 3 seguros ao mesmo tempo', test: (s) => Object.keys(s.ins || {}).length >= 3 },
+  { id: 'salvo_seguro', icon: '☂️', name: 'Salvo pelo seguro', desc: 'Economize R$ 100 mil com seguros', test: (s) => (s.stats.insSaved || 0) >= 1e5 },
   { id: 'nivel10', icon: '⭐', name: 'Experiente', desc: 'Alcance o nível 10', test: (s) => level(s) >= 10 },
   { id: 'nivel25', icon: '🌟', name: 'Lenda', desc: 'Alcance o nível 25', test: (s) => level(s) >= 25 },
 ];
@@ -530,6 +532,9 @@ function eventPool(s, mk) {
     add(3, { k: 'multa', icon: '🚓', title: 'Multa de trânsito', text: `Chegou uma multa por excesso de velocidade com ${car ? 'seu' : 'sua'} ${road.name}. Pagar com desconto agora?`, pay: R(day * 3), yes: 'Pagar com desconto', no: 'Pagar depois', fx: {}, nofx: { pay: R(day * 5), msg: '🚓 Pagou a multa cheia.' } });
     add(2, { k: 'pneu', icon: '🛞', title: 'Pneu furado', text: `Furou o pneu ${car ? 'do seu' : 'da sua'} ${road.name} no meio do caminho. Guincho e borracharia!`, pay: R(day * 2), yes: 'Pagar', fx: {} });
   }
+  if (car) add(1, { k: 'roubo_carro', icon: '🚨', title: 'Carro roubado!', text: `Levaram seu ${car.name} durante a noite!`, forced: true, car: car.id, yes: 'Que tristeza…', fx: { loseGood: car.id, msg: `😭 Você perdeu seu ${car.name}.` } });
+  add(2, { k: 'hospital', icon: '🏥', title: 'Internação', text: 'Uma virose forte te levou ao hospital por alguns dias.', pay: R(day * 12), yes: 'Pagar o hospital', fx: {} });
+  add(1, { k: 'acidente', icon: '🤕', title: 'Acidente', text: 'Você escorregou na escada e quebrou o braço. Tratamento e fisioterapia…', pay: R(day * 9), yes: 'Pagar tratamento', fx: {} });
   if (car) {
     add(2, { k: 'granizo', icon: '🌨️', title: 'Chuva de granizo', text: `Uma chuva de granizo amassou seu ${car.name} todo.`, pay: R(Math.max(day * 4, car.cost * 0.01)), yes: 'Funilaria', fx: {} });
     add(1, { k: 'revisao', icon: '🔧', title: 'Revisão do carro', text: `Chegou a hora da revisão do seu ${car.name}. Fazer agora evita prejuízo maior depois (30% de chance de quebrar feio).`, cost: R(Math.max(day * 2, car.cost * 0.004)), yes: 'Fazer revisão', no: 'Deixar pra depois', fx: { msg: '🔧 Carro revisado, tudo certo!' }, nofx: { chance: { p: 0.7, win: { msg: '😅 Desta vez deu sorte…' }, lose: { pay: R(Math.max(day * 6, car.cost * 0.02)), msg: '💥 O carro quebrou! Conserto caro.' } } } });
@@ -539,6 +544,8 @@ function eventPool(s, mk) {
   if (air) add(2, { k: 'hangar', icon: '🛫', title: 'Manutenção da aeronave', text: `${air.name} precisa da manutenção obrigatória de voo.`, pay: R(Math.max(day * 5, air.cost * 0.004)), yes: 'Pagar', fx: {} });
   if (!road && !air) add(2, { k: 'onibus', icon: '🚌', title: 'Greve de ônibus', text: 'Greve no transporte público! Vai de táxi para o trabalho?', cost: R(day * 0.8), yes: 'Pegar táxi', no: 'Faltar ao trabalho', fx: { msg: '🚕 Chegou no horário!' }, nofx: { pay: R(salary(s) * 2), msg: '📉 Faltou e teve o dia descontado.' } });
   if (homeOf(s)) {
+    add(1, { k: 'incendio', icon: '🔥', title: 'Princípio de incêndio', text: `Um curto-circuito causou um incêndio na sua ${homeOf(s).name}!`, pay: R(Math.max(day * 10, homeOf(s).cost * 0.03)), yes: 'Reformar', fx: {} });
+    add(1, { k: 'assalto', icon: '🦹', title: 'Casa assaltada', text: 'Enquanto você viajava, entraram na sua casa e levaram TV e eletrônicos.', pay: R(day * 8), yes: 'Repor tudo', fx: {} });
     add(3, { k: 'vazamento', icon: '🚿', title: 'Vazamento em casa', text: 'Um cano estourou e alagou a cozinha!', pay: R(day * 5), yes: 'Chamar encanador', fx: {} });
     add(2, { k: 'iptu', icon: '🏛️', title: 'IPTU chegou', text: 'Chegou o carnê do IPTU da sua casa.', pay: R(day * 6), yes: 'Pagar', fx: {} });
   } else {
@@ -591,7 +598,7 @@ export function makeEvent(s, mk) {
   let e = pool[0].ev;
   for (const x of pool) { r -= x.w; if (r < 0) { e = x.ev; break; } }
   s.lastEventK = e.k;
-  return { ...e, exp: Date.now() + 12 * MIN };
+  return applyInsurance(s, { ...e, exp: Date.now() + 12 * MIN });
 }
 
 // Aplica uma lista de efeitos. stake = valor pago (para pendências e prêmios proporcionais)
@@ -603,6 +610,7 @@ function applyFx(s, fx, stake = 0) {
   if (fx.cash) { s.cash += fx.cash; out.gain = fx.cash; }
   if (fx.cashMult) { s.cash += stake * fx.cashMult; out.gain = stake * fx.cashMult; }
   if (fx.pay) payForced(s, fx.pay);
+  if (fx.loseGood && s.goods[fx.loseGood]) delete s.goods[fx.loseGood];
   if (fx.buff) { s.buffs = (s.buffs || []).filter((x) => x.until > now); s.buffs.push({ id: fx.buff.id, mult: fx.buff.mult, until: now + fx.buff.mins * MIN }); }
   if (fx.pending) { s.pending = s.pending || []; s.pending.push({ amt: stake * fx.pending.mult, at: now + fx.pending.mins * MIN, p: fx.pending.p, label: fx.pending.label }); if (!out.msg) out.msg = `⏳ Resultado em ${fx.pending.mins} min…`; }
   if (fx.aff && s.love) s.love.aff = Math.max(0, Math.min(100, s.love.aff + fx.aff));
@@ -625,6 +633,7 @@ export function answerEvent(s, yes) {
   if (!yes) { s.event = null; return applyFx(s, e.nofx); }
   if (e.cost) { const err = spend(s, e.cost); if (err) return err; }
   if (e.pay) payForced(s, e.pay);
+  if (e.saved) s.stats.insSaved = (s.stats.insSaved || 0) + e.saved;
   s.event = null;
   s.stats.events = (s.stats.events || 0) + 1;
   addXP(s, 10);
@@ -641,7 +650,8 @@ export function eventTick(s, mk) {
   if (s.event && now > s.event.exp) {
     const e = s.event;
     s.event = null;
-    if (e.pay && !e.no) { payForced(s, e.pay); out.push(`💸 ${e.title}: pago automaticamente.`); }
+    if (e.forced) { const r = applyFx(s, e.fx); if (r.msg) out.push(r.msg); }
+    else if (e.pay && !e.no) { payForced(s, e.pay); out.push(`💸 ${e.title}: pago automaticamente.`); }
     else if (e.nofx) { const r = applyFx(s, e.nofx); if (r.msg) out.push(r.msg); }
   }
   if (!s.event && now > (s.nextEvent || 0)) {
@@ -928,3 +938,88 @@ export function tradeFriendCorp(s, uid, corp, qty, side) {
 }
 // Dividendos das empresas da família: sua fatia do lucro diário dos negócios do dono
 export const familyDivs = (s) => Object.values(s.fport || {}).reduce((t, h) => t + (h.q / CORP.shares) * (h.profit || 0), 0);
+
+// ---------- Seguros ----------
+// Cada seguro tem plano básico (cobre 50%) ou completo (cobre 100% e mais situações).
+export const INSURANCES = [
+  { id: 'auto', name: 'Seguro de Veículos', icon: '🚗', need: 'veículo (carro ou moto)', basic: 'Granizo e pneu/guincho (50%)', full: 'Tudo 100% + quebra por falta de revisão + roubo do carro' },
+  { id: 'casa', name: 'Seguro Residencial', icon: '🏠', need: 'casa própria', basic: 'Vazamento e incêndio (50%)', full: 'Tudo 100% + eletrodomésticos + assalto' },
+  { id: 'saude', name: 'Plano de Saúde', icon: '🩺', need: null, basic: 'Internação (50%)', full: 'Internação 100% + dentista' },
+  { id: 'vida', name: 'Seguro de Vida e Acidentes', icon: '❤️‍🩹', need: null, basic: 'Acidentes (50%)', full: 'Acidentes 100% + indenização extra' },
+  { id: 'cel', name: 'Seguro do Celular', icon: '📱', need: null, basic: 'Conserto do celular (50%)', full: 'Conserto do celular 100%' },
+  { id: 'biz', name: 'Seguro Empresarial', icon: '🏭', need: 'negócios', basic: 'Equipamento quebrado (50%)', full: 'Equipamento 100% + gerador no apagão' },
+];
+// Qual seguro cobre cada acontecimento (only = só no plano completo)
+const INS_MAP = {
+  granizo: { t: 'auto' }, pneu: { t: 'auto' }, revisao: { t: 'auto', only: 1, nofx: 1 }, roubo_carro: { t: 'auto', only: 1, theft: 1 },
+  vazamento: { t: 'casa' }, incendio: { t: 'casa' }, geladeira: { t: 'casa', only: 1 }, assalto: { t: 'casa', only: 1 },
+  hospital: { t: 'saude' }, dentista: { t: 'saude', only: 1 }, acidente: { t: 'vida', bonus: 1 }, celular: { t: 'cel' },
+  reparo: { t: 'biz' }, apagao: { t: 'biz', only: 1 },
+};
+const insVehicle = (s) => bestOwned(s, GOODS.veiculos.filter((g) => g.brand !== 'pedala'));
+export function insAvailable(s, id) {
+  if (id === 'auto') return !!insVehicle(s);
+  if (id === 'casa') return !!homeOf(s);
+  if (id === 'biz') return Object.values(s.biz).some((x) => x > 0);
+  return true;
+}
+// Mensalidade (a cada 30 dias do jogo) de cada plano
+export function insPremium(s, mk, id, plan) {
+  if (!plan) return 0;
+  const full = plan === 'completo';
+  const ib = incomeBreakdown(s, mk);
+  const day = Math.max(60, ib.net);
+  let v = 0;
+  if (id === 'auto') { const g = insVehicle(s); v = g ? g.cost * (full ? 0.012 : 0.006) : 0; }
+  if (id === 'casa') { const h = homeOf(s); v = h ? h.cost * (full ? 0.004 : 0.002) : 0; }
+  if (id === 'saude') v = salary(s) * (full ? 4 : 2);
+  if (id === 'vida') v = day * (full ? 2.5 : 1);
+  if (id === 'cel') v = full ? 60 : 25;
+  if (id === 'biz') v = grossBizProfit(s, mk) * (full ? 2.5 : 1);
+  return Math.max(20, Math.round(v));
+}
+export const insPlan = (s, id) => ((s.ins || {})[id] && insAvailable(s, id) ? s.ins[id] : null);
+export function setInsurance(s, mk, id, plan) {
+  s.ins = s.ins || {};
+  if (plan && !insAvailable(s, id)) return 'Você ainda não tem o que segurar';
+  if (!plan) { delete s.ins[id]; return null; }
+  if ((s.ins[id] || null) === plan) return null;
+  const first = insPremium(s, mk, id, plan); // a primeira mensalidade é paga na contratação
+  const e = spend(s, first); if (e) return e;
+  s.ins[id] = plan;
+  if (!s.insNext) s.insNext = Date.now() + FATURA_MS;
+  addXP(s, 10);
+  return null;
+}
+export const insMonthly = (s, mk) => INSURANCES.reduce((t, x) => t + insPremium(s, mk, x.id, insPlan(s, x.id)), 0);
+// Cobra as mensalidades a cada 30 dias do jogo
+export function insTick(s, mk) {
+  if (!s.ins || !s.insNext || Date.now() < s.insNext) return null;
+  let total = 0, guard = 0;
+  while (Date.now() >= s.insNext && guard++ < 50) { total += insMonthly(s, mk); s.insNext += FATURA_MS; }
+  if (total > 0) payForced(s, total);
+  return total > 0 ? total : null;
+}
+function coverPays(fx, c) { // reduz despesas dentro dos efeitos (inclusive chances)
+  if (!fx) return 0;
+  let saved = 0;
+  if (fx.pay) { const n = Math.round(fx.pay * (1 - c)); saved += fx.pay - n; fx.pay = n; }
+  if (fx.chance) { saved += coverPays(fx.chance.lose, c); }
+  return saved;
+}
+function applyInsurance(s, e) {
+  const m = INS_MAP[e.k];
+  if (!m) return e;
+  const plan = insPlan(s, m.t);
+  const c = plan === 'completo' ? 1 : plan === 'basico' && !m.only ? 0.5 : 0;
+  const ins = INSURANCES.find((x) => x.id === m.t);
+  if (!c) { if (!plan) e.noIns = ins.name; return e; }
+  e.insName = ins.name;
+  if (m.theft) { e.fx = { msg: `🛡️ O seguro repôs seu veículo. Ufa!` }; e.text += ' Mas o seu seguro completo repõe o veículo!'; e.covered = 1; return e; }
+  if (m.nofx) { e.nofx = JSON.parse(JSON.stringify(e.nofx)); e.saved = coverPays(e.nofx, c); e.text += ' (Se quebrar, seu seguro cobre o conserto.)'; e.covered = c; return e; }
+  if (e.pay) { const n = Math.round(e.pay * (1 - c)); e.saved = e.pay - n; e.payOrig = e.pay; e.pay = n; }
+  if (e.cost) { const n = Math.round(e.cost * (1 - c)); e.saved = e.cost - n; e.costOrig = e.cost; e.cost = n; }
+  if (m.bonus && c === 1) { e.fx = { ...(e.fx || {}), cash: (e.fx && e.fx.cash) || Math.round((e.payOrig || 0) * 0.5) }; e.gain = e.fx.cash; }
+  e.covered = c;
+  return e;
+}

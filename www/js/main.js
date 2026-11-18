@@ -256,6 +256,8 @@ function tick() {
     else UI.toast('💕 Programa a dois concluído! Carinho aumentou.', 'ok');
     afterAction(); UI.render();
   }
+  const insPaid = G.insTick(s, mk);
+  if (insPaid) { notify('🛡️', `Mensalidade dos seguros: <b>${money(insPaid)}</b>`); afterAction(); }
   for (const r of G.ccTick(s)) {
     if (r.paid) notify('💳', `Fatura do cartão de <b>${money(r.paid)}</b> paga automaticamente.`);
     else { notify('⚠️', `Faltou dinheiro para a fatura do cartão: <b class="down">${money(r.late)}</b> foi para o rotativo (com juros). Pague em Investir → Cartão.`); UI.toast('⚠️ Fatura sem saldo: parte foi para o rotativo!', 'err'); }
