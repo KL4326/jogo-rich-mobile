@@ -754,7 +754,7 @@ function vCarreira() {
       const cur = s.job === j.id;
       const ok = G.canTakeJob(s, j);
       const chips = [...j.edu.map((e) => `<span class="rq ${s.edu.includes(e) ? 'ok' : ''}">${s.edu.includes(e) ? '✓' : '○'} ${CNAME(e)}</span>`), j.lvl > 1 ? `<span class="rq ${lvl >= j.lvl ? 'ok' : ''}">${lvl >= j.lvl ? '✓' : '○'} Nível ${j.lvl}</span>` : ''].join('');
-      return `<div class="item job ${cur ? 'cur' : ''}"><span class="bi">${j.icon}</span><div class="grow"><b>${j.name}</b><span class="pill money">💵 ${money(j.salary)}/dia</span>${chips ? `<div class="rqs">${chips}</div>` : ''}</div>
+      return `<div class="item job ${cur ? 'cur' : ''}"><span class="bi">${j.icon}</span><div class="grow"><b>${j.name}</b><span class="pill money">💵 ${money(j.salary)}/dia <small>base</small></span>${chips ? `<div class="rqs">${chips}</div>` : ''}</div>
         ${cur ? '<span class="pill ok">Atual</span>' : ok ? `<button class="btn sm" data-act="job" data-id="${j.id}">Trabalhar</button>` : `<button class="btn ghost sm" data-act="jobpath" data-id="${j.id}">Ver caminho</button>`}</div>`;
     }).join('')}`;
   } else {
@@ -762,9 +762,26 @@ function vCarreira() {
   }
   return `
   <div class="hero job"><span class="hi">${job.icon}</span><div><small>Sua profissão</small><h3>${job.name}</h3><span class="pill money"><b data-live="salary"></b>/dia</span></div></div>
+  ${salaryBreakdown()}
   ${s.course ? `<div class="box studying"><span class="bi">${COURSES.find((c) => c.id === s.course.id).icon}</span><div class="grow"><b>Estudando: ${CNAME(s.course.id)}</b><div class="bar"><i data-live-w="course"></i></div></div><span class="timer" data-live="coursetime"></span></div>` : ''}
   ${pillTabs('car', [['profissoes', '💼', 'Profissões'], ['estudos', '📚', 'Estudos']], t)}
   ${body}`;
+}
+function salaryBreakdown() {
+  const s = C.s;
+  const job = JOBS.find((j) => j.id === s.job);
+  const vb = G.vehicleBonus(s);
+  const veh = [...GOODS.veiculos, ...GOODS.ceumar].filter((g) => s.goods[g.id] && g.bonus === vb)[0];
+  const lv = LEVEL_BONUS * (G.level(s) - 1);
+  const life = G.lifeMult(s) - 1;
+  const row = (icon, name, v, cls = 'up') => `<div class="fr"><span>${icon} ${name}</span><b class="${cls}">${v}</b></div>`;
+  return `<details class="box col salbox"><summary><b>🧾 Como seu salário é calculado</b></summary>
+    ${row('💵', `Salário-base de ${job.name}`, money(job.salary), '')}
+    ${row('🚗', veh ? `Veículo: ${veh.name}` : 'Veículo (nenhum)', `+${Math.round(vb * 100)}%`, vb ? 'up' : 'muted')}
+    ${row('⭐', `Nível ${G.level(s)}`, `+${Math.round(lv * 100)}%`, lv ? 'up' : 'muted')}
+    ${life ? row('😊', 'Felicidade e descanso', `+${Math.round(life * 100)}%`) : ''}
+    <div class="fr total"><span>Você recebe</span><b class="up" data-live="salary"></b></div>
+    <small class="muted">Os bônus se multiplicam. Do veículo vale só o melhor que você tiver. Na lista de profissões aparece o salário-base.</small></details>`;
 }
 function openJobPath(id) {
   const s = C.s;

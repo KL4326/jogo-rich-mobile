@@ -749,3 +749,10 @@ details.appear[open] summary { margin-bottom: 8px; }
 .step { display: flex; align-items: center; gap: 8px; }
 .step .item { flex: 1; margin-bottom: 6px; }
 .sn { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: var(--purple); color: #fff; font-weight: 700; font-size: 13px; flex: none; }
+.salbox summary { list-style: none; cursor: pointer; }
+.salbox summary::-webkit-details-marker { display: none; }
+.salbox summary b::after { content: ' ›'; color: var(--ink2); }
+.salbox[open] summary { margin-bottom: 6px; }
+.salbox .fr { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 2px dashed #ece4f8; }
+.salbox .fr.total { border-bottom: 0; font-size: 16px; }
+.pill.money small { opacity: .7; font-weight: 600; }
