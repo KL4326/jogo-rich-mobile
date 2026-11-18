@@ -55,17 +55,26 @@ export function open(ctx, start = 'home', data = {}) {
   if (!el) {
     el = document.createElement('div');
     el.id = 'phone';
-    el.innerHTML = `<div class="pback" data-pa="close"></div><div class="pframe"><div class="pnotch"></div><div class="pstatus"><b class="pclock"></b><span>📶 🔋</span></div><div class="pscreen"></div><button class="phome" data-pa="home" aria-label="Início"></button></div>`;
+    el.innerHTML = `<div class="pback" data-pa="close"></div><div class="pframe"><div class="pnotch"></div><div class="pstatus"><b class="pclock"></b><span>📶 🔋</span></div><div class="pscreen"></div><div class="pnav"><button data-pa="home" aria-label="Início">⌂ Início</button><button class="pexit" data-pa="close">🎮 Voltar ao jogo</button></div></div>`;
     el.addEventListener('click', onClick);
     el.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.matches('[data-enter]')) { e.preventDefault(); act(e.target.dataset.enter, e.target.dataset); } });
     el.addEventListener('input', (e) => { const c = e.target.dataset.count; if (c) $(c).textContent = `${e.target.value.length}/${e.target.maxLength}`; });
     document.body.appendChild(el);
+    document.addEventListener('keydown', onEsc);
+    // Botão "voltar" do Android/navegador fecha o celular em vez de sair do jogo
+    try { history.pushState({ phone: 1 }, ''); } catch (e) { }
+    window.addEventListener('popstate', onPop);
   }
   requestAnimationFrame(() => el.classList.add('on'));
   go(start, data);
 }
-export function close() {
+const onEsc = (e) => { if (e.key === 'Escape') close(); };
+const onPop = () => close(true);
+export function close(fromPop) {
   if (!el) return;
+  document.removeEventListener('keydown', onEsc);
+  window.removeEventListener('popstate', onPop);
+  if (fromPop !== true && history.state && history.state.phone) { try { history.back(); } catch (e) { } }
   stopFeed(); stopMsgs();
   el.classList.remove('on');
   const e = el; el = null;

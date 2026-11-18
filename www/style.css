@@ -855,7 +855,7 @@ details.appear[open] summary { margin-bottom: 8px; }
 #phone.on .pframe { transform: none; }
 .pnotch { position: absolute; top: 18px; left: 50%; width: 90px; height: 22px; margin-left: -45px; border-radius: 12px; background: #000; z-index: 3; }
 .pstatus { position: absolute; top: 12px; left: 12px; right: 12px; height: 34px; padding: 0 26px; display: flex; align-items: center; justify-content: space-between; color: #fff; font: 600 12px system-ui; z-index: 2; pointer-events: none; text-shadow: 0 1px 2px #0008; }
-.pscreen { flex: 1; overflow-y: auto; overflow-x: hidden; border-radius: 32px; background: #f6f3ff; color: var(--ink); padding: 40px 0 34px; display: flex; flex-direction: column; overscroll-behavior: contain; }
+.pscreen { flex: 1; overflow-y: auto; overflow-x: hidden; border-radius: 32px; background: #f6f3ff; color: var(--ink); padding: 40px 0 12px; display: flex; flex-direction: column; overscroll-behavior: contain; }
 .pscreen.app-home, .pscreen.app-camera { background: linear-gradient(160deg, #6a4cff, #ff6fa8 60%, #ffb86b); }
 .pscreen.app-camera { background: #111; color: #fff; }
 .phome { position: absolute; bottom: 18px; left: 50%; width: 120px; height: 5px; margin-left: -60px; border-radius: 3px; background: #fffc; border: 0; padding: 0; cursor: pointer; z-index: 3; }
@@ -982,3 +982,8 @@ details.appear[open] summary { margin-bottom: 8px; }
 .stier ul { margin: 4px 0 0; padding-left: 18px; font-size: 13px; }
 .club { color: #b07800; font-weight: 700; }
 s.old { opacity: .6; font-size: 12px; margin-left: 4px; }
+
+.pnav { flex: none; display: flex; gap: 8px; padding: 10px 4px 2px; }
+.pnav button { flex: 1; border: 0; border-radius: 16px; padding: 11px 8px; font: 700 14px system-ui; cursor: pointer; background: #2a2a2a; color: #fff; }
+.pnav .pexit { flex: 2; background: var(--gold); color: #3a2500; box-shadow: 0 3px 0 var(--gold-d); }
+.pnav button:active { transform: translateY(2px); }

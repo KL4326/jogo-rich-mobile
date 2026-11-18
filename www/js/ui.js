@@ -877,7 +877,7 @@ function vCarreira() {
   if (t === 'profissoes') {
     const area = ui.area || job.area || 'basico';
     body = `<div class="subtabs vistabs">${JOB_AREAS.map((a) => `<button class="${area === a.id ? 'on' : ''}" data-act="pt" data-g="area" data-t="${a.id}"><span>${a.icon}</span>${a.name}</button>`).join('')}</div>
-    ${JOBS.filter((j) => j.area === area).map((j) => {
+    ${JOBS.filter((j) => j.area === area).sort((a, b) => a.salary - b.salary).map((j) => {
       const cur = s.job === j.id;
       const ok = G.canTakeJob(s, j);
       const chips = [...j.edu.map((e) => `<span class="rq ${s.edu.includes(e) ? 'ok' : ''}">${s.edu.includes(e) ? '✓' : '○'} ${CNAME(e)}</span>`), j.lvl > 1 ? `<span class="rq ${lvl >= j.lvl ? 'ok' : ''}">${lvl >= j.lvl ? '✓' : '○'} Nível ${j.lvl}</span>` : ''].join('');
