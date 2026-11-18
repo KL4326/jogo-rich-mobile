@@ -104,8 +104,8 @@ export function watchFriends(uids, cb) {
 export const withTimeout = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(Object.assign(new Error('timeout'), { code: 'unavailable' })), ms))]);
 
 // ---------- Pix entre amigos ----------
-export async function sendPix(from, fromName, to, amount) {
-  await F.addDoc(F.collection(db, 'transfers'), { from, fromName, to, amount, created: Date.now(), claimed: false });
+export async function sendPix(from, fromName, to, amount, desc = '') {
+  await F.addDoc(F.collection(db, 'transfers'), { from, fromName, to, amount, desc: String(desc || '').slice(0, 50), created: Date.now(), claimed: false });
 }
 // Escuta Pix recebidos ainda não resgatados
 export function watchIncoming(uid, cb) {

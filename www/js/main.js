@@ -157,7 +157,8 @@ ctx.clearInbox = () => { ctx.s.inbox = []; G.save(ctx.s); };
 
 // ---------- Pix ----------
 function pixLog(s, e) { s.pixLog = [e, ...(s.pixLog || [])].slice(0, 20); }
-async function sendPix(uid, amount) {
+async function sendPix(uid, amount, desc = '') {
+  desc = String(desc || '').replace(/\s+/g, ' ').trim().slice(0, 50);
   const s = ctx.s;
   amount = Math.floor(amount);
   if (!ctx.uid) return 'Pix só funciona com internet e conta conectada.';
@@ -168,13 +169,13 @@ async function sendPix(uid, amount) {
   s.cash -= amount;
   G.save(s);
   try {
-    await Cloud.withTimeout(Cloud.sendPix(ctx.uid, s.name, uid, amount), 10000);
+    await Cloud.withTimeout(Cloud.sendPix(ctx.uid, s.name, uid, amount, desc), 10000);
   } catch (e) {
     s.cash += amount; G.save(s);
     return e && e.code === 'permission-denied' ? 'O Pix ainda não foi liberado no servidor (falta atualizar as regras do Firebase).' : Cloud.errMsg(e);
   }
   s.stats.pixOut = (s.stats.pixOut || 0) + amount;
-  pixLog(s, { dir: 'out', name: f.name, amount, t: Date.now() });
+  pixLog(s, { dir: 'out', name: f.name, amount, desc, t: Date.now() });
   afterAction();
   pushCloud().catch(() => {});
   return null;
@@ -189,9 +190,10 @@ function watchPix() {
       const t = await Cloud.claimPix(id);
       ctx.s.cash += t.amount;
       ctx.s.stats.pixIn = (ctx.s.stats.pixIn || 0) + t.amount;
-      pixLog(ctx.s, { dir: 'in', name: t.fromName, amount: t.amount, t: Date.now() });
-      UI.toast(`💸 Pix recebido de <b>${esc(t.fromName)}</b>: +${money(t.amount)}!`, 'gold');
-      notify('💸', `Você recebeu um Pix de <b>${esc(t.fromName)}</b>: <b class="up">+${money(t.amount)}</b>`);
+      const desc = String(t.desc || '').slice(0, 50);
+      pixLog(ctx.s, { dir: 'in', name: t.fromName, amount: t.amount, desc, t: Date.now() });
+      UI.toast(`💸 Pix recebido de <b>${esc(t.fromName)}</b>: +${money(t.amount)}!${desc ? `<br><i>“${esc(desc)}”</i>` : ''}`, 'gold');
+      notify('💸', `Você recebeu um Pix de <b>${esc(t.fromName)}</b>: <b class="up">+${money(t.amount)}</b>${desc ? `<span class="pixdesc">💬 “${esc(desc)}”</span>` : ''}`);
       UI.confetti();
       afterAction();
       UI.render();
