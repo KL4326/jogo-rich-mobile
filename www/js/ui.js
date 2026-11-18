@@ -273,6 +273,9 @@ const handlers = {
     closeModal(); A.sfx('cash'); toast(`💸 Pix de ${money(v)} enviado para ${esc(C.friends[d.id].name)}!`, 'ok', false); render();
   },
   inboxok: () => { C.clearInbox(); keepScroll(render); },
+  paymode: (d) => { G.setPay(C.s, d.m); C.afterAction(); if (!refreshVisual()) keepScroll(render); },
+  parc: (d) => { G.setPay(C.s, 'card', +d.n); C.afterAction(); if (!refreshVisual()) keepScroll(render); },
+  payfatura: () => act(() => G.payFaturaNow(C.s), '🧾 Fatura paga!') && keepScroll(render),
   confirmyes: () => { const f = pendingConfirm; closeModal(); f && f(); },
 };
 const keepScroll = (fn) => { const sc = $('#view').scrollTop; fn(); $('#view').scrollTop = sc; };
@@ -312,7 +315,7 @@ const INFO = {
   renda: `<h3>🏦 Renda fixa</h3><p>Dinheiro guardado que rende sempre, sem risco. Rende menos que negócios e ações em alta, mas nunca perde.</p>
     <p>🐷 <b>Poupança:</b> saque quando quiser.<br>📄 <b>CDB:</b> rende mais, fica preso 1 hora.<br>🏛️ <b>Tesouro:</b> rende mais ainda, fica preso 4 horas.</p><p>A taxa (CDI) muda a cada 6 horas.</p>`,
   imoveis: `<h3>🔑 Imóveis</h3><p>Compre imóveis e receba aluguel todo dia. O preço deles sobe e desce junto com o setor Imobiliário — dá pra comprar barato na crise e vender caro na alta!</p>`,
-  credito: `<h3>💳 Empréstimo</h3><p>Pegue dinheiro emprestado para abrir negócios mais cedo. Mas cuidado: os juros (${(LOAN_RATE * 100).toFixed(2)}% ao dia) correm sem parar! O limite depende do seu cartão.</p>`,
+  credito: `<h3>💳 Cartão de crédito</h3><p>Nas telas de compra (bens, roupas, viagens, presentes e programas) escolha <b>Pagar com 💳 Cartão</b>: à vista ou em 3x, 6x ou 12x sem juros. Só no cartão você ganha <b>cashback</b>.</p><p>A fatura fecha a cada 30 dias do jogo (30 min) e é paga sozinha com seu dinheiro. Se faltar, o resto vira dívida no <b>rotativo</b>, com juros.</p><p>Negócios, imóveis e ações só podem ser comprados à vista.</p><h3>🏦 Empréstimo</h3><p>Pegue dinheiro emprestado para abrir negócios mais cedo. Mas cuidado: os juros (${(LOAN_RATE * 100).toFixed(2)}% ao dia) correm sem parar! O limite depende do seu cartão.</p>`,
   bens: `<h3>🛍️ Coleção de bens</h3><p>🚗🛥️ <b>Carros, barcos e aeronaves</b> aumentam seu salário (vale o melhor que você tiver).</p><p>🏠 <b>Moradia</b> acaba com o aluguel de ${money(RENT_NO_HOME)}/dia e aumenta as horas que você ganha com o jogo fechado.</p><p>💍🖼️ <b>Luxo e Coleção</b> dão muito prestígio ✨ para se exibir no ranking.</p><p>Bens têm uma pequena manutenção diária e, se vender, você recebe só parte do valor.</p>`,
   visual: `<h3>👗 Visual</h3><p>Mude sua aparência de graça quando quiser. Na loja, compre roupas, calçados e acessórios — tudo que você compra fica no guarda-roupa e soma <b>estilo</b> ✨, que entra no seu prestígio do ranking.</p>`,
   amor: `<h3>❤️ Amor</h3><p>Procure alguém e chame pra sair. Programas a dois e presentes aumentam o <b>carinho</b> ❤️, que esfria com o tempo — não esqueça do seu amor!</p><p>Etapas: Ficando (+2%) → Namorando (+5%) → Noivos (+8%) → Casados (+12% de renda), valendo enquanto o carinho estiver acima de 30.</p><p>Se o carinho chegar a zero, a pessoa vai embora.</p>`,
@@ -366,6 +369,12 @@ const lockBox = (lvl, what) => `<div class="locked"><div class="lk">🔒</div><b
 const subtabs = (list) => `<div class="subtabs">${list.map(([id, icon, name]) => `<button class="${ui.sub[ui.tab] === id ? 'on' : ''}" data-act="sub" data-sub="${id}"><span>${icon}</span>${name}</button>`).join('')}</div>`;
 const dataAttrs = (data) => Object.entries(data).map(([k, v]) => `data-${k}="${v}"`).join(' ');
 const pillTabs = (g, list, cur) => `<div class="ptabs">${list.map(([id, icon, name]) => `<button class="${cur === id ? 'on' : ''}" data-act="pt" data-g="${g}" data-t="${id}">${icon} ${name}</button>`).join('')}</div>`;
+function payBar() {
+  const s = C.s;
+  const card = s.payMode === 'card';
+  return `<div class="paybar"><div class="pbrow"><span>Pagar com</span><div class="seg2">${[['cash', '💵 Dinheiro'], ['card', '💳 Cartão']].map(([m, n]) => `<button class="${(s.payMode || 'cash') === m ? 'on' : ''}" data-act="paymode" data-m="${m}">${n}</button>`).join('')}</div></div>
+    ${card ? `<div class="pbrow"><div class="parc">${G.PARCELAS.map((n) => `<button class="chipbtn ${(s.parc || 1) === n ? 'on' : ''}" data-act="parc" data-n="${n}">${n === 1 ? 'À vista' : n + 'x'}</button>`).join('')}</div></div><small>Limite disponível: <b data-live="ccavail"></b> · cashback ${Math.round(G.card(s).cashback * 100)}%</small>` : '<small>💡 No cartão você ganha cashback e pode parcelar.</small>'}</div>`;
+}
 const costBtn = (act, data, cost, label = '') => `<button class="btn gold" data-act="${act}" ${dataAttrs(data)} data-cost="${cost}">${label}<span>${money(cost)}</span></button>`;
 
 // ---------- INÍCIO ----------
@@ -412,7 +421,8 @@ function scene() {
 function vVida() {
   const sub = ui.sub.vida;
   const head = subtabs([['carreira', '🎓', 'Carreira'], ['visual', '👗', 'Visual'], ['amor', '❤️', 'Amor'], ['viagens', '✈️', 'Viagens'], ['cassino', '🎰', 'Cassino']]);
-  const body = sub === 'visual' ? vVisual() : sub === 'amor' ? vAmor() : sub === 'viagens' ? vViagens() : sub === 'cassino' ? vCassino() : vCarreira();
+  let body = sub === 'visual' ? vVisual() : sub === 'amor' ? vAmor() : sub === 'viagens' ? vViagens() : sub === 'cassino' ? vCassino() : vCarreira();
+  if (sub === 'amor' || sub === 'viagens') body = `<div data-cardable>${payBar()}${body}</div>`;
   return title('👤', 'Minha Vida', sub === 'carreira' ? 'carreira' : sub) + head + body;
 }
 
@@ -432,7 +442,7 @@ function lookPanel(tab, L, size = 110) {
 }
 const tabChip = (act, t, cur) => `<button class="${cur === t.id ? 'on' : ''}" data-act="${act}" data-t="${t.id}"><span>${t.icon}</span>${t.name}</button>`;
 const visBar = (cur) => LOOK_TABS.map((t) => tabChip('vis', t, cur)).join('') + '<span class="tabsep">🛍️ Loja</span>' + SLOTS.map((t) => tabChip('vis', t, cur)).join('');
-const visPanel = (tab) => (isLookTab(tab) ? lookPanel(tab, C.s.look) : `<div class="closet">${closetHTML(tab)}</div>`);
+const visPanel = (tab) => (isLookTab(tab) ? lookPanel(tab, C.s.look) : `${payBar()}<div class="closet" data-cardable>${closetHTML(tab)}</div>`);
 function vVisual() {
   const s = C.s;
   const tab = ui.vis || 'corpo';
@@ -772,14 +782,14 @@ function vEmpresas() {
 function vInvestir() {
   const s = C.s;
   const sub = ui.sub.investir;
-  const head = subtabs([['bolsa', '📈', 'Bolsa'], ['cripto', '🪙', 'Cripto'], ['renda', '🐷', 'Poupar'], ['imoveis', '🔑', 'Imóveis'], ['credito', '💳', 'Crédito']]);
+  const head = subtabs([['bolsa', '📈', 'Bolsa'], ['cripto', '🪙', 'Cripto'], ['renda', '🐷', 'Poupar'], ['imoveis', '🔑', 'Imóveis'], ['credito', '💳', 'Cartão']]);
   const L = G.level(s);
   let body = '';
   if (sub === 'bolsa') body = L < UNLOCKS.bolsa ? lockBox(UNLOCKS.bolsa, 'Bolsa de Valores') : vBolsa(STOCKS, true);
   if (sub === 'cripto') body = L < UNLOCKS.cripto ? lockBox(UNLOCKS.cripto, 'Criptomoedas') : vBolsa(CRYPTOS, false);
   if (sub === 'renda') body = vRenda();
   if (sub === 'imoveis') body = L < UNLOCKS.imoveis ? lockBox(UNLOCKS.imoveis, 'Imóveis') : vImoveis();
-  if (sub === 'credito') body = L < UNLOCKS.credito ? lockBox(UNLOCKS.credito, 'Empréstimos') : vCredito();
+  if (sub === 'credito') body = vCredito();
   const helpKey = { bolsa: 'bolsa', cripto: 'cripto', renda: 'renda', imoveis: 'imoveis', credito: 'credito' }[sub];
   return title('📈', 'Investir', helpKey) + head + body;
 }
@@ -966,13 +976,29 @@ function vImoveis() {
 function vCredito() {
   const s = C.s;
   const c = G.card(s);
-  const used = s.debt / c.limit;
+  const cc = s.cc || { fatura: 0, parcels: [] };
+  const fut = cc.parcels.reduce((t, p) => t + p.amt * p.left, 0);
+  const pct = (x) => Math.min(100, (x / c.limit) * 100);
+  const locked = G.level(s) < UNLOCKS.credito;
   return `
   <div class="loanbox">
     ${bigCard(s.name, c, s.cardMax)}
-    <div class="limit"><div class="lrow"><span>Limite usado</span><b><span data-live="debt"></span> / ${money(c.limit)}</b></div><div class="bar red"><i style="width:${Math.min(100, used * 100)}%"></i></div>
-    <small class="muted">Juros: <b class="down" data-live="debtint"></b> por dia</small></div>
-    <div class="btns"><button class="btn ghost" data-act="loan" data-kind="repay">Pagar dívida</button><button class="btn" data-act="loan" data-kind="borrow">Pegar emprestado</button></div>
+    <div class="limit">
+      <div class="lrow"><span>Limite disponível</span><b data-live="ccavail"></b></div>
+      <div class="bar stack"><i class="f1" style="width:${pct(cc.fatura)}%"></i><i class="f2" style="width:${pct(fut)}%"></i><i class="f3" style="width:${pct(s.debt)}%"></i></div>
+      <div class="legend"><span><i class="f1"></i>Fatura ${money(cc.fatura)}</span><span><i class="f2"></i>Parcelas ${money(fut)}</span><span><i class="f3"></i>Dívida ${money(s.debt)}</span></div>
+      <small class="muted">Limite total ${money(c.limit)} · cashback de ${Math.round(c.cashback * 100)}% nas compras no cartão</small>
+    </div>
+    <div class="box col fatura">
+      <div class="lrow"><b>🧾 Fatura atual</b><b>${money(cc.fatura + cc.parcels.reduce((t, p) => t + p.amt, 0))}</b></div>
+      <small class="muted">Fecha e é paga automaticamente em <b data-live="ccclose"></b>. Se faltar dinheiro, o resto vai para o rotativo (com juros).</small>
+      ${cc.parcels.length ? `<div class="parcs">${cc.parcels.map((p) => `<span>${money(p.amt)} · faltam ${p.left}/${p.n}</span>`).join('')}</div>` : ''}
+      <button class="btn ghost full sm" data-act="payfatura">Antecipar pagamento da fatura</button>
+    </div>
+    <h4 class="sec">🏦 Empréstimo</h4>
+    ${locked ? lockBox(UNLOCKS.credito, 'Empréstimos') : `<div class="limit"><div class="lrow"><span>Dívida (empréstimo + rotativo)</span><b class="down" data-live="debt"></b></div>
+    <small class="muted">Juros: <b class="down" data-live="debtint"></b> por dia</small>
+    <div class="btns"><button class="btn ghost" data-act="loan" data-kind="repay">Pagar dívida</button><button class="btn" data-act="loan" data-kind="borrow">Pegar emprestado</button></div></div>`}
   </div>`;
 }
 function openLoan(kind) {
@@ -991,9 +1017,9 @@ function vBens() {
   const owned = list.filter((g) => s.goods[g.id]).length;
   const head = title('💎', 'Coleção', 'bens') + subtabs([['veiculos', '🚗', 'Carros'], ['ceumar', '🛥️', 'Céu e Mar'], ['moradia', '🏠', 'Casas'], ['luxo', '💍', 'Luxo'], ['colecao', '🖼️', 'Coleção']]) + `
   <div class="wallet"><div><small>✨ Prestígio</small><b>${fmt(G.prestige(s))}</b></div><div class="right"><small>Coleção</small><b>${owned}/${list.length}</b></div></div>`;
-  if (sub === 'veiculos') return head + vCarros();
-  return head + `
-  <div class="goods">${list.map((g, i) => goodCard(g, RAR[i])).join('')}</div>`;
+  if (sub === 'veiculos') return head + payBar() + `<div data-cardable>${vCarros()}</div>`;
+  return head + payBar() + `
+  <div class="goods" data-cardable>${list.map((g, i) => goodCard(g, RAR[i])).join('')}</div>`;
 }
 const TIER_RAR = { Entrada: 'comum', 'Intermediário': 'raro', Luxo: 'epico', Esportivo: 'lendario' };
 const vIcon = (g) => `<span class="vic" style="filter:hue-rotate(${g.hue || 0}deg)">${g.icon}</span>`;
@@ -1028,10 +1054,10 @@ function openGood(id) {
   const own = !!s.goods[id];
   const rate = cat === 'veiculos' || cat === 'ceumar' ? 0.6 : cat === 'moradia' ? 0.9 : 0.75;
   const br = g.brand ? BRANDS.find((b) => b.id === g.brand) : null;
-  modal(`<div class="goodmodal ${r}"><div class="gi">${g.brand ? vIcon(g) : g.icon}</div><span class="rar">${g.tier ? g.tier : RARN[r]}</span><h3>${g.name}</h3>${br ? `<p class="muted">${brandBadge(br)} ${br.name} · ${br.slogan}</p>` : ''}
+  modal(`<div class="goodmodal ${r}" data-cardable><div class="gi">${g.brand ? vIcon(g) : g.icon}</div><span class="rar">${g.tier ? g.tier : RARN[r]}</span><h3>${g.name}</h3>${br ? `<p class="muted">${brandBadge(br)} ${br.name} · ${br.slogan}</p>` : ''}
     <div class="tags">${g.bonus ? `<span class="pill">💼 +${Math.round(g.bonus * 100)}% salário</span>` : ''}${g.hours ? `<span class="pill">🌙 +${g.hours}h offline</span><span class="pill">🏠 sem aluguel</span>` : ''}<span class="pill">✨ ${g.prestige} prestígio</span></div>
     ${own ? `<p class="muted">Você é dono disso! Se vender, recebe ${money(g.cost * rate)}.</p><button class="btn red full" data-act="sellgood" data-id="${id}">Vender</button>`
-      : `<p class="muted">Cashback do seu cartão: ${Math.round(G.card(s).cashback * 100)}%</p><button class="btn gold full" data-act="buygood" data-id="${id}" data-cost="${g.cost}"><em>Comprar</em><span>${money(g.cost)}</span></button>`}</div>`);
+      : `<p class="muted">${s.payMode === 'card' ? `Pagando com 💳 cartão ${(s.parc || 1) === 1 ? 'à vista' : 'em ' + s.parc + 'x sem juros'} · cashback de ${Math.round(G.card(s).cashback * 100)}%` : 'Pagando com 💵 dinheiro (sem cashback)'}<br><small>Mude a forma de pagamento na barra "Pagar com".</small></p><button class="btn gold full" data-act="buygood" data-id="${id}" data-cost="${g.cost}"><em>Comprar</em><span>${money(g.cost)}</span></button>`}</div>`);
 }
 
 // ---------- RANKING / PERFIL ----------
@@ -1130,6 +1156,8 @@ function liveValue(key) {
     case 'lovetime': return s.love && s.love.act ? '⏱️ ' + dur(s.love.act.end - Date.now()) : '';
     case 'aff': return s.love ? Math.round(s.love.aff) + ' / 100' : '';
     case 'giftcd': { const t = ((s.love || {}).cd || {})[arg] || 0; return t > Date.now() ? '⏳ ' + dur(t - Date.now()) : '✅ pronto'; }
+    case 'ccavail': return money(G.ccAvail(s));
+    case 'ccclose': return s.cc ? dur(s.cc.nextClose - Date.now()) : '30:00';
     case 'coursetime': return s.course ? '⏱️ ' + dur(s.course.end - Date.now()) : '';
     case 'nextblock': return dur(mk.msToNextBlock());
     case 'price': return price(mk.price(arg));
@@ -1182,7 +1210,8 @@ export function refresh(heavy = false) {
   document.querySelectorAll('[data-live-w]').forEach((el) => {
     el.style.width = Math.max(0, Math.min(100, liveWidth(el.dataset.liveW) * 100)) + '%';
   });
-  document.querySelectorAll('[data-cost]').forEach((el) => el.classList.toggle('cant', C.s.cash < +el.dataset.cost));
+  const avail = C.s.payMode === 'card' ? G.ccAvail(C.s) : null;
+  document.querySelectorAll('[data-cost]').forEach((el) => el.classList.toggle('cant', (avail !== null && el.closest('[data-cardable]') ? avail : C.s.cash) < +el.dataset.cost));
   if (heavy) {
     document.querySelectorAll('[data-live-html]').forEach((el) => { el.innerHTML = liveHTML(el.dataset.liveHtml); });
     drawSparks();

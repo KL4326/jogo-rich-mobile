@@ -254,6 +254,11 @@ function tick() {
     else UI.toast('💕 Programa a dois concluído! Carinho aumentou.', 'ok');
     afterAction(); UI.render();
   }
+  for (const r of G.ccTick(s)) {
+    if (r.paid) notify('💳', `Fatura do cartão de <b>${money(r.paid)}</b> paga automaticamente.`);
+    else { notify('⚠️', `Faltou dinheiro para a fatura do cartão: <b class="down">${money(r.late)}</b> foi para o rotativo (com juros). Pague em Investir → Cartão.`); UI.toast('⚠️ Fatura sem saldo: parte foi para o rotativo!', 'err'); }
+    afterAction();
+  }
   for (const ev of G.eventTick(s, mk)) {
     if (typeof ev === 'string') { notify('📌', ev); UI.toast(ev, 'err'); }
     else if (ev.newEvent) { UI.toast(`📨 Nova oportunidade: <b>${s.event.title}</b>`, 'gold'); UI.onEvent(); }

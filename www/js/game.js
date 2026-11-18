@@ -129,7 +129,7 @@ export function netWorth(s, mk) {
   // empresas valem 60% do que foi investido
   v += BUSINESSES.reduce((t, b) => t + (s.biz[b.id] ? bizCost(b, 0, s.biz[b.id]) * 0.6 : 0), 0);
   v += ALL_GOODS.filter((g) => s.goods[g.id]).reduce((t, g) => t + g.cost * sellRate(g), 0);
-  return v - s.debt;
+  return v - s.debt - ccOwed(s);
 }
 export const sellRate = (g) => (g.cat === 'veiculos' || g.cat === 'ceumar' ? 0.6 : g.cat === 'moradia' ? 0.9 : 0.75);
 
@@ -163,6 +163,51 @@ function spend(s, amount, withCashback = false) {
   return null;
 }
 const addXP = (s, n) => { s.xp += n; };
+
+// ---------- Cartão de crédito como forma de pagamento ----------
+export const FATURA_MS = 30 * DAY_MS; // a fatura fecha a cada 30 dias do jogo
+export const PARCELAS = [1, 3, 6, 12];
+function ensureCC(s) { if (!s.cc) s.cc = { fatura: 0, parcels: [], nextClose: Date.now() + FATURA_MS }; return s.cc; }
+export function ccOwed(s) { const c = s.cc; return c ? c.fatura + c.parcels.reduce((t, p) => t + p.amt * p.left, 0) : 0; }
+export function ccAvail(s) { return Math.max(0, card(s).limit - ccOwed(s) - s.debt); }
+export function setPay(s, mode, parc) { s.payMode = mode; if (parc) s.parc = parc; }
+// Compra de consumo: dinheiro (sem cashback) ou cartão (com cashback, à vista ou parcelado)
+function shop(s, amount) {
+  if (s.payMode === 'card') {
+    const c = ensureCC(s);
+    if (amount > ccAvail(s) + 1e-6) return 'Limite do cartão insuficiente';
+    const n = s.parc || 1;
+    if (n === 1) c.fatura += amount; else c.parcels.push({ amt: amount / n, left: n, n });
+    s.cash += amount * card(s).cashback;
+    s.stats.cardUse = (s.stats.cardUse || 0) + 1;
+    return null;
+  }
+  return spend(s, amount);
+}
+// Fecha faturas vencidas: paga com o dinheiro; o que faltar vai para o rotativo (dívida com juros)
+export function ccTick(s) {
+  const c = s.cc; if (!c) return [];
+  const out = []; let guard = 0;
+  while (Date.now() >= c.nextClose && guard++ < 100) {
+    let due = c.fatura; c.fatura = 0;
+    c.parcels.forEach((p) => { due += p.amt; p.left--; });
+    c.parcels = c.parcels.filter((p) => p.left > 0);
+    c.nextClose += FATURA_MS;
+    if (due <= 0.01) continue;
+    const fromCash = Math.min(Math.max(0, s.cash), due);
+    s.cash -= fromCash;
+    const rest = due - fromCash;
+    if (rest > 0.01) { s.debt += rest; out.push({ late: rest, due }); } else out.push({ paid: due });
+  }
+  return out;
+}
+export function payFaturaNow(s) {
+  const c = s.cc; if (!c || c.fatura <= 0.01) return 'A fatura atual está zerada';
+  const amt = Math.min(c.fatura, s.cash);
+  if (amt <= 0) return 'Dinheiro insuficiente';
+  s.cash -= amt; c.fatura -= amt;
+  return null;
+}
 
 export function startCourse(s, id) {
   const c = COURSES.find((x) => x.id === id);
@@ -199,7 +244,7 @@ export function buyBiz(s, id, n) {
   if (n === 'max') n = bizMaxBuy(b, lvl, s.cash);
   if (n < 1) return 'Dinheiro insuficiente';
   const cost = bizCost(b, lvl, n);
-  const e = spend(s, cost, true); if (e) return e;
+  const e = spend(s, cost); if (e) return e;
   const before = nextMilestone(lvl);
   s.biz[id] = lvl + n;
   addXP(s, (lvl === 0 ? 30 : 0) + 2 * n + (before && lvl + n >= before ? 20 : 0));
@@ -285,7 +330,7 @@ export function sellProp(s, mk, id) {
 export function buyGood(s, id) {
   const g = GOOD[id];
   if (s.goods[id]) return 'Você já tem';
-  const e = spend(s, g.cost, true); if (e) return e;
+  const e = shop(s, g.cost); if (e) return e;
   s.goods[id] = Date.now();
   addXP(s, 15 + g.prestige);
   return null;
@@ -383,6 +428,7 @@ export const ACHIEVEMENTS = [
   { id: 'cassino1', icon: '🎰', name: 'Apostador', desc: 'Jogue no cassino', test: (s) => !!s.casino && s.casino.n >= 1 },
   { id: 'jackpot', icon: '7️⃣', name: 'JACKPOT!', desc: 'Tire 7️⃣7️⃣7️⃣ no caça-níquel', test: (s) => !!s.casino && !!s.casino.jackpot },
   { id: 'sortudo', icon: '🍀', name: 'Sortudo', desc: 'Ganhe 30x a aposta numa jogada', test: (s) => !!s.casino && s.casino.bestMult >= 30 },
+  { id: 'cartao1', icon: '💳', name: 'Passa no crédito', desc: 'Faça uma compra no cartão', test: (s) => (s.stats.cardUse || 0) >= 1 },
   { id: 'nivel10', icon: '⭐', name: 'Experiente', desc: 'Alcance o nível 10', test: (s) => level(s) >= 10 },
   { id: 'nivel25', icon: '🌟', name: 'Lenda', desc: 'Alcance o nível 25', test: (s) => level(s) >= 25 },
 ];
@@ -582,7 +628,7 @@ export function buyCloth(s, id) {
   const c = CLOTH[id];
   if (!c) return 'Item inválido';
   if (!s.wardrobe[id]) {
-    const e = spend(s, c.cost, true); if (e) return e;
+    const e = shop(s, c.cost); if (e) return e;
     s.wardrobe[id] = Date.now();
     addXP(s, 5 + Math.min(80, c.style));
   }
@@ -593,7 +639,7 @@ export function buyCloth(s, id) {
 export function buySet(s, st) {
   const ids = Object.values(st.pieces).filter((id) => id && !s.wardrobe[id]);
   const cost = ids.reduce((t, id) => t + CLOTH[id].cost, 0);
-  if (cost) { const e = spend(s, cost, true); if (e) return e; }
+  if (cost) { const e = shop(s, cost); if (e) return e; }
   ids.forEach((id) => { s.wardrobe[id] = Date.now(); });
   if (ids.length) addXP(s, 10 + Math.min(120, ids.reduce((t, id) => t + CLOTH[id].style, 0)));
   s.look = { ...(s.look || defaultLook()), ...st.pieces };
@@ -609,7 +655,7 @@ export function startTrip(s, id, withPartner) {
   const t = TRIPS.find((x) => x.id === id);
   if (s.trip) return 'Você já está viajando!';
   if (withPartner && !s.love) return 'Você não tem companhia';
-  const e = spend(s, t.cost * (withPartner ? 2 : 1), true); if (e) return e;
+  const e = shop(s, t.cost * (withPartner ? 2 : 1)); if (e) return e;
   s.trip = { id, start: Date.now(), end: Date.now() + t.days * 60_000, partner: !!withPartner };
   return null;
 }
@@ -639,7 +685,7 @@ export function askOut(s) {
   if (!c) return 'Procure alguém primeiro';
   if (s.love) return 'Você já tem alguém!';
   const d = DATES[0];
-  const e = spend(s, d.cost); if (e) return e;
+  const e = shop(s, d.cost); if (e) return e;
   if (Math.random() * 100 > c.compat) { s.candidate = null; return { refused: c.name }; }
   s.love = { partner: { name: c.name, sex: c.sex, look: c.look }, stage: 0, aff: 15, since: Date.now(), lastDate: d.id, act: { id: d.id, end: Date.now() + d.mins * 60_000, aff: d.aff } };
   s.candidate = null;
@@ -649,7 +695,7 @@ export function doDate(s, id) {
   const L = s.love; if (!L) return 'Você não tem companhia';
   if (L.act) return 'Vocês já estão num programa juntos';
   const d = DATES.find((x) => x.id === id);
-  const e = spend(s, d.cost); if (e) return e;
+  const e = shop(s, d.cost); if (e) return e;
   const aff = d.aff * (L.lastDate === id ? REPEAT_PENALTY : 1);
   L.lastDate = id;
   L.act = { id, end: Date.now() + d.mins * 60_000, aff };
@@ -660,7 +706,7 @@ export function giveGift(s, id) {
   const g = GIFTS.find((x) => x.id === id);
   L.cd = L.cd || {};
   if ((L.cd[id] || 0) > Date.now()) return 'Você deu esse presente há pouco tempo… espere um pouco 😉';
-  const e = spend(s, g.cost, true); if (e) return e;
+  const e = shop(s, g.cost); if (e) return e;
   L.cd[id] = Date.now() + g.cd * 60_000;
   L.aff = Math.min(100, L.aff + g.aff);
   addXP(s, 3);
@@ -671,7 +717,7 @@ export function nextStep(s) {
   if (L.stage === 1) { if (L.aff < 40) return 'Precisa de pelo menos 40 de carinho ❤️'; L.stage = 2; addXP(s, 60); return null; }
   if (L.stage === 2) {
     if (L.aff < 60) return 'Precisa de pelo menos 60 de carinho ❤️';
-    const e = spend(s, RING_COST, true); if (e) return e;
+    const e = shop(s, RING_COST); if (e) return e;
     L.stage = 3; addXP(s, 100); return null;
   }
   return 'Nada a fazer agora';
@@ -680,7 +726,7 @@ export function marry(s, id) {
   const L = s.love; if (!L || L.stage !== 3 || L.act) return 'Agora não dá';
   if (L.aff < 75) return 'Precisa de pelo menos 75 de carinho ❤️';
   const w = WEDDINGS.find((x) => x.id === id);
-  const e = spend(s, w.cost, true); if (e) return e;
+  const e = shop(s, w.cost); if (e) return e;
   L.act = { id: 'wedding', wedding: id, end: Date.now() + w.mins * 60_000, aff: 30 };
   return null;
 }
