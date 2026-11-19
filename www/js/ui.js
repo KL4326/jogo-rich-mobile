@@ -1,6 +1,7 @@
 // ===== Interface (visual de jogo) =====
 import {
   COURSE_GROUPS, JOB_AREAS, BRANDS, TIERS, OWN_TIERS, TRIP_CATS, TRIPS, LOVE_STAGES, DATES, GIFTS, RING_COST, WEDDINGS,
+  SEGMENTS, SEGMENT, STAFF, PRODUCT_TIERS,
   DAY_MS, SECTORS, SECTOR, STOCKS, CRYPTOS, ASSETS, BUSINESSES, COURSES, JOBS, PROPERTIES, GOODS, CARDS, UNLOCKS, TRADE_FEE, LOAN_RATE, LEVEL_BONUS, RENT_NO_HOME,
 } from './data.js';
 import * as G from './game.js';
@@ -292,9 +293,34 @@ const handlers = {
   paymode: (d) => { G.setPay(C.s, d.m); C.afterAction(); if (!refreshVisual()) keepScroll(render); },
   parc: (d) => { G.setPay(C.s, 'card', +d.n); C.afterAction(); if (!refreshVisual()) keepScroll(render); },
   payfatura: (d) => { const r = act(() => G.payFaturaNow(C.s, d.all === '1')); if (r) { A.sfx('cash'); toast(d.all === '1' ? `🧾 Cartão quitado: ${money(r.paid)}` : `🧾 Fatura paga: ${money(r.paid)}`, 'ok', false); keepScroll(render); } },
-  found: (d, el) => { if (act(() => G.foundCorp(C.s, ($('#cname') || {}).value, ($('#cticker') || {}).value), '🏢 Empresa fundada!', el)) { confetti(); render(); } },
-  ipo: (d, el) => confirmBox(`Vender ${Math.round(+d.p * 100)}% da sua empresa no mercado? Essa fatia do lucro dos seus negócios passa a ir para os acionistas.`, () => { const r = act(() => G.ipo(C.s, C.mk, +d.p)); if (r) { A.sfx('cash'); toast(`🔔 IPO! Você recebeu ${money(r.got)}`, 'gold', false); confetti(); render(); } }),
-  buyback: (d, el) => { const r = act(() => G.buyback(C.s, C.mk, +d.p), null, el); if (r) { toast(`🔁 Recompra feita: ${money(r.cost)}`, 'ok'); render(); } },
+  found: (d, el) => { if (act(() => G.foundCorp(C.s, ($('#cname') || {}).value, ($('#cticker') || {}).value), '🏛️ Holding fundada!', el)) { confetti(); C.pushCompanies && C.pushCompanies(); render(); } },
+  ipo: (d, el) => confirmBox(`Vender ${Math.round(+d.p * 100)}% da sua holding no mercado? Essa fatia do lucro dos seus negócios passa a ir para os acionistas.`, () => { const r = act(() => G.ipo(C.s, C.mk, +d.p)); if (r) { A.sfx('cash'); toast(`🔔 IPO! Você recebeu ${money(r.got)}`, 'gold', false); confetti(); C.pushCompanies && C.pushCompanies(); render(); } }),
+  buyback: (d, el) => { const r = act(() => G.buyback(C.s, C.mk, +d.p), null, el); if (r) { toast(`🔁 Recompra feita: ${money(r.cost)}`, 'ok'); C.pushCompanies && C.pushCompanies(); render(); } },
+  comp: (d) => { ui.comp = d.id; render(true); $('#view').scrollTop = 0; },
+  compback: () => { ui.comp = null; render(true); },
+  newcomp: () => newCompModal(),
+  newcomp2: (d) => newCompForm(d.seg),
+  foundcomp: (d, el) => {
+    const taken = Object.values(C.companies || {}).filter((x) => x.owner !== C.uid).map((x) => x.ticker);
+    const r = act(() => G.foundCompany(C.s, d.seg, ($('#cname') || {}).value, ($('#cticker') || {}).value, taken), null, el);
+    if (r) { closeModal(); confetti(); toast('🏢 Empresa criada! Contrate funcionários e desenvolva seu primeiro produto.', 'gold'); ui.comp = r.id; C.pushCompanies && C.pushCompanies(); render(true); }
+  },
+  hire: (d) => { if (act(() => G.hire(C.s, d.id, d.r, +d.n))) keepScroll(render); },
+  devprod: (d) => devModal(d.id, +d.t),
+  devsug: (d) => { const i = $('#pmodel'); if (i) i.value = d.v; },
+  devgo: (d, el) => { if (act(() => G.startDev(C.s, d.id, +d.t, ($('#pmodel') || {}).value), null, el)) { closeModal(); toast('🧪 Desenvolvimento iniciado!', 'ok'); render(); } },
+  newver: (d, el) => { const c = G.findComp(C.s, d.id); const p = c.products.find((x) => x.tier === +d.t); confirmBox(`Lançar uma nova versão de <b>${esc(p.model)}</b>? Custa ${money(G.devCost(SEGMENT[c.seg], p.tier, true))} e as vendas voltam ao pico de lançamento.`, () => { if (act(() => G.newVersion(C.s, d.id, +d.t))) { toast('🧪 Nova versão em desenvolvimento!', 'ok'); render(); } }); },
+  cipo: (d) => { const c = G.findComp(C.s, d.id); confirmBox(`Vender ${Math.round(+d.p * 100)}% da <b>${esc(c.name)}</b> na bolsa? Você recebe o dinheiro agora e essa fatia do lucro passa a ir para quem comprar as ações.`, () => { const r = act(() => G.compIpo(C.s, C.mk, d.id, +d.p)); if (r) { A.sfx('cash'); toast(`🔔 Ações na bolsa! Você recebeu ${money(r.got)}`, 'gold', false); confetti(); C.pushCompanies && C.pushCompanies(); render(); } }); },
+  cbuyback: (d, el) => { const c = G.findComp(C.s, d.id); const r = act(() => C.compBuyback(c, +d.p), null, el); if (r) { toast(`🔁 Recomprou ${Math.round(r.pct * 1000) / 10}% por ${money(r.cost)}`, 'ok'); C.pushCompanies && C.pushCompanies(); render(); } },
+  closecomp: (d) => { const c = G.findComp(C.s, d.id); confirmBox(`Fechar a <b>${esc(c.name)}</b>? Os funcionários são demitidos, os produtos saem da loja e você recebe ${money(c.invested * 0.5)} (metade do investido).`, () => { const r = act(() => G.closeCompany(C.s, d.id)); if (r) { ui.comp = null; toast(`🏚️ Empresa fechada. Recebeu ${money(r.got)}`, 'ok'); C.pushCompanies && C.pushCompanies(); render(); } }); },
+  pcomp: (d) => openPlayerCompany(d.id),
+  pctrade: async (d, el) => { el.disabled = true; const r = await C.tradeCompany(ui.pcomp, parseFloat($('#qty').value), d.side); el.disabled = false; if (typeof r === 'string') return toast('⚠️ ' + r, 'err'); A.sfx('cash'); toast(d.side === 'buy' ? '🤝 Agora você é sócio(a) dessa empresa!' : `💰 Vendeu ${r.profit >= 0 ? 'com lucro de ' : 'com prejuízo de '}${money(Math.abs(r.profit))}`, 'ok', false); closeModal(); keepScroll(render); },
+  pgood: (d) => openPlayerGood(d.id, +d.t),
+  buypgood: (d, el) => { const r = C.buyPlayerGood(d.id, +d.t); if (typeof r === 'string') return toast('⚠️ ' + r, 'err'); burst(el); closeModal(); confetti(); toast('🎉 É seu! Parte do valor foi para a empresa dona da marca.', 'gold'); render(); },
+  sellpgood: (d) => { if (act(() => G.sellPlayerGood(C.s, d.id))) { closeModal(); toast('💰 Vendido!', 'ok'); render(); } },
+  pgoodold: (d) => confirmBox('Vender este bem? A marca saiu do mercado.', () => { if (act(() => G.sellPlayerGood(C.s, d.id))) { toast('💰 Vendido!', 'ok'); render(); } }),
+  rkmode: (d) => { ui.rk = d.m; if (d.m === 'todos') ui.topList = null; render(); },
+  invitetag: async (d, el) => { el.disabled = true; const r = await C.addFriend(d.tag); if (r === 'sent') { toast('📨 Convite enviado!', 'ok'); keepScroll(render); } else if (r) toast('⚠️ ' + r, 'err'); else keepScroll(render); },
   fcorp: (d) => openFriendCorp(d.id),
   fctrade: (d) => { const uid = ui.fcorp; const p = C.friends[uid]; const r = act(() => G.tradeFriendCorp(C.s, uid, p.corp, parseFloat($('#qty').value), d.side)); if (r) { A.sfx('cash'); toast(d.side === 'buy' ? `🤝 Agora você é sócio(a) de ${esc(p.name)}!` : `💰 Vendeu ${r.profit >= 0 ? 'com lucro de ' : 'com prejuízo de '}${money(Math.abs(r.profit))}`, 'ok', false); closeModal(); render(); } },
   insplan: (d) => {
@@ -346,7 +372,24 @@ const INFO = {
   renda: `<h3>🏦 Renda fixa</h3><p>Dinheiro guardado que rende sempre, sem risco. Rende menos que negócios e ações em alta, mas nunca perde.</p>
     <p>🐷 <b>Poupança:</b> saque quando quiser.<br>📄 <b>CDB:</b> rende mais, fica preso 1 hora.<br>🏛️ <b>Tesouro:</b> rende mais ainda, fica preso 4 horas.</p><p>A taxa (CDI) muda a cada 6 horas.</p>`,
   imoveis: `<h3>🔑 Imóveis</h3><p>Compre imóveis e receba aluguel todo dia. O preço deles sobe e desce junto com o setor Imobiliário — dá pra comprar barato na crise e vender caro na alta!</p>`,
-  holding: `<h3>🏢 Sua empresa na bolsa</h3><p>Com R$ 50 mi de patrimônio e 3 tipos de negócio você pode <b>fundar sua holding</b>, que reúne todos os seus negócios.</p><p>🔔 No <b>IPO</b> você vende até 49% das ações para o mercado e recebe o dinheiro na hora. Em troca, essa fatia dos lucros dos seus negócios passa a ir para os acionistas. Dá para <b>recomprar</b> depois.</p><p>📈 O preço da ação acompanha o lucro dos seus negócios (lucro diário × 400 ÷ 10 milhões de ações).</p><p>🤝 Em <b>Empresas da família</b> você compra ações das holdings dos amigos e recebe dividendos quando eles lucram. O dinheiro vai para o mercado, não para o dono.</p>`,
+  holding: `<h3>🏛️ Holding dos negócios</h3><p>Com R$ 50 mi de patrimônio e 3 tipos de negócio você pode fundar uma holding que reúne seus negócios. No IPO você vende até 49% das ações e recebe na hora; essa fatia dos lucros dos negócios passa a ir para os acionistas.</p>`,
+  companies: `<h3>🏢 Como funcionam suas empresas</h3>
+    <p><b>1. Crie</b> uma empresa num segmento (nível ${8}+). O segmento define os produtos e o setor da bolsa: quando o setor está 🔥 em alta a empresa vende +30%; em ❄️ queda, −25%.</p>
+    <p><b>2. Desenvolva produtos</b> (5 por segmento, do mais simples ao mais avançado). Cada um custa e leva alguns minutos. Produto novo vende +50% no lançamento; depois de ~4h vai envelhecendo — lance uma <b>nova versão</b> para voltar ao pico.</p>
+    <p><b>3. Contrate</b>: 🏭 Produção é obrigatória (sem gente suficiente você vende menos); 🤝 Vendas (+5% cada) e 📣 Marketing (+4% cada) aumentam a receita; 🧪 P&D acelera o desenvolvimento e é exigido nos produtos avançados. Salário cresce com o porte da empresa.</p>
+    <p><b>Lucro = receita − salários</b>, e cai direto no seu dinheiro todo dia.</p>
+    <h3>📈 Ações da sua empresa</h3>
+    <p>Toda empresa tem <b>10 milhões de ações</b>. Preço da ação = <b>lucro por dia × 400 ÷ 10 milhões</b>. Mais lucro = ação mais cara.</p>
+    <p>🔔 <b>IPO</b>: você vende até 49% e recebe o dinheiro <b>na hora</b> (preço × ações). Você continua no controle (51%+).</p>
+    <p>💸 <b>O preço disso</b>: a fatia vendida do lucro passa a ir para quem tem as ações, para sempre (ou até você recomprar). Se vendeu 30%, você fica com 70% do lucro.</p>
+    <p>🤝 <b>O sócio</b> (quem compra) recebe todo dia: ações ÷ 10 milhões × lucro da empresa. Dá ~0,25% ao dia do valor investido, e ainda ganha se a ação subir.</p>
+    <p>🔁 <b>Recompra</b>: você pode recomprar as ações que ainda estão soltas na bolsa (as que outros jogadores compraram, só eles podem vender).</p>
+    <h3>🧠 Estratégia</h3>
+    <p>• Venda ações <b>quando o lucro está alto</b> (setor 🔥, produto recém-lançado): recebe mais por cada %.</p>
+    <p>• Recompre quando estiver barata (setor ❄️, produto velho) e depois lance nova versão.</p>
+    <p>• Como investidor, compre ações de empresas com lucro crescendo e setor indo para 🔥 (veja o 📺 Jornal); venda antes do ❄️.</p>
+    <p>• Use o dinheiro do IPO para abrir outra empresa: o lucro dela é 100% seu.</p>
+    <p>• Gerente, Diretor(a) e CEO podem ter mais empresas e lucram mais (CEO: 5 empresas e +30%).</p>`,
   credito: `<h3>💳 Cartão de crédito</h3><p>Nas telas de compra (bens, roupas, viagens, presentes e programas) escolha <b>Pagar com 💳 Cartão</b>: à vista ou em 3x, 6x ou 12x sem juros. Só no cartão você ganha <b>cashback</b>.</p><p>A fatura fecha a cada 30 dias do jogo (30 min) e é paga sozinha com seu dinheiro. Se faltar, o resto vira dívida no <b>rotativo</b>, com juros.</p><p>Negócios, imóveis e ações só podem ser comprados à vista.</p><h3>🏦 Empréstimo</h3><p>Pegue dinheiro emprestado para abrir negócios mais cedo. Mas cuidado: os juros (${(LOAN_RATE * 100).toFixed(2)}% ao dia) correm sem parar! O limite depende do seu cartão.</p>`,
   bens: `<h3>🛍️ Coleção de bens</h3><p>🚗🛥️ <b>Carros, barcos e aeronaves</b> aumentam seu salário (vale o melhor que você tiver).</p><p>🏠 <b>Moradia</b> acaba com o aluguel de ${money(RENT_NO_HOME)}/dia e aumenta as horas que você ganha com o jogo fechado.</p><p>💍🖼️ <b>Luxo e Coleção</b> dão muito prestígio ✨ para se exibir no ranking.</p><p>Bens têm uma pequena manutenção diária e, se vender, você recebe só parte do valor.</p>`,
   visual: `<h3>👗 Visual</h3><p>Mude sua aparência de graça quando quiser. Na loja, compre roupas, calçados e acessórios — tudo que você compra fica no guarda-roupa e soma <b>estilo</b> ✨, que entra no seu prestígio do ranking.</p>`,
@@ -440,7 +483,7 @@ function scene() {
   const h = new Date().getHours();
   const night = h < 6 || h >= 19;
   const home = G.homeOf(s);
-  const veh = [...GOODS.veiculos, ...GOODS.ceumar].filter((g) => s.goods[g.id]).sort((a, b) => a.cost - b.cost).pop();
+  const veh = [...GOODS.veiculos, ...GOODS.ceumar].filter((g) => s.goods[g.id]).concat(G.pgoods(s).filter((g) => g.bonus)).sort((a, b) => a.cost - b.cost).pop();
   const allBiz = BUSINESSES.filter((b) => s.biz[b.id]);
   const trip = s.trip ? TRIPS.find((x) => x.id === s.trip.id) : null;
   const L = s.love;
@@ -629,17 +672,17 @@ function vViagens() {
 }
 
 // ---------- HOLDING / EMPRESAS DA FAMÍLIA ----------
-function vHolding() {
+function holdingSection() {
   const s = C.s, mk = C.mk;
   const c = s.corp;
   let mine;
   if (!c) {
     const ok = G.canFound(s);
     const nbiz = Object.values(s.biz).filter((x) => x > 0).length;
-    mine = `<div class="corpcard empty"><div class="cbig">🏢</div><h3>Funde sua própria empresa</h3>
+    mine = `<div class="corpcard empty"><div class="cbig">🏛️</div><h3>Holding dos seus Negócios</h3><p class="muted small">Junta suas barracas, lojas e fábricas numa empresa só e vende ações dela na bolsa.</p>
       <div class="rqs center"><span class="rq ${s.peakNW >= G.CORP.minNW ? 'ok' : ''}">${s.peakNW >= G.CORP.minNW ? '✓' : '○'} Patrimônio ${money(G.CORP.minNW)}</span><span class="rq ${nbiz >= G.CORP.minBiz ? 'ok' : ''}">${nbiz >= G.CORP.minBiz ? '✓' : '○'} ${G.CORP.minBiz} tipos de negócio (${nbiz})</span></div>
       ${ok ? `<input id="cname" maxlength="22" placeholder="Nome da empresa (ex: ${esc(s.name)} Holding)"><input id="cticker" maxlength="4" placeholder="Código de 4 letras (ex: ${G.tickerFrom(s.name).slice(0, 4)})" autocapitalize="characters">
-      <button class="btn gold full" data-act="found" data-cost="${G.CORP.cost}"><em>Fundar empresa</em><span>${money(G.CORP.cost)}</span></button>` : '<p class="muted small">Continue crescendo para fundar sua holding!</p>'}</div>`;
+      <button class="btn gold full" data-act="found" data-cost="${G.CORP.cost}"><em>Fundar holding</em><span>${money(G.CORP.cost)}</span></button>` : '<p class="muted small">Continue crescendo para fundar sua holding!</p>'}</div>`;
   } else {
     const price = G.corpPrice(s, mk);
     const val = price * G.CORP.shares;
@@ -653,13 +696,7 @@ function vHolding() {
       ${c.float > 0 ? `<h4>🔁 Recomprar ações</h4><div class="quick">${[0.05, 0.1, 0.2, c.float].filter((p, i, a) => p <= c.float + 1e-9 && a.indexOf(p) === i).map((p) => `<button class="chipbtn" data-act="buyback" data-p="${p}" data-cost="${p * val * 1.02}">${p === c.float ? 'Tudo' : Math.round(p * 100) + '%'} <small>${money(p * val * 1.02)}</small></button>`).join('')}</div>` : ''}
     </div>`;
   }
-  const fam = Object.entries(C.friends).filter(([, p]) => p.corp);
-  const held = Object.entries(s.fport || {});
-  return `${mine}
-  <h4 class="sec">🤝 Empresas da família</h4>
-  ${fam.length ? fam.map(([uid, p]) => { const h = (s.fport || {})[uid]; return `<div class="asset" data-act="fcorp" data-id="${uid}"><span class="aico clogo2">${esc(p.corp.ticker.slice(0, 1))}</span><div class="grow"><b>${esc(p.corp.name)}</b><small>${esc(p.corp.ticker)} · de ${esc(p.name)} · ${Math.round(p.corp.float * 100)}% no mercado</small>${h ? `<small class="up">🎒 ${fmt(h.q)} ações · +${money(h.q / G.CORP.shares * h.profit)}/dia</small>` : ''}</div><div class="right"><b>${price2(p.corp.price)}</b></div></div>`; }).join('')
-    : `<p class="emptyf">${C.cloud ? 'Nenhum amigo fundou empresa ainda.' : 'Disponível com a conta online.'}</p>`}
-  ${held.filter(([uid]) => !C.friends[uid]).map(([uid, h]) => `<div class="asset"><div class="grow"><b>${esc(h.name)}</b><small>${esc(h.ticker)} · 🎒 ${fmt(h.q)} ações</small></div><div class="right"><b>${price2(h.price)}</b></div></div>`).join('')}`;
+  return mine;
 }
 const price2 = (n) => 'R$ ' + (n >= 1000 ? fmt(n) : n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
 function openFriendCorp(uid) {
@@ -676,6 +713,178 @@ function openFriendCorp(uid) {
     <input id="qty" type="number" inputmode="numeric" min="1" value="1000">
     <div class="quick">${[[1000, '1 mil'], [10000, '10 mil'], [100000, '100 mil']].map(([v, n]) => `<button class="chipbtn" data-act="qty" data-v="${v}">${n}</button>`).join('')}<button class="chipbtn" data-act="qty" data-v="${Math.max(0, Math.min(max - (h ? h.q : 0), Math.floor(C.s.cash / (p.corp.price * 1.005))))}">Máx</button>${h ? `<button class="chipbtn" data-act="qty" data-v="${h.q}">Tudo meu</button>` : ''}</div>
     <div class="btns"><button class="btn red" data-act="fctrade" data-side="sell">Vender</button><button class="btn" data-act="fctrade" data-side="buy">Comprar</button></div>`);
+}
+
+// ---------- MINHAS EMPRESAS (criadas pelo jogador) ----------
+const segLogo = (seg, cls = 'clogo') => `<span class="${cls}" style="background:${seg.color}">${seg.icon}</span>`;
+const compLogo = (doc) => { const seg = SEGMENT[doc.seg]; return seg ? segLogo(seg, 'aico clogo2') : `<span class="aico clogo2">${esc((doc.ticker || '?').slice(0, 1))}</span>`; };
+function vCompanies() {
+  const s = C.s, mk = C.mk;
+  const list = s.companies || [];
+  const max = G.maxCompanies(s);
+  const tot = G.compIncome(s, mk);
+  const job = JOBS.find((j) => j.id === s.job);
+  const mg = G.mgmtMult(s);
+  const lvl = G.level(s);
+  return `<div class="comphead"><div><small>Empresas</small><b>${list.length}/${max}</b></div><div><small>Sua parte/dia</small><b class="${tot < 0 ? 'down' : 'up'}">${money(tot)}</b></div><div><small>Gestão</small><b>+${Math.round((mg - 1) * 100)}%</b></div></div>
+  <p class="hint small">💼 Como <b>${job.name}</b> você pode ter <b>${max}</b> empresa(s)${mg > 1 ? ` e ganha <b>+${Math.round((mg - 1) * 100)}%</b> de lucro nelas` : ''}. Gerente: 2 empresas (+8%) · Diretor(a): 3 (+15%) · CEO: 5 (+30%) · MBA: +5% · Status 👑 Lenda: +1 empresa.</p>
+  ${list.map((c) => {
+    const seg = SEGMENT[c.seg], st = G.compStats(s, c, mk);
+    return `<div class="compcard" data-act="comp" data-id="${c.id}">${segLogo(seg)}<div class="grow"><b>${esc(c.name)}</b><small>${esc(c.ticker)} · ${seg.name} · ${c.products.length}/5 produtos${c.float > 0 ? ` · ${Math.round(c.float * 100)}% na bolsa` : ''}</small>
+      ${c.dev ? `<div class="bar thin"><i data-live-w="cdev:${c.id}"></i></div><small>🧪 ${esc(c.dev.model)}${c.dev.version ? ' (nova versão)' : ''} · <span data-live="cdevt:${c.id}"></span></small>` : !c.products.length ? '<small class="warn">👉 Toque para contratar e criar seu 1º produto</small>' : st.cap < 1 ? '<small class="warn">⚠️ Falta gente na produção</small>' : ''}</div>
+      <div class="right"><small>Lucro/dia</small><b class="${st.profit < 0 ? 'down' : 'up'}">${money(st.profit)}</b></div></div>`;
+  }).join('')}
+  ${lvl < G.COMP.minLevel ? lockBox(G.COMP.minLevel, 'Criar empresas') : list.length < max ? '<button class="btn gold full newcompbtn" data-act="newcomp">＋ Criar nova empresa</button>' : '<p class="muted center small">Você chegou ao limite de empresas do seu cargo.</p>'}
+  <h4 class="sec">🏛️ Holding dos negócios</h4>
+  ${holdingSection()}`;
+}
+function newCompModal() {
+  const s = C.s;
+  modal(`<h3>🏢 Nova empresa</h3><p class="muted">Escolha o segmento. Ele define os produtos, o clima do setor na bolsa (🔥/❄️) e o tamanho do investimento.</p>
+    <div class="seggrid">${SEGMENTS.map((g) => `<button class="segcard" data-act="newcomp2" data-seg="${g.id}" data-cost="${G.foundCost(g)}" style="--sc:${g.color}">
+      <span class="segi">${g.icon}</span><b>${g.name}</b><small>${SECTOR[g.sector].icon} ${SECTOR[g.sector].name}</small>
+      <small>${g.products.map((p) => p.icon).join('')}</small>
+      ${g.cat ? `<em class="segbens">💎 Vende em Bens</em>` : ''}<span class="segcost">${money(G.foundCost(g))}</span></button>`).join('')}</div>`);
+}
+function newCompForm(segId) {
+  const g = SEGMENT[segId], s = C.s;
+  const sug = `${s.name.split(' ')[0]} ${{ alimentos: 'Foods', moda: 'Fashion', tech: 'Tech', joias: 'Joias', farma: 'Pharma', auto: 'Motors', construtora: 'Construções', fintech: 'Bank', energia: 'Energia', nautica: 'Aero & Náutica' }[segId]}`.slice(0, 22);
+  modal(`<div class="segform">${segLogo(g)}<div><h3>${g.name}</h3><small class="muted">${g.products.map((p) => `${p.icon} ${p.name}`).join(' · ')}</small></div></div>
+    ${g.cat ? `<p class="hint small">💎 Os produtos dessa empresa aparecem em <b>Bens → Marcas</b> para todos os jogadores comprarem. Cada venda manda ${Math.round(G.COMP.margin * 100)}% do preço para você.</p>` : '<p class="hint small">📦 Os produtos são vendidos para o mercado (não aparecem em Bens).</p>'}
+    <input id="cname" maxlength="22" placeholder="Nome da empresa" value="${esc(sug)}">
+    <input id="cticker" maxlength="4" placeholder="Código na bolsa (4 letras)" value="${G.tickerFrom(sug).slice(0, 4)}" autocapitalize="characters">
+    <button class="btn gold full" data-act="foundcomp" data-seg="${g.id}" data-cost="${G.foundCost(g)}"><em>Criar empresa</em><span>${money(G.foundCost(g))}</span></button>
+    <button class="btn ghost full sm" data-act="newcomp">‹ Outro segmento</button>`);
+}
+function freshLabel(f) { return f > 1.2 ? '🔥 Lançamento' : f >= 1 ? '✅ Em alta' : f > 0.75 ? '📉 Envelhecendo' : '🥀 Velho: lance nova versão'; }
+function vCompany(id) {
+  const s = C.s, mk = C.mk, c = G.findComp(s, id);
+  const seg = SEGMENT[c.seg], st = G.compStats(s, c, mk), price = G.compPrice(s, c, mk);
+  const doc = (C.companies || {})[C.compDocId ? C.compDocId(c) : ''];
+  const others = C.heldByOthers ? C.heldByOthers(doc) : 0;
+  const reg = mk.sectorNow(seg.sector);
+  const val = price * G.COMP.shares;
+  const next = seg.products.findIndex((_, i) => !c.products.some((p) => p.tier === i));
+  const left = G.COMP.maxFloat - c.float;
+  const free = c.float - others / G.COMP.shares;
+  const staffRows = STAFF.map((r) => {
+    const n = c.staff[r.id] || 0, cap = G.staffCap(c, r.id);
+    return `<div class="staffrow"><span class="bi">${r.icon}</span><div class="grow"><b>${r.name} <span class="cnt">${n}/${cap}</span></b><small>${r.desc}</small><small>💵 ${money(G.wageOf(c, r.id))}/dia cada</small></div>
+      <div class="hirebtns"><button class="chipbtn" data-act="hire" data-id="${c.id}" data-r="${r.id}" data-n="-1" ${n ? '' : 'disabled'}>−</button><button class="chipbtn" data-act="hire" data-id="${c.id}" data-r="${r.id}" data-n="1" ${n < cap ? '' : 'disabled'}>＋</button><button class="chipbtn" data-act="hire" data-id="${c.id}" data-r="${r.id}" data-n="5" ${n < cap ? '' : 'disabled'}>+5</button></div></div>`;
+  }).join('');
+  const prodRows = seg.products.map((k, i) => {
+    const p = c.products.find((x) => x.tier === i);
+    const tierInfo = PRODUCT_TIERS[i];
+    const sale = seg.cat ? `<small>💎 Em Bens por ${money(k.price)}${k.bonus ? ` · +${Math.round(k.bonus * 100)}% salário` : k.hours ? ` · ${k.hours}h offline` : ''}</small>` : '';
+    if (p) {
+      const f = G.freshness(p);
+      return `<div class="prodrow on"><span class="bi">${k.icon}</span><div class="grow"><b>${esc(p.model)} <small class="muted">${k.name} · v${p.v || 1}</small></b><small>${money(tierInfo.rev * seg.k * f)}/dia de vendas base · ${freshLabel(f)}</small><div class="bar thin fresh"><i style="width:${Math.round((f / 1.5) * 100)}%"></i></div>${sale}</div>
+        ${c.dev ? '' : `<button class="btn sm ghost" data-act="newver" data-id="${c.id}" data-t="${i}" data-cost="${G.devCost(seg, i, true)}">🆕 Nova versão<span>${money(G.devCost(seg, i, true))}</span></button>`}</div>`;
+    }
+    if (c.dev && c.dev.tier === i) return `<div class="prodrow dev"><span class="bi">${k.icon}</span><div class="grow"><b>🧪 ${esc(c.dev.model)} <small class="muted">${k.name}</small></b><div class="bar"><i data-live-w="cdev:${c.id}"></i></div><small>Fica pronto em <span data-live="cdevt:${c.id}"></span></small></div></div>`;
+    if (i === next) {
+      const why = G.canDev(c, i);
+      return `<div class="prodrow next"><span class="bi">${k.icon}</span><div class="grow"><b>${k.name}</b><small>Vende ${money(tierInfo.rev * seg.k)}/dia base · precisa de ${tierInfo.need} na produção${tierInfo.pd ? ` · ${tierInfo.pd} em P&D` : ''} · ⏱️ ${Math.ceil(G.devMins(c, i))} min</small>${sale}${why && !c.dev ? `<small class="warn">${why}</small>` : ''}</div>
+        ${c.dev ? '' : `<button class="btn gold sm" data-act="devprod" data-id="${c.id}" data-t="${i}" data-cost="${G.devCost(seg, i)}" ${why ? 'disabled' : ''}>Desenvolver<span>${money(G.devCost(seg, i))}</span></button>`}</div>`;
+    }
+    return `<div class="prodrow plock"><span class="bi">🔒</span><div class="grow"><b>${k.name}</b><small>Lance o produto anterior primeiro</small></div></div>`;
+  }).join('');
+  return `<button class="backbtn" data-act="compback">‹ Minhas empresas</button>
+  <div class="corpcard">
+    <div class="crow">${segLogo(seg)}<div class="grow"><b>${esc(c.name)}</b><small>${esc(c.ticker)} · ${seg.name} · fundada ${ago(c.founded)}</small></div><span class="wxpill ${wxCls(reg)}">${SECTOR[seg.sector].icon} ${WX[reg]} ${WXN[reg]}</span></div>
+    <div class="cstats3"><div><small>Receita/dia</small><b class="up">${money(st.rev)}</b></div><div><small>Salários/dia</small><b class="down">${money(st.cost)}</b></div><div><small>Lucro/dia</small><b class="${st.profit < 0 ? 'down' : 'up'}">${money(st.profit)}</b></div></div>
+    <div class="cstats3"><div><small>Ação ${esc(c.ticker)}</small><b>${price2(price)}</b></div><div><small>Valor de mercado</small><b>${money(val)}</b></div><div><small>Você controla</small><b>${Math.round((1 - c.float) * 100)}%</b></div></div>
+    ${c.products.length && st.cap < 1 ? `<p class="warnbox">⚠️ Falta gente na produção: só dá para fabricar <b>${Math.round(st.cap * 100)}%</b> do que você vende. Contrate mais <b>${st.need - (c.staff.prod || 0)}</b> em 🏭 Produção.</p>` : ''}
+    ${!c.products.length ? '<p class="hint small">👉 Comece pelo 1º produto lá embaixo. Depois contrate 🏭 Produção para fabricar e 🤝 Vendas / 📣 Marketing para vender mais.</p>' : ''}
+    <small class="muted">Clima do setor ${WXN[reg].toLowerCase()} (${st.clima > 1 ? '+30%' : st.clima < 1 ? '−25%' : 'normal'}) · Gestão ${st.mg > 1 ? '+' + Math.round((st.mg - 1) * 100) + '%' : 'sem bônus'} · Vendas e marketing +${Math.round((st.boost - 1) * 100)}%</small>
+  </div>
+  <h4 class="sec">📦 Produtos</h4><div class="prodlist">${prodRows}</div>
+  <h4 class="sec">👥 Funcionários</h4><div class="stafflist">${staffRows}</div>
+  <h4 class="sec">🔔 Ações na bolsa</h4>
+  <div class="corpcard">
+    <div class="lrow"><span>Você controla</span><b>${Math.round((1 - c.float) * 100)}%</b></div><div class="bar"><i style="width:${(1 - c.float) * 100}%"></i></div>
+    <small class="muted">${c.float > 0 ? `${Math.round(c.float * 100)}% estão na bolsa${others ? ` · ${fmt(others)} ações (${(others / G.COMP.shares * 100).toFixed(1)}%) com outros jogadores` : ' · nenhum jogador comprou ainda'}. Essa fatia do lucro vai para os acionistas.` : 'Empresa fechada: 100% do lucro é seu.'}</small>
+    ${!c.products.length ? '<p class="muted small">Lance um produto para poder vender ações.</p>' : left > 0.0001 ? `<h4>Vender ações (IPO)</h4><div class="quick">${[0.05, 0.1, 0.2, 0.3, 0.49].filter((x) => x <= left + 1e-9).map((x) => `<button class="chipbtn" data-act="cipo" data-id="${c.id}" data-p="${x}">${Math.round(x * 100)}% <small>+${money(x * val * 0.98)}</small></button>`).join('')}</div>` : ''}
+    ${free > 1e-6 ? `<h4>Recomprar ações</h4><div class="quick">${[0.05, 0.1, free].filter((x, i, a) => x <= free + 1e-9 && a.indexOf(x) === i).map((x) => `<button class="chipbtn" data-act="cbuyback" data-id="${c.id}" data-p="${x}" data-cost="${x * val * 1.02}">${x === free ? 'Tudo que está livre' : Math.round(x * 100) + '%'} <small>${money(x * val * 1.02)}</small></button>`).join('')}</div>` : ''}
+  </div>
+  <div class="center"><button class="btn ghost sm" data-act="closecomp" data-id="${c.id}" ${c.float > 0 ? 'disabled' : ''}>🏚️ Fechar empresa</button>${c.float > 0 ? '<small class="muted"><br>Para fechar, recompre todas as ações da bolsa.</small>' : ''}</div>`;
+}
+function devModal(id, tier) {
+  const c = G.findComp(C.s, id), seg = SEGMENT[c.seg], k = seg.products[tier];
+  const SUG = ['Turbo', 'Prime', 'Max', 'Ultra', 'Nova', 'Fênix', 'Titan', 'Aurora', 'Vortex', 'Zen', 'Supreme', 'Neo'];
+  const sugs = SUG.sort(() => Math.random() - 0.5).slice(0, 4).map((x) => `${x} ${['X', 'One', 'Pro', 'S', '2027'][Math.floor(Math.random() * 5)]}`);
+  modal(`<h3>${k.icon} Novo produto: ${k.name}</h3><p class="muted">Dê um nome ao seu ${k.name.toLowerCase()}. ${seg.cat ? `Ele vai aparecer em 💎 Bens como <b>${esc(c.name)} + nome</b>.` : ''}</p>
+    <input id="pmodel" maxlength="18" placeholder="Nome do produto" value="${sugs[0]}">
+    <div class="quick">${sugs.map((x) => `<button class="chipbtn" data-act="devsug" data-v="${x}">${x}</button>`).join('')}</div>
+    <p class="muted small">⏱️ Fica pronto em ${Math.ceil(G.devMins(c, tier))} min · ${c.staff.pd ? `${c.staff.pd} pesquisador(es) acelerando` : 'contrate 🧪 P&D para acelerar'}</p>
+    <button class="btn gold full" data-act="devgo" data-id="${id}" data-t="${tier}" data-cost="${G.devCost(seg, tier)}"><em>Começar desenvolvimento</em><span>${money(G.devCost(seg, tier))}</span></button>`);
+}
+// ----- Empresas de todos os jogadores na Bolsa -----
+function playerCompaniesHTML() {
+  if (!C.cloud) return '';
+  const s = C.s;
+  const docs = Object.values(C.companies || {}).sort((a, b) => b.price * (b.shares || 1e7) - a.price * (a.shares || 1e7));
+  const filt = ui.sf || 'all';
+  if (filt !== 'all' && filt !== 'jog' && filt !== 'mine') return '';
+  const list = filt === 'mine' ? docs.filter((d) => (s.fport || {})[d.id] || d.owner === C.uid) : docs;
+  return `<h4 class="sec">🏢 Empresas dos jogadores</h4>
+  ${list.length ? list.map((d) => {
+    const h = (s.fport || {})[d.id];
+    const mine = d.owner === C.uid;
+    const seg = SEGMENT[d.seg];
+    return `<div class="asset" data-act="pcomp" data-id="${d.id}">${compLogo(d)}<div class="grow"><b>${esc(d.name)}</b><small>${esc(d.ticker)} · ${mine ? '⭐ sua' : 'de ' + esc(d.ownerName || '?')} · ${seg ? seg.name : 'Holding'} · ${Math.round((d.float || 0) * 100)}% na bolsa</small>${h ? `<small class="up">🎒 ${fmt(h.q)} ações · +${money((h.q / G.COMP.shares) * Math.max(0, d.profit))}/dia</small>` : ''}</div>
+      <div class="right"><b>${price2(d.price)}</b><small class="${d.profit >= 0 ? 'up' : 'down'}">lucro ${fmt(d.profit)}/dia</small></div></div>`;
+  }).join('') : '<p class="emptyf">Nenhum jogador criou empresa ainda. Seja o primeiro em 🏭 Negócios → Minhas Empresas!</p>'}`;
+}
+function openPlayerCompany(id) {
+  const d = (C.companies || {})[id]; if (!d) return;
+  const s = C.s;
+  const h = (s.fport || {})[id];
+  const others = C.heldByOthers(d);
+  const total = Math.floor(G.COMP.shares * (d.float || 0));
+  const free = Math.max(0, total - others - (h ? h.q : 0));
+  const seg = SEGMENT[d.seg];
+  const mine = d.owner === C.uid;
+  ui.pcomp = id;
+  const divDay = Math.max(0, d.profit) / G.COMP.shares;
+  modal(`<h3>${seg ? seg.icon : '🏛️'} ${esc(d.name)} <small class="muted">${esc(d.ticker)}</small></h3>
+    <p class="muted">${mine ? 'Sua empresa' : `Empresa de ${esc(d.ownerName || '?')}`} · ${seg ? `${seg.name} · ${SECTOR[seg.sector].icon} ${WX[C.mk.sectorNow(seg.sector)]} ${WXN[C.mk.sectorNow(seg.sector)]}` : 'Holding de negócios'} · ${d.nprod || 0} produto(s)</p>
+    <div class="pricehead"><b class="bigprice">${price2(d.price)}</b><small class="${d.profit >= 0 ? 'up' : 'down'}">lucro ${money(d.profit)}/dia</small></div>
+    <div class="ownbox"><div class="lrow"><span>Na bolsa</span><b>${fmt(total)} ações (${Math.round((d.float || 0) * 100)}%)</b></div>
+    <div class="lrow"><span>Com outros jogadores</span><b>${fmt(others)}</b></div>
+    <div class="lrow"><span>Disponíveis para comprar</span><b>${fmt(free)}</b></div>
+    <div class="lrow"><span>Você tem</span><b>${fmt(h ? h.q : 0)} ações${h ? ` (${(h.q / G.COMP.shares * 100).toFixed(2)}%)` : ''}</b></div>
+    <small class="muted">💸 Cada ação rende ${money(divDay, 4)}/dia de dividendos (${d.price > 0.011 ? ((divDay / d.price) * 100).toFixed(2) : '0'}% ao dia no preço atual). O preço sobe e desce com o lucro da empresa.</small></div>
+    ${mine ? '<p class="hint small">Essa é sua. Para vender ou recomprar ações dela, vá em 🏭 Negócios → Minhas Empresas.</p>' : `
+    <input id="qty" type="number" inputmode="numeric" min="1" value="${Math.min(1000, free) || 1000}">
+    <div class="quick">${[[1000, '1 mil'], [10000, '10 mil'], [100000, '100 mil']].map(([v, n]) => `<button class="chipbtn" data-act="qty" data-v="${v}">${n}</button>`).join('')}<button class="chipbtn" data-act="qty" data-v="${Math.max(0, Math.min(free, Math.floor(s.cash / (d.price * 1.005))))}">Máx</button>${h ? `<button class="chipbtn" data-act="qty" data-v="${h.q}">Tudo meu</button>` : ''}</div>
+    <div class="btns"><button class="btn red" data-act="pctrade" data-side="sell" ${h ? '' : 'disabled'}>Vender</button><button class="btn" data-act="pctrade" data-side="buy" ${free ? '' : 'disabled'}>Comprar</button></div>`}`);
+}
+// ----- Bens das marcas dos jogadores -----
+function vMarcas() {
+  const s = C.s;
+  if (!C.cloud) return '<p class="emptyf">Disponível com a conta online.</p>';
+  const docs = Object.values(C.companies || {}).filter((d) => (d.products || []).length);
+  const mineOwned = G.pgoods(s);
+  return `<p class="hint small">🏷️ Produtos criados pelas empresas dos jogadores. Funcionam como os outros bens (prestígio, bônus de salário, casa) e <b>20% do preço vai para o dono da marca</b>.</p>
+  ${docs.length ? docs.map((d) => `<div class="brandhead">${compLogo(d)}<div><b>${esc(d.name)}</b><small>${SEGMENT[d.seg] ? SEGMENT[d.seg].name : ''} · de ${d.owner === C.uid ? 'você' : esc(d.ownerName || '?')}</small></div></div>
+    <div class="goods">${d.products.map((p) => { const own = !!(s.pgoods || {})[`${d.id}:${p.tier}`]; return `<div class="gcard ${RAR[Math.min(RAR.length - 1, p.tier * 2)]} ${own ? 'own' : ''}" data-act="pgood" data-id="${d.id}" data-t="${p.tier}">
+      ${own ? '<span class="owned">✓</span>' : ''}<span class="rar">${esc(p.kind)}</span><div class="gi">${p.icon}</div><b>${esc(d.name)} ${esc(p.model)}</b><small>${p.bonus ? `+${Math.round(p.bonus * 100)}% salário` : p.hours ? `+${p.hours}h offline` : `✨ ${p.prestige}`}</small>
+      <div class="gprice" data-cost="${own ? 0 : dp(p.price)}">${own ? 'É seu!' : money(dp(p.price))}</div></div>`; }).join('')}</div>`).join('')
+    : '<p class="emptyf">Nenhuma marca lançou produtos ainda. Crie uma Montadora, Construtora, Joalheria, Tecnologia ou Náutica em 🏭 Negócios → Minhas Empresas!</p>'}
+  ${mineOwned.filter((g) => !docs.some((d) => g.comp === d.id)).map((g) => `<div class="asset" data-act="pgoodold" data-id="${g.id}"><span class="aico">${g.icon}</span><div class="grow"><b>${esc(g.name)}</b><small>Marca fora do mercado · é seu</small></div></div>`).join('')}`;
+}
+function openPlayerGood(id, tier) {
+  const s = C.s, d = (C.companies || {})[id];
+  const p = d && (d.products || []).find((x) => x.tier === tier);
+  if (!p) return;
+  const pid = `${id}:${tier}`;
+  const own = (s.pgoods || {})[pid];
+  const rate = p.cat === 'veiculos' || p.cat === 'ceumar' ? 0.6 : p.cat === 'moradia' ? 0.9 : 0.75;
+  modal(`<div class="goodmodal" data-cardable><div class="gi">${p.icon}</div><span class="rar">${esc(p.kind)}</span><h3>${esc(d.name)} ${esc(p.model)}</h3><p class="muted">${compLogo(d)} Marca de ${d.owner === C.uid ? 'você' : esc(d.ownerName || '?')}</p>
+    <div class="tags">${p.bonus ? `<span class="pill">💼 +${Math.round(p.bonus * 100)}% salário</span>` : ''}${p.hours ? `<span class="pill">🌙 +${p.hours}h offline</span><span class="pill">🏠 sem aluguel</span>` : ''}<span class="pill">✨ ${p.prestige} prestígio</span></div>
+    ${own ? `<p class="muted">Você é dono disso! Se vender, recebe ${money(own.cost * rate)}.</p><button class="btn red full" data-act="sellpgood" data-id="${pid}">Vender</button>`
+      : `${payBar()}<button class="btn gold full" data-act="buypgood" data-id="${id}" data-t="${tier}" data-cost="${dp(p.price)}"><em>Comprar</em><span>${money(dp(p.price))}</span></button>${d.owner !== C.uid ? `<small class="muted">🤝 ${money(p.price * G.COMP.margin)} vão para ${esc(d.ownerName || 'o dono')}.</small>` : ''}`}</div>`);
 }
 
 // ---------- SEGUROS ----------
@@ -841,7 +1050,7 @@ function quest() {
 function flowHTML() {
   const ib = G.incomeBreakdown(C.s, C.mk);
   const rows = [
-    ['💼 Salário', ib.sal - ib.salVeh - ib.salLend], ['🚗 Bônus do veículo', ib.salVeh], ['🌟 Bônus da skin lendária', ib.salLend], ['🏭 Negócios', ib.biz], ['🔑 Aluguéis', ib.rent], ['💸 Dividendos', ib.divs], ['🏦 Juros', ib.juros],
+    ['💼 Salário', ib.sal - ib.salVeh - ib.salLend], ['🚗 Bônus do veículo', ib.salVeh], ['🌟 Bônus da skin lendária', ib.salLend], ['🏭 Negócios', ib.biz], ['🏢 Suas empresas', ib.comp], ['🔑 Aluguéis', ib.rent], ['💸 Dividendos', ib.divs], ['🏦 Juros', ib.juros],
     ['🏠 Aluguel da moradia', -ib.moradia], ['🔧 Manutenção', -ib.manut], ['💳 Juros da dívida', -ib.loan],
   ].filter((r) => Math.abs(r[1]) > 0.0001);
   return rows.map(([n, v]) => `<div class="fr"><span>${n}</span><b class="${v < 0 ? 'down' : 'up'}">${v < 0 ? '-' : '+'}${money(Math.abs(v))}</b></div>`).join('') +
@@ -943,6 +1152,12 @@ function openJobPath(id) {
 
 // ---------- NEGÓCIOS ----------
 function vEmpresas() {
+  const sub = ui.sub.empresas || 'negocios';
+  const head = subtabs([['negocios', '🏪', 'Negócios'], ['minhas', '🏢', 'Minhas Empresas']]);
+  if (sub === 'minhas') return title('🏢', 'Minhas Empresas', 'companies') + head + (ui.comp && G.findComp(C.s, ui.comp) ? vCompany(ui.comp) : vCompanies());
+  return vNegocios(head);
+}
+function vNegocios(head) {
   const s = C.s;
   const mk = C.mk;
   const total = BUSINESSES.reduce((t, b) => t + G.bizProfit(s, b, mk), 0) * (1 - G.corpFloat(s));
@@ -971,7 +1186,7 @@ function vEmpresas() {
       ${costBtn('buybiz', { id: b.id }, cost, lvl ? `<em>▲ ${n}</em>` : '<em>Abrir</em>')}
     </div>`;
   }).join('');
-  return `${title('🏭', 'Negócios', 'empresas')}
+  return `${title('🏭', 'Negócios', 'empresas')}${head}
   ${G.corpFloat(s) > 0 ? `<p class="hint small">🏢 ${Math.round(G.corpFloat(s) * 100)}% dos lucros vão para os acionistas da ${esc(s.corp.name)}.</p>` : ''}
   <div class="bizhead"><div><small>Lucro total</small><b class="up">${money(total)}<small>/dia</small></b></div>
     <div class="seg">${[1, 10, 'max'].map((n) => `<button class="${ui.bizN === n ? 'on' : ''}" data-act="bizn" data-n="${n}">${n === 'max' ? 'MÁX' : 'x' + n}</button>`).join('')}</div></div>
@@ -982,7 +1197,7 @@ function vEmpresas() {
 function vInvestir() {
   const s = C.s;
   const sub = ui.sub.investir;
-  const head = subtabs([['bolsa', '📈', 'Bolsa'], ['cripto', '🪙', 'Cripto'], ['renda', '🐷', 'Poupar'], ['imoveis', '🔑', 'Imóveis'], ['credito', '💳', 'Cartão'], ['holding', '🏢', 'Empresas']]);
+  const head = subtabs([['bolsa', '📈', 'Bolsa'], ['cripto', '🪙', 'Cripto'], ['renda', '🐷', 'Poupar'], ['imoveis', '🔑', 'Imóveis'], ['credito', '💳', 'Cartão']]);
   const L = G.level(s);
   let body = '';
   if (sub === 'bolsa') body = L < UNLOCKS.bolsa ? lockBox(UNLOCKS.bolsa, 'Bolsa de Valores') : vBolsa(STOCKS, true);
@@ -990,8 +1205,8 @@ function vInvestir() {
   if (sub === 'renda') body = vRenda();
   if (sub === 'imoveis') body = L < UNLOCKS.imoveis ? lockBox(UNLOCKS.imoveis, 'Imóveis') : vImoveis();
   if (sub === 'credito') body = vCredito();
-  if (sub === 'holding') body = vHolding();
-  const helpKey = { holding: 'holding', bolsa: 'bolsa', cripto: 'cripto', renda: 'renda', imoveis: 'imoveis', credito: 'credito' }[sub];
+  if (sub === 'holding') { ui.sub.investir = 'bolsa'; body = vBolsa(STOCKS, true); }
+  const helpKey = { holding: 'companies', bolsa: 'bolsa', cripto: 'cripto', renda: 'renda', imoveis: 'imoveis', credito: 'credito' }[sub];
   return title('📈', 'Investir', helpKey) + head + body;
 }
 
@@ -1007,24 +1222,27 @@ function vBolsa(list, stocks) {
   <div class="wxhead"><b>Clima dos setores</b><small>muda em <span data-live="nextblock"></span></small></div>
   <div class="wxrow" data-live-html="${stocks ? 'sectors' : 'cryptosector'}"></div>
   ${assetFilters(list, stocks)}
+  ${stocks ? playerCompaniesHTML() : ''}
+  ${stocks && C.cloud && (ui.sf || 'all') !== 'jog' ? '<h4 class="sec">📈 Empresas do mercado</h4>' : ''}
   <div class="assets">${filterAssets(list, stocks).map((a) => `
     <div class="asset" data-act="asset" data-sym="${a.sym}">
       <span class="aico s-${a.sector}">${SECTOR[a.sector].icon}</span>
       <div class="grow"><b>${a.name}${a.div ? ' <em class="divtag">💸</em>' : ''}</b><small class="held" data-live="held:${a.sym}"></small><small class="plline" data-live="plrow:${a.sym}"></small>${a.shares && G.ownPct(C.s, a.sym) > 0 ? `<div class="ownmini"><i style="width:${Math.max(3, Math.min(100, G.ownPct(C.s, a.sym) / 0.51 * 100))}%"></i></div>` : ''}</div>
       <svg class="spark" data-spark="${a.sym}" viewBox="0 0 64 28" preserveAspectRatio="none"></svg>
       <div class="right"><b data-live="price:${a.sym}"></b><span class="chg" data-live="chg:${a.sym}"></span></div>
-    </div>`).join('') || '<p class="emptyf">Nenhum ativo aqui ainda 🙃</p>'}</div>
+    </div>`).join('') || (stocks && ui.sf === 'jog' ? '' : '<p class="emptyf">Nenhum ativo aqui ainda 🙃</p>')}</div>
   <div class="box newsbox" data-act="news"><div class="nhead"><b>📺 Jornal do Mercado</b><span class="lnk">ver tudo ›</span></div><div class="news" data-live-html="news3"></div></div>`;
 }
 function assetFilters(list, stocks) {
   const key = stocks ? 'sf' : 'cf';
   const cur = ui[key] || 'all';
   const secs = [...new Set(list.map((a) => a.sector))];
-  const opts = [['all', '📋', 'Todas'], ['mine', '🎒', 'Minhas'], ...(stocks ? secs.map((id) => [id, SECTOR[id].icon, SECTOR[id].name]) : [])];
+  const opts = [['all', '📋', 'Todas'], ['mine', '🎒', 'Minhas'], ...(stocks && C.cloud ? [['jog', '🏢', 'Jogadores']] : []), ...(stocks ? secs.map((id) => [id, SECTOR[id].icon, SECTOR[id].name]) : [])];
   return `<div class="subtabs vistabs filt">${opts.map(([id, ic, n]) => `<button class="${cur === id ? 'on' : ''}" data-act="pt" data-g="${key}" data-t="${id}"><span>${ic}</span>${n}</button>`).join('')}</div>`;
 }
 function filterAssets(list, stocks) {
   const f = ui[stocks ? 'sf' : 'cf'] || 'all';
+  if (f === 'jog') return [];
   const out = f === 'all' ? list : f === 'mine' ? list.filter((a) => (C.s.port[a.sym] || {}).q > 0) : list.filter((a) => a.sector === f);
   return out.length ? out : [];
 }
@@ -1250,10 +1468,11 @@ const RARN = { comum: 'Comum', raro: 'Raro', epico: 'Épico', lendario: 'Lendár
 function vBens() {
   const s = C.s;
   const sub = ui.sub.bens;
-  const list = GOODS[sub];
-  const owned = list.filter((g) => s.goods[g.id]).length;
-  const head = title('💎', 'Coleção', 'bens') + subtabs([['veiculos', '🚗', 'Carros'], ['ceumar', '🛥️', 'Céu e Mar'], ['moradia', '🏠', 'Casas'], ['luxo', '💍', 'Luxo'], ['colecao', '🖼️', 'Coleção']]) + `
-  <div class="wallet" data-act="status"><div><small>✨ Prestígio · ${G.statusOf(s).icon} ${G.statusOf(s).name} ›</small><b>${fmt(G.prestige(s))}</b></div><div class="right"><small>Coleção</small><b>${owned}/${list.length}</b></div></div>`;
+  const list = GOODS[sub] || [];
+  const owned = sub === 'marcas' ? G.pgoods(s).length : list.filter((g) => s.goods[g.id]).length;
+  const head = title('💎', 'Coleção', 'bens') + subtabs([['veiculos', '🚗', 'Carros'], ['ceumar', '🛥️', 'Céu e Mar'], ['moradia', '🏠', 'Casas'], ['luxo', '💍', 'Luxo'], ['colecao', '🖼️', 'Coleção'], ['marcas', '🏷️', 'Marcas']]) + `
+  <div class="wallet" data-act="status"><div><small>✨ Prestígio · ${G.statusOf(s).icon} ${G.statusOf(s).name} ›</small><b>${fmt(G.prestige(s))}</b></div><div class="right"><small>Coleção</small><b>${sub === 'marcas' ? owned : `${owned}/${list.length}`}</b></div></div>`;
+  if (sub === 'marcas') return head + payBar() + `<div data-cardable>${vMarcas()}</div>`;
   if (sub === 'veiculos') return head + payBar() + `<div data-cardable>${vCarros()}</div>`;
   return head + payBar() + `
   <div class="goods" data-cardable>${list.map((g, i) => goodCard(g, RAR[i])).join('')}</div>`;
@@ -1307,17 +1526,26 @@ function vPerfil() {
 function vRanking() {
   const s = C.s;
   const me = { look: s.look, partner: s.love ? { look: s.love.partner.look } : null, n: s.name, w: G.netWorth(s, C.mk), l: G.level(s), a: Object.keys(s.ach).length, c: s.cardMax, p: G.prestige(s), net: G.incomeBreakdown(s, C.mk).net, me: true, home: (G.homeOf(s) || {}).icon || '🏚️' };
-  const fr = s.friends.map((uid) => { const p = C.friends[uid]; return p ? { look: p.look, partner: p.partner, n: p.name, w: p.nw, l: p.level, a: p.ach, c: p.card || 0, p: p.prestige, net: p.net, t: p.updated, id: uid, home: p.home, online: Date.now() - p.updated < 3 * 60_000 } : { n: 'Carregando…', w: -1, l: 0, a: 0, c: 0, p: 0, id: uid, loading: true }; });
-  const all = [me, ...fr].sort((a, b) => b.w - a.w);
+  const fromProfile = (uid, p) => ({ look: p.look, partner: p.partner, n: p.name, w: p.nw, l: p.level, a: p.ach, c: p.card || 0, p: p.prestige, net: p.net, t: p.updated, id: uid, home: p.home, tag: p.tag, online: Date.now() - p.updated < 3 * 60_000 });
+  const fr = s.friends.map((uid) => { const p = C.friends[uid]; return p ? fromProfile(uid, p) : { n: 'Carregando…', w: -1, l: 0, a: 0, c: 0, p: 0, id: uid, loading: true }; });
+  const global = ui.rk === 'todos' && C.cloud;
+  if (global && !ui.topList && !ui.topLoading) { ui.topLoading = true; C.topPlayers().then((l) => { ui.topList = l; ui.topAt = Date.now(); }).catch(() => { ui.topList = []; }).finally(() => { ui.topLoading = false; if (ui.tab === 'perfil' && !modalOpen()) keepScroll(render); }); }
+  if (global && ui.topAt && Date.now() - ui.topAt > 60_000 && !ui.topLoading) ui.topList = null;
+  const all = global ? (ui.topList || []).map((p) => (p.uid === C.uid ? me : { ...fromProfile(p.uid, p), stranger: !s.friends.includes(p.uid) })) : [me, ...fr].sort((a, b) => b.w - a.w);
+  if (global && ui.topList && !all.includes(me)) all.push(me);
+  if (global) all.sort((a, b) => b.w - a.w);
   const pod = [all[1], all[0], all[2]];
   const medal = ['🥈', '🥇', '🥉'];
   const cls = ['p2', 'p1', 'p3'];
   return `
   <div class="mytag"><div><small>Sua tag de amigo</small><b>${C.cloud ? esc(s.tag || 'gerando…') : 'offline'}</b></div><button class="btn sm" data-act="copytag">Copiar</button></div>
+  ${C.cloud ? `<div class="seg2 rkseg">${[['amigos', '👥 Amigos'], ['todos', '🌎 Todos os jogadores']].map(([m, n]) => `<button class="${(ui.rk || 'amigos') === m ? 'on' : ''}" data-act="rkmode" data-m="${m}">${n}</button>`).join('')}</div>` : ''}
+  ${global && !ui.topList ? '<p class="muted center">⏳ Carregando o ranking geral…</p>' : ''}
   <div class="podium">${pod.map((p, i) => p && !p.loading ? `<div class="pcol ${cls[i]} ${p.me ? 'me' : ''}"><div class="pav2" ${p.me ? '' : `data-act="friend" data-id="${p.id}"`}>${avatarSVG(p.look, { size: i === 1 ? 110 : 90 })}${p.online || p.me ? '<i class="on"></i>' : ''}</div><b>${esc(p.n)}</b><small>${money(p.w)}</small><div class="pbar"><span>${medal[i]}</span></div></div>` : '<div class="pcol empty"><div class="pbar"></div></div>').join('')}</div>
-  <div class="ranklist">${all.map((p, i) => `<div class="rank ${p.me ? 'me' : ''}" ${p.me || p.loading ? '' : `data-act="friend" data-id="${p.id}"`}><span class="pos">${i + 1}º</span><span class="rav">${p.loading ? '' : avatarSVG(p.look, { size: 52 })}</span>
+  <div class="ranklist">${all.map((p, i) => `<div class="rank ${p.me ? 'me' : ''}" ${p.me || p.loading || p.stranger ? '' : `data-act="friend" data-id="${p.id}"`}><span class="pos">${i + 1}º</span><span class="rav">${p.loading ? '' : avatarSVG(p.look, { size: 52 })}</span>
       <div class="grow"><b>${p.home || ''} ${esc(p.n)}${p.me ? ' (você)' : ''}</b>${p.loading ? '' : `<small>⭐${p.l} · 💳${CARDS[p.c].name} · 🎖️${p.a} · ${G.STATUS[G.statusIdx(p.p || 0)].icon}${fmt(p.p)}${G.STATUS[G.statusIdx(p.p || 0)].club ? ' · <span class="club">👑 Clube</span>' : ''}</small><small class="${p.online || p.me ? 'up' : ''}">${p.me ? '🟢 você' : p.online ? '🟢 jogando agora' : '⚪ visto ' + ago(p.t)} · ${p.net >= 0 ? '+' : ''}${fmt(p.net || 0)}/dia</small>`}</div>
-      <div class="right"><b>${p.loading ? '…' : money(p.w)}</b>${p.me ? '' : `<button class="lnk" data-act="delfriend" data-id="${p.id}">remover</button>`}</div></div>`).join('')}</div>
+      <div class="right"><b>${p.loading ? '…' : money(p.w)}</b>${p.me ? '' : p.stranger ? (p.tag && !(s.sent || {})[p.id] ? `<button class="lnk" data-act="invitetag" data-tag="${esc(p.tag)}">+ convidar</button>` : (s.sent || {})[p.id] ? '<small class="muted">convidado</small>' : '') : global ? '' : `<button class="lnk" data-act="delfriend" data-id="${p.id}">remover</button>`}</div></div>`).join('')}</div>
+  ${all.length > 6 ? `<small class="muted center rkcount">${all.length} jogadores · role a lista para ver todos ↕️</small>` : ''}
   ${s.friends.length ? '' : '<p class="muted center">Ainda só você aqui! Adicione a família pela tag 👇</p>'}
   ${invitesCard()}${sentCard()}
   ${C.cloud ? '<button class="btn full blue" data-act="friendadd">👥 Adicionar amigo pela tag</button>' : '<p class="muted center">Ranking online disponível quando as contas estiverem ativadas.</p>'}
@@ -1393,6 +1621,7 @@ function liveValue(key) {
     case 'resttime': return s.rested ? dur(s.rested - Date.now()) : '';
     case 'lovetime': return s.love && s.love.act ? '⏱️ ' + dur(s.love.act.end - Date.now()) : '';
     case 'aff': return s.love ? Math.round(s.love.aff) + ' / 100' : '';
+    case 'cdevt': { const c = G.findComp(s, arg); return c && c.dev ? '⏳ ' + dur(c.dev.end - Date.now()) : '✅'; }
     case 'giftcd': { const t = ((s.love || {}).cd || {})[arg] || 0; return t > Date.now() ? '⏳ ' + dur(t - Date.now()) : '✅ pronto'; }
     case 'ccavail': return money(G.ccAvail(s));
     case 'ccclose': return s.cc ? dur(s.cc.nextClose - Date.now()) : '30:00';
@@ -1455,6 +1684,7 @@ function liveWidth(key) {
   const s = C.s;
   if (key === 'xp') { const L = G.level(s); const a = G.xpForLevel(L), b = G.xpForLevel(L + 1); return (s.xp - a) / (b - a); }
   if (key === 'aff') return s.love ? s.love.aff / 100 : 0;
+  if (key.startsWith('cdev:')) { const c = G.findComp(s, key.slice(5)); return c && c.dev ? (Date.now() - c.dev.start) / (c.dev.end - c.dev.start) : 1; }
   if (key === 'trip') { if (!s.trip) return 0; return (Date.now() - s.trip.start) / (s.trip.end - s.trip.start); }
   if (key === 'course') { if (!s.course) return 0; return (Date.now() - s.course.start) / (s.course.end - s.course.start); }
   if (key === 'nextcard') { const n = CARDS[s.cardMax + 1]; if (!n) return 1; const p = CARDS[s.cardMax].min; return (G.netWorth(s, C.mk) - p) / (n.min - p); }
@@ -1483,6 +1713,13 @@ export function onMarketTick() {
   if (ui.tab === 'empresas' && !modalOpen()) { const sc = $('#view').scrollTop; render(); $('#view').scrollTop = sc; }
 }
 export function onEvent() { renderTabs(); if (ui.tab === 'inicio' && !modalOpen()) { const sc = $('#view').scrollTop; render(); $('#view').scrollTop = sc; } }
+let lastCompRender = 0;
+export function onCompanies() {
+  const here = (ui.tab === 'investir' && ui.sub.investir === 'bolsa') || (ui.tab === 'bens' && ui.sub.bens === 'marcas') || (ui.tab === 'empresas' && ui.sub.empresas === 'minhas');
+  if (!here || modalOpen() || Date.now() - lastCompRender < 4000) return;
+  lastCompRender = Date.now();
+  const sc = $('#view').scrollTop; render(); $('#view').scrollTop = sc;
+}
 export function onFriends() { if (((ui.tab === 'perfil' && ui.sub.perfil === 'ranking') || (ui.tab === 'investir' && ui.sub.investir === 'holding')) && !modalOpen()) { const sc = $('#view').scrollTop; render(); $('#view').scrollTop = sc; } }
 export function slowRefresh() {
   document.querySelectorAll('[data-live-html="flow"]').forEach((el) => { el.innerHTML = flowHTML(); });

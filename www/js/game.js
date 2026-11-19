@@ -4,6 +4,7 @@ import { CLOTH, CLOTHES, defaultLook, randomLook, LEGEND, LEGEND_COST } from './
 import {
   DAY_MS, BUSINESSES, BIZ_GROWTH, BIZ_MILESTONES, COURSES, JOBS, PROPERTIES, GOODS, GOOD, ALL_GOODS,
   CARDS, LEVEL_BONUS, TRADE_FEE, LOAN_RATE, RENT_NO_HOME, ASSETS, CRYPTOS, UNLOCKS, SECTORS,
+  SEGMENTS, SEGMENT, STAFF, PRODUCT_TIERS,
   OWN_TIERS, TRIPS, REST_BONUS, REST_HOURS, LOVE_STAGES, DATES, GIFTS, REPEAT_PENALTY, RING_COST, WEDDINGS, NAMES_F, NAMES_M,
 } from './data.js';
 
@@ -77,7 +78,7 @@ export function loveBonus(s) { return s.love && s.love.aff >= 30 ? LOVE_STAGES[s
 export function restBonus(s) { return s.rested && s.rested > Date.now() ? REST_BONUS : 0; }
 export const lifeMult = (s) => 1 + loveBonus(s) + restBonus(s);
 export function vehicleBonus(s) {
-  return [...GOODS.veiculos, ...GOODS.ceumar].filter((g) => s.goods[g.id]).reduce((m, g) => Math.max(m, g.bonus), 0);
+  return [...GOODS.veiculos, ...GOODS.ceumar].filter((g) => s.goods[g.id]).concat(pgoods(s).filter((g) => g.bonus)).reduce((m, g) => Math.max(m, g.bonus), 0);
 }
 // Skin lendária vestida dá bônus no salário
 export const legendBonus = (s) => (s.look && s.look.lend && (s.legends || {})[s.look.lend] && LEGEND[s.look.lend] ? LEGEND[s.look.lend].bonus : 0);
@@ -95,7 +96,7 @@ export function buyLegend(s, id) {
 }
 export function takeOffLegend(s) { if (s.look) s.look.lend = null; return null; }
 export function homeOf(s) {
-  const owned = GOODS.moradia.filter((g) => s.goods[g.id]);
+  const owned = GOODS.moradia.filter((g) => s.goods[g.id]).concat(pgoods(s).filter((g) => g.cat === 'moradia')).sort((a, b) => a.cost - b.cost);
   return owned.length ? owned[owned.length - 1] : null;
 }
 export const styleOf = (s) => Object.keys(s.wardrobe || {}).reduce((t, id) => t + (CLOTH[id] ? CLOTH[id].style : 0), 0) + Object.keys(s.legends || {}).length * 300;
@@ -122,7 +123,10 @@ export function statusOf(s) {
 export const statusRefresh = () => { stCache.t = 0; };
 export const discPrice = (s, cost) => cost * (1 - statusOf(s).disc);
 const loveMult = (s) => (statusOf(s).love ? 1.25 : 1);
-export const prestige = (s) => ALL_GOODS.filter((g) => s.goods[g.id]).reduce((p, g) => p + g.prestige, 0) + styleOf(s) + tripPrestige(s) + (s.love && s.love.wedding ? (WEDDINGS.find((w) => w.id === s.love.wedding) || { prestige: 0 }).prestige : 0);
+// Bens comprados de marcas de outros jogadores (guardam uma cópia dos dados)
+export const pgoods = (s) => Object.values(s.pgoods || {});
+const allOwned = (s) => ALL_GOODS.filter((g) => s.goods[g.id]).concat(pgoods(s));
+export const prestige = (s) => allOwned(s).reduce((p, g) => p + g.prestige, 0) + styleOf(s) + tripPrestige(s) + (s.love && s.love.wedding ? (WEDDINGS.find((w) => w.id === s.love.wedding) || { prestige: 0 }).prestige : 0);
 export function offlineHours(s) {
   const home = homeOf(s);
   return card(s).hours + (home ? home.hours : 0);
@@ -159,11 +163,12 @@ export function incomeBreakdown(s, mk) {
   const cdi = mk.cdi();
   const juros = s.poup * cdi * 0.7 + s.cdb.reduce((t, x) => t + x.amt * fixedRate('cdb', x), 0) * cdi + s.tes.reduce((t, x) => t + x.amt * fixedRate('tes', x), 0) * cdi;
   const moradia = homeOf(s) ? 0 : RENT_NO_HOME;
-  const manut = ALL_GOODS.filter((g) => s.goods[g.id]).reduce((t, g) => t + g.cost * 0.0002, 0);
+  const manut = allOwned(s).reduce((t, g) => t + g.cost * 0.0002, 0);
+  const comp = compIncome(s, mk); // lucro (ou prejuízo) das suas empresas, já sem a parte dos acionistas
   const loan = s.debt * LOAN_RATE;
-  const inc = sal + biz + rent + divs + juros;
-  const exp = moradia + manut + loan;
-  return { sal, salVeh, salLend, biz, rent, divs, juros, moradia, manut, loan, inc, exp, net: inc - exp };
+  const inc = sal + biz + rent + divs + juros + Math.max(0, comp);
+  const exp = moradia + manut + loan + Math.max(0, -comp);
+  return { sal, salVeh, salLend, biz, rent, divs, juros, moradia, manut, loan, comp, inc, exp, net: inc - exp };
 }
 
 export function netWorth(s, mk) {
@@ -177,7 +182,8 @@ export function netWorth(s, mk) {
   // empresas valem 60% do que foi investido
   v += BUSINESSES.reduce((t, b) => t + (s.biz[b.id] ? bizCost(b, 0, s.biz[b.id]) * 0.6 : 0), 0) * (1 - corpFloat(s));
   v += Object.values(s.fport || {}).reduce((t, h) => t + h.q * h.price, 0);
-  v += ALL_GOODS.filter((g) => s.goods[g.id]).reduce((t, g) => t + g.cost * sellRate(g), 0);
+  v += allOwned(s).reduce((t, g) => t + g.cost * sellRate(g), 0);
+  v += (s.companies || []).reduce((t, c) => t + c.invested * 0.6 * (1 - c.float), 0);
   return v - s.debt - ccOwed(s);
 }
 export const sellRate = (g) => (g.cat === 'veiculos' || g.cat === 'ceumar' ? 0.6 : g.cat === 'moradia' ? 0.9 : 0.75);
@@ -193,7 +199,7 @@ export function accrue(s, mk, dt) {
   s.cdb.forEach((x) => { x.amt += x.amt * cdi * fixedRate('cdb', x) * days; });
   s.tes.forEach((x) => { x.amt += x.amt * cdi * fixedRate('tes', x) * days; });
   s.debt += s.debt * LOAN_RATE * days;
-  const cashGain = (ib.sal + ib.biz + ib.rent + ib.divs - ib.moradia - ib.manut) * days;
+  const cashGain = (ib.sal + ib.biz + ib.rent + ib.divs + ib.comp - ib.moradia - ib.manut) * days;
   s.cash += cashGain;
   s.stats.earned += Math.max(0, ib.inc) * days;
   s.stats.divs += ib.divs * days;
@@ -506,8 +512,12 @@ export const ACHIEVEMENTS = [
   { id: 'jackpot', icon: '7️⃣', name: 'JACKPOT!', desc: 'Tire 7️⃣7️⃣7️⃣ no caça-níquel', test: (s) => !!s.casino && !!s.casino.jackpot },
   { id: 'sortudo', icon: '🍀', name: 'Sortudo', desc: 'Ganhe 30x a aposta numa jogada', test: (s) => !!s.casino && s.casino.bestMult >= 30 },
   { id: 'cartao1', icon: '💳', name: 'Passa no crédito', desc: 'Faça uma compra no cartão', test: (s) => (s.stats.cardUse || 0) >= 1 },
-  { id: 'fundador', icon: '🏢', name: 'Fundador(a)', desc: 'Funde sua própria empresa', test: (s) => !!s.corp },
-  { id: 'ipo', icon: '🔔', name: 'Toque do sino', desc: 'Abra o capital da sua empresa na bolsa', test: (s) => !!s.corp && !!s.corp.ipoAt },
+  { id: 'fundador', icon: '🏢', name: 'Fundador(a)', desc: 'Funde sua própria empresa', test: (s) => !!s.corp || (s.companies || []).length >= 1 },
+  { id: 'ipo', icon: '🔔', name: 'Toque do sino', desc: 'Abra o capital da sua empresa na bolsa', test: (s) => (!!s.corp && !!s.corp.ipoAt) || (s.companies || []).some((c) => c.ipoAt) },
+  { id: 'empresario', icon: '🏭', name: 'Empreendedor(a)', desc: 'Crie uma empresa num segmento', test: (s) => (s.companies || []).length >= 1 },
+  { id: 'lancamento', icon: '🚀', name: 'Lançamento!', desc: 'Lance um produto da sua empresa', test: (s) => (s.companies || []).some((c) => c.products.length) },
+  { id: 'conglomerado', icon: '🌐', name: 'Conglomerado', desc: 'Tenha 3 empresas ao mesmo tempo', test: (s) => (s.companies || []).length >= 3 },
+  { id: 'vendeu_jogador', icon: '🛒', name: 'Marca famosa', desc: 'Venda um produto para outro jogador', test: (s) => (s.stats.pSales || 0) >= 1 },
   { id: 'socio_familia', icon: '🤝', name: 'Sócio(a) da família', desc: 'Compre ações da empresa de um amigo', test: (s) => Object.keys(s.fport || {}).length >= 1 },
   { id: 'precavido', icon: '🛡️', name: 'Precavido(a)', desc: 'Tenha 3 seguros ao mesmo tempo', test: (s) => Object.keys(s.ins || {}).length >= 3 },
   { id: 'salvo_seguro', icon: '☂️', name: 'Salvo pelo seguro', desc: 'Economize R$ 100 mil com seguros', test: (s) => (s.stats.insSaved || 0) >= 1e5 },
@@ -725,6 +735,10 @@ export function ensureLife(s) {
   s.wardrobe = s.wardrobe || {};
   for (const c of CLOTHES) if (c.cost === 0) s.wardrobe[c.id] = 1;
   s.trips = s.trips || {};
+  s.companies = s.companies || [];
+  s.pgoods = s.pgoods || {};
+  // Ações antigas das holdings dos amigos eram guardadas pelo id do amigo; agora pelo id da empresa
+  for (const k of Object.keys(s.fport || {})) if (!k.includes('_')) { s.fport[k + '_h'] = s.fport[k]; delete s.fport[k]; }
   if (s.love === undefined) s.love = null;
   return s;
 }
@@ -988,7 +1002,7 @@ export function tradeFriendCorp(s, uid, corp, qty, side) {
   return { profit: recv - avg * qty };
 }
 // Dividendos das empresas da família: sua fatia do lucro diário dos negócios do dono
-export const familyDivs = (s) => Object.values(s.fport || {}).reduce((t, h) => t + (h.q / CORP.shares) * (h.profit || 0), 0);
+export const familyDivs = (s) => Object.values(s.fport || {}).reduce((t, h) => t + (h.q / CORP.shares) * Math.max(0, h.profit || 0), 0);
 
 // ---------- Seguros ----------
 // Cada seguro tem plano básico (cobre 50%) ou completo (cobre 100% e mais situações).
@@ -1073,4 +1087,203 @@ function applyInsurance(s, e) {
   if (m.bonus && c === 1) { e.fx = { ...(e.fx || {}), cash: (e.fx && e.fx.cash) || Math.round((e.payOrig || 0) * 0.5) }; e.gain = e.fx.cash; }
   e.covered = c;
   return e;
+}
+
+// ---------- Empresas criadas pelos jogadores ----------
+export const COMP = { shares: 1e7, pe: 400, maxFloat: 0.49, fee: 0.005, foundK: 50000, devMult: 150, minLevel: 8, margin: 0.2, versionCost: 0.4, versionTime: 0.5 };
+const STAFF_MAP = Object.fromEntries(STAFF.map((r) => [r.id, r]));
+const MGMT = { ceo: 0.3, diretor: 0.15, gerente: 0.08, operador: 0.08 };
+const EXTRA_COMP = { gerente: 1, operador: 1, diretor: 2, ceo: 4 };
+export const maxCompanies = (s) => 1 + (EXTRA_COMP[s.job] || 0) + (statusOf(s).idx >= 4 ? 1 : 0);
+export const mgmtMult = (s) => 1 + (MGMT[s.job] || 0) + (s.edu.includes('mba') ? 0.05 : 0);
+export const foundCost = (seg) => COMP.foundK * seg.k;
+export const devCost = (seg, tier, version) => PRODUCT_TIERS[tier].rev * seg.k * COMP.devMult * (version ? COMP.versionCost : 1);
+export const devMins = (c, tier, version) => (PRODUCT_TIERS[tier].mins * (version ? COMP.versionTime : 1)) / (1 + 0.15 * (c.staff.pd || 0));
+// Novidade do produto: lançamento dá +50% (some em 60 dias); depois de 240 dias vai envelhecendo até a metade
+export function freshness(p, now = Date.now()) {
+  const d = (now - p.launched) / DAY_MS;
+  if (d < 60) return 1.5 - (0.5 * d) / 60;
+  if (d < 240) return 1;
+  return Math.max(0.5, 1 - (0.5 * (d - 240)) / 1200);
+}
+const topTier = (c) => c.products.reduce((m, p) => Math.max(m, p.tier), 0);
+export const wageOf = (c, role) => STAFF_MAP[role].pct * PRODUCT_TIERS[topTier(c)].rev * SEGMENT[c.seg].k;
+export function staffCap(c, role) {
+  const n = c.products.length;
+  return role === 'prod' ? 300 : role === 'pd' ? 10 : role === 'vendas' ? Math.max(2, 4 * n) : Math.max(1, 3 * n);
+}
+export function compStats(s, c, mk) {
+  const seg = SEGMENT[c.seg], st = c.staff;
+  const now = Date.now();
+  const base = c.products.reduce((t, p) => t + PRODUCT_TIERS[p.tier].rev * seg.k * freshness(p, now), 0);
+  const need = c.products.reduce((t, p) => t + PRODUCT_TIERS[p.tier].need, 0);
+  const cap = need ? Math.min(1, (st.prod || 0) / need) : 0;
+  const boost = (1 + 0.05 * (st.vendas || 0)) * (1 + 0.04 * (st.mkt || 0));
+  const clima = SECTOR_MULT[mk.sectorNow(seg.sector)];
+  const mg = mgmtMult(s);
+  const rev = base * cap * boost * clima * mg;
+  const cost = STAFF.reduce((t, r) => t + (st[r.id] || 0) * wageOf(c, r.id), 0);
+  return { rev, cost, profit: rev - cost, base, need, cap, boost, clima, mg };
+}
+// O que vai para o dono: lucro × parte que ele controla (prejuízo fica todo com o dono)
+export const compOwnerIncome = (s, c, mk) => { const p = compStats(s, c, mk).profit; return p > 0 ? p * (1 - c.float) : p; };
+export const compIncome = (s, mk) => (s.companies || []).reduce((t, c) => t + compOwnerIncome(s, c, mk), 0);
+export const compPrice = (s, c, mk) => Math.max(0.01, (Math.max(0, compStats(s, c, mk).profit) * COMP.pe) / COMP.shares);
+export const findComp = (s, id) => (s.companies || []).find((c) => c.id === id);
+
+export function foundCompany(s, segId, name, ticker, taken = []) {
+  const seg = SEGMENT[segId]; if (!seg) return 'Escolha um segmento';
+  if (level(s) < COMP.minLevel) return `Precisa do nível ${COMP.minLevel}`;
+  s.companies = s.companies || [];
+  if (s.companies.length >= maxCompanies(s)) return `Seu limite é ${maxCompanies(s)} empresa(s). Cargos de gestão (Gerente, Diretor, CEO) e o status Lenda liberam mais.`;
+  name = (name || '').trim().slice(0, 22);
+  ticker = (ticker || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4);
+  if (name.length < 3) return 'Escolha um nome com pelo menos 3 letras';
+  if (ticker.length !== 4) return 'O código na bolsa precisa de 4 letras';
+  const mine = s.companies.map((c) => c.ticker).concat(s.corp ? [s.corp.ticker] : []);
+  if (mine.includes(ticker + '3') || taken.includes(ticker + '3')) return 'Esse código já existe na bolsa. Escolha outro.';
+  const cost = foundCost(seg);
+  const e = spend(s, cost); if (e) return e;
+  const id = Math.random().toString(36).slice(2, 8);
+  s.companies.push({ id, name, ticker: ticker + '3', seg: segId, founded: Date.now(), staff: { prod: 0, vendas: 0, mkt: 0, pd: 0 }, products: [], dev: null, float: 0, invested: cost, sales: 0 });
+  addXP(s, 150);
+  return { id };
+}
+export function hire(s, id, role, n) {
+  const c = findComp(s, id); if (!c) return 'Empresa não encontrada';
+  const cur = c.staff[role] || 0, cap = staffCap(c, role);
+  if (n > 0 && cur >= cap) return role === 'prod' || role === 'pd' ? 'Limite de vagas atingido' : 'Lance mais produtos para abrir mais vagas';
+  c.staff[role] = Math.max(0, Math.min(cap, cur + n));
+  return null;
+}
+export function canDev(c, tier) {
+  if (c.dev) return 'Já tem um projeto em desenvolvimento';
+  if (c.products.some((p) => p.tier === tier)) return 'Produto já lançado';
+  if (tier > 0 && !c.products.some((p) => p.tier === tier - 1)) return 'Lance o produto anterior primeiro';
+  if ((c.staff.pd || 0) < PRODUCT_TIERS[tier].pd) return `Precisa de ${PRODUCT_TIERS[tier].pd} pesquisador(es) de P&D`;
+  return null;
+}
+export function startDev(s, id, tier, model) {
+  const c = findComp(s, id); if (!c) return 'Empresa não encontrada';
+  const why = canDev(c, tier); if (why) return why;
+  model = (model || '').trim().slice(0, 18);
+  if (model.length < 2) return 'Dê um nome ao produto';
+  const cost = devCost(SEGMENT[c.seg], tier);
+  const e = spend(s, cost); if (e) return e;
+  c.invested += cost;
+  c.dev = { tier, model, start: Date.now(), end: Date.now() + devMins(c, tier) * 60_000 };
+  addXP(s, 20 + tier * 15);
+  return null;
+}
+export function newVersion(s, id, tier) {
+  const c = findComp(s, id); if (!c) return 'Empresa não encontrada';
+  if (c.dev) return 'Já tem um projeto em desenvolvimento';
+  const p = c.products.find((x) => x.tier === tier); if (!p) return 'Produto não encontrado';
+  const cost = devCost(SEGMENT[c.seg], tier, true);
+  const e = spend(s, cost); if (e) return e;
+  c.invested += cost * 0.5;
+  c.dev = { tier, model: p.model, version: true, start: Date.now(), end: Date.now() + devMins(c, tier, true) * 60_000 };
+  return null;
+}
+// Termina desenvolvimentos prontos. Retorna a lista do que foi lançado.
+export function compTick(s) {
+  const out = [];
+  for (const c of s.companies || []) {
+    if (!c.dev || Date.now() < c.dev.end) continue;
+    const d = c.dev; c.dev = null;
+    const kind = SEGMENT[c.seg].products[d.tier];
+    if (d.version) { const p = c.products.find((x) => x.tier === d.tier); if (p) { p.v = (p.v || 1) + 1; p.launched = Date.now(); out.push({ c, p, kind, version: true }); } }
+    else { const p = { tier: d.tier, model: d.model, launched: Date.now(), v: 1 }; c.products.push(p); c.products.sort((a, b) => a.tier - b.tier); addXP(s, 40 + d.tier * 30); out.push({ c, p, kind }); }
+  }
+  return out;
+}
+export function compIpo(s, mk, id, pct) {
+  const c = findComp(s, id); if (!c) return 'Empresa não encontrada';
+  if (!c.products.length) return 'Lance pelo menos um produto antes de abrir o capital';
+  if (!(pct > 0) || c.float + pct > COMP.maxFloat + 1e-9) return `Você pode vender no máximo ${Math.round(COMP.maxFloat * 100)}% (para continuar no controle)`;
+  const got = pct * COMP.shares * compPrice(s, c, mk) * (1 - COMP.fee * 4);
+  c.float += pct; c.ipoAt = c.ipoAt || Date.now();
+  s.cash += got;
+  s.stats.ipoCash = (s.stats.ipoCash || 0) + got;
+  addXP(s, 100);
+  return { got };
+}
+// Recompra só as ações que estão "soltas" no mercado (as que outros jogadores têm não dá)
+export function compBuyback(s, mk, id, pct, heldByOthers = 0) {
+  const c = findComp(s, id); if (!c || c.float <= 0) return 'Não há ações no mercado para recomprar';
+  const free = c.float - heldByOthers / COMP.shares;
+  if (free <= 1e-9) return 'Todas as ações no mercado estão com outros jogadores';
+  pct = Math.min(pct, free);
+  const cost = pct * COMP.shares * compPrice(s, c, mk) * (1 + COMP.fee * 4);
+  const e = spend(s, cost); if (e) return e;
+  c.float -= pct; if (c.float < 1e-9) c.float = 0;
+  return { cost, pct };
+}
+export function closeCompany(s, id) {
+  const c = findComp(s, id); if (!c) return 'Empresa não encontrada';
+  if (c.float > 0) return 'Recompre todas as ações da bolsa antes de fechar';
+  s.cash += c.invested * 0.5;
+  s.companies = s.companies.filter((x) => x !== c);
+  return { got: c.invested * 0.5 };
+}
+// Dados públicos que vão para a bolsa (todos os jogadores veem)
+export function compPublic(s, c, mk) {
+  const seg = SEGMENT[c.seg];
+  const st = compStats(s, c, mk);
+  return {
+    name: c.name, ticker: c.ticker, seg: c.seg, float: c.float, shares: COMP.shares, price: compPrice(s, c, mk), profit: st.profit, founded: c.founded,
+    products: seg.cat ? c.products.map((p) => { const k = seg.products[p.tier]; return { tier: p.tier, model: p.model, kind: k.name, icon: k.icon, cat: seg.cat, price: k.price, prestige: k.prestige, bonus: k.bonus || 0, hours: k.hours || 0 }; }) : [],
+    nprod: c.products.length,
+  };
+}
+// Holding antiga (reúne os negócios) também aparece na bolsa
+export function holdingPublic(s, mk) {
+  return { name: s.corp.name, ticker: s.corp.ticker, seg: 'holding', float: s.corp.float, shares: COMP.shares, price: corpPrice(s, mk), profit: grossBizProfit(s, mk), founded: s.corp.founded, products: [], nprod: 0 };
+}
+// ----- Ações de empresas de outros jogadores (doc = dados públicos + id) -----
+export function syncHolding(s, doc) {
+  const h = (s.fport || {})[doc.id];
+  if (h) Object.assign(h, { price: doc.price, profit: doc.profit, float: doc.float, name: doc.name, ticker: doc.ticker });
+}
+export function tradeCompany(s, doc, qty, side, heldByOthers = 0) {
+  qty = Math.floor(qty);
+  if (!(qty >= 1)) return 'Quantidade inválida';
+  s.fport = s.fport || {};
+  const h = s.fport[doc.id] || (s.fport[doc.id] = { q: 0, cost: 0 });
+  Object.assign(h, { price: doc.price, profit: doc.profit, float: doc.float, name: doc.name, ticker: doc.ticker });
+  if (side === 'buy') {
+    const free = Math.floor(COMP.shares * doc.float) - heldByOthers - h.q;
+    if (qty > free) { if (!h.q) delete s.fport[doc.id]; return free > 0 ? `Só tem ${free.toLocaleString('pt-BR')} ações disponíveis no mercado` : 'Não há ações disponíveis no mercado agora'; }
+    const total = qty * doc.price * (1 + COMP.fee);
+    const e = spend(s, total); if (e) { if (!h.q) delete s.fport[doc.id]; return e; }
+    h.q += qty; h.cost += total;
+    s.stats.trades++;
+    return { q: h.q };
+  }
+  if (qty > h.q) return 'Você não tem tudo isso';
+  const avg = h.cost / h.q;
+  const recv = qty * doc.price * (1 - COMP.fee);
+  h.cost -= avg * qty; h.q -= qty;
+  s.cash += recv;
+  const left = h.q;
+  if (h.q <= 0) delete s.fport[doc.id];
+  s.stats.trades++;
+  return { profit: recv - avg * qty, q: left };
+}
+// ----- Bens das marcas dos jogadores -----
+export const pgoodId = (doc, prod) => `${doc.id}:${prod.tier}`;
+export function buyPlayerGood(s, doc, prod) {
+  const pid = pgoodId(doc, prod);
+  s.pgoods = s.pgoods || {};
+  if (s.pgoods[pid]) return 'Você já tem';
+  const e = shop(s, prod.price); if (e) return e;
+  s.pgoods[pid] = { id: pid, name: `${doc.name} ${prod.model}`, model: prod.model, kind: prod.kind, brand: doc.name, ticker: doc.ticker, seg: doc.seg, icon: prod.icon, cat: prod.cat, cost: prod.price, prestige: prod.prestige, bonus: prod.bonus || 0, hours: prod.hours || 0, comp: doc.id, owner: doc.owner, t: Date.now() };
+  addXP(s, 15 + prod.prestige);
+  return { pid, paid: discPrice(s, prod.price) };
+}
+export function sellPlayerGood(s, pid) {
+  const g = (s.pgoods || {})[pid]; if (!g) return 'Você não tem';
+  delete s.pgoods[pid];
+  s.cash += g.cost * sellRate(g);
+  return null;
 }

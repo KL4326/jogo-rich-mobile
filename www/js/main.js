@@ -5,10 +5,10 @@ import * as UI from './ui.js';
 import { money } from './ui.js';
 import * as Cloud from './cloud.js';
 import * as A from './audio.js';
-import { JOBS, GOODS } from './data.js';
+import { JOBS, GOODS, SEGMENT } from './data.js';
 
 const mk = new Market();
-const ctx = { s: null, mk, afterAction, friends: {}, cloud: Cloud.enabled, uid: null, addFriend, removeFriend, logout, answerEvent, sendPix };
+const ctx = { s: null, mk, afterAction, friends: {}, companies: {}, cloud: Cloud.enabled, uid: null, addFriend, removeFriend, logout, answerEvent, sendPix };
 const $ = (id) => document.getElementById(id);
 const esc = (t) => String(t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -115,7 +115,7 @@ function profileOf(s) {
     corp: s.corp ? { name: s.corp.name, ticker: s.corp.ticker, float: s.corp.float, price: G.corpPrice(s, mk), profit: G.grossBizProfit(s, mk) } : null,
     look: s.look || null, partner: s.love ? { name: s.love.partner.name, look: s.love.partner.look, stage: s.love.stage } : null,
     trips: Object.keys(s.trips || {}).length, ctrl: G.controlled(s), jobName: (JOBS.find((j) => j.id === s.job) || {}).name, jobIcon: (JOBS.find((j) => j.id === s.job) || {}).icon,
-    veh: ([...GOODS.veiculos, ...GOODS.ceumar].filter((g) => s.goods[g.id]).sort((a, b) => a.cost - b.cost).pop() || {}).icon || '',
+    veh: ([...GOODS.veiculos, ...GOODS.ceumar].filter((g) => s.goods[g.id]).concat(G.pgoods(s).filter((g) => g.bonus)).sort((a, b) => a.cost - b.cost).pop() || {}).icon || '',
   };
 }
 let lastPush = 0;
@@ -124,7 +124,77 @@ async function pushCloud() {
   lastPush = Date.now();
   G.save(ctx.s);
   await Cloud.pushSave(ctx.uid, ctx.s, profileOf(ctx.s));
+  pushCompanies().catch(() => {});
 }
+// ---------- Empresas na bolsa (todos os jogadores) ----------
+const compDocId = (c) => `${ctx.uid}_${c.id}`;
+ctx.compDocId = (c) => compDocId(c);
+ctx.holdingDocId = () => `${ctx.uid}_h`;
+async function pushCompanies() {
+  const s = ctx.s;
+  if (!ctx.uid) return;
+  const base = { owner: ctx.uid, ownerName: s.name, updated: Date.now() };
+  const jobs = (s.companies || []).map((c) => Cloud.putCompany(compDocId(c), { ...G.compPublic(s, c, mk), ...base }));
+  if (s.corp) jobs.push(Cloud.putCompany(ctx.holdingDocId(), { ...G.holdingPublic(s, mk), ...base }));
+  // empresas fechadas saem da bolsa
+  for (const [id, d] of Object.entries(ctx.companies)) {
+    if (d.owner !== ctx.uid) continue;
+    const alive = id === ctx.holdingDocId() ? !!s.corp : (s.companies || []).some((c) => compDocId(c) === id);
+    if (!alive) jobs.push(Cloud.delCompany(id));
+  }
+  await Promise.all(jobs);
+}
+ctx.pushCompanies = () => pushCompanies().catch(() => {});
+function watchCompanies() {
+  if (!ctx.uid) return;
+  Cloud.watchCompanies((list) => {
+    if (!list) return;
+    ctx.companies = Object.fromEntries(list.map((d) => [d.id, d]));
+    for (const d of list) {
+      G.syncHolding(ctx.s, d);
+      // ações antigas (de antes da bolsa compartilhada): registra que são suas
+      const h = (ctx.s.fport || {})[d.id];
+      if (h && h.q > 0 && (d.holders || {})[ctx.uid] !== h.q) Cloud.setHolder(d.id, ctx.uid, h.q).catch(() => {});
+    }
+    UI.onCompanies();
+  });
+}
+const heldByOthers = (doc) => Object.entries((doc && doc.holders) || {}).reduce((t, [u, q]) => t + (u === ctx.uid ? 0 : q), 0);
+ctx.heldByOthers = heldByOthers;
+// Compra/venda de ações de empresa de jogador
+ctx.tradeCompany = async (id, qty, side) => {
+  const doc = ctx.companies[id];
+  if (!doc) return 'Empresa não encontrada';
+  const r = G.tradeCompany(ctx.s, doc, qty, side, heldByOthers(doc));
+  if (typeof r === 'string') return r;
+  Cloud.setHolder(id, ctx.uid, r.q).catch(() => {});
+  afterAction();
+  pushCloud().catch(() => {});
+  return r;
+};
+// Comprar um bem da marca de outro jogador: 20% do preço vai para o dono da empresa
+ctx.buyPlayerGood = (id, tier) => {
+  const doc = ctx.companies[id];
+  const prod = doc && (doc.products || []).find((p) => p.tier === tier);
+  if (!prod) return 'Produto não encontrado';
+  const r = G.buyPlayerGood(ctx.s, { ...doc, id }, prod);
+  if (typeof r === 'string') return r;
+  if (doc.owner !== ctx.uid) {
+    const cut = Math.floor(prod.price * G.COMP.margin);
+    Cloud.sendPix(ctx.uid, ctx.s.name, doc.owner, cut, `Venda: ${doc.name} ${prod.model}`.slice(0, 50), { kind: 'sale', comp: id, item: `${prod.kind} ${prod.model}` }).catch(() => {});
+  }
+  afterAction();
+  pushCloud().catch(() => {});
+  return r;
+};
+ctx.compBuyback = (c, pct) => G.compBuyback(ctx.s, mk, c.id, pct, heldByOthers(ctx.companies[compDocId(c)]));
+let topCache = { t: 0, list: null };
+ctx.topPlayers = async () => {
+  if (Date.now() - topCache.t < 60_000 && topCache.list) return topCache.list;
+  const list = await Cloud.topProfiles(50);
+  topCache = { t: Date.now(), list };
+  return list;
+};
 function watchFriends() {
   if (!ctx.uid) return;
   Cloud.watchFriends(ctx.s.friends, (uid, p) => {
@@ -246,6 +316,15 @@ function watchPix() {
     try {
       const t = await Cloud.claimPix(id);
       ctx.s.cash += t.amount;
+      if (t.kind === 'sale') {
+        ctx.s.stats.pSales = (ctx.s.stats.pSales || 0) + 1;
+        const c = (ctx.s.companies || []).find((x) => compDocId(x) === t.comp);
+        if (c) c.sales = (c.sales || 0) + t.amount;
+        UI.toast(`🛒 <b>${esc(t.fromName)}</b> comprou ${esc(t.item || 'um produto')} da sua marca! +${money(t.amount)}`, 'gold');
+        notify('🛒', `<b>${esc(t.fromName)}</b> comprou <b>${esc(t.item || 'um produto')}</b>${c ? ` da ${esc(c.name)}` : ''}: <b class="up">+${money(t.amount)}</b> (sua margem de ${Math.round(G.COMP.margin * 100)}%)`);
+        afterAction(); UI.render(); pushCloud().catch(() => {});
+        return;
+      }
       ctx.s.stats.pixIn = (ctx.s.stats.pixIn || 0) + t.amount;
       const desc = String(t.desc || '').slice(0, 50);
       pixLog(ctx.s, { dir: 'in', name: t.fromName, amount: t.amount, desc, t: Date.now() });
@@ -329,6 +408,12 @@ function tick() {
     else UI.toast('💕 Programa a dois concluído! Carinho aumentou.', 'ok');
     afterAction(); UI.render();
   }
+  for (const r of G.compTick(s)) {
+    const what = `${r.kind.icon} <b>${esc(r.c.name)} ${esc(r.p.model)}</b>`;
+    if (r.version) { notify('🆕', `Nova versão lançada: ${what} (v${r.p.v}). As vendas voltaram a crescer!`); UI.toast(`🆕 Nova versão: ${what}!`, 'gold'); }
+    else { notify('🚀', `Lançamento! ${what} (${r.kind.name}) já está à venda${SEGMENT[r.c.seg].cat ? ' e aparece em 💎 Bens → Marcas para todos os jogadores' : ''}.`); UI.toast(`🚀 Lançamento: ${what}!`, 'gold'); UI.confetti(); }
+    afterAction(); UI.render(); pushCloud().catch(() => {});
+  }
   const insPaid = G.insTick(s, mk);
   if (insPaid) { notify('🛡️', `Mensalidade dos seguros: <b>${money(insPaid)}</b>`); afterAction(); }
   for (const r of G.ccTick(s)) {
@@ -381,6 +466,7 @@ function start(s) {
   watchFriends();
   watchPix();
   watchInvites();
+  watchCompanies();
   // Celular: só carrega o módulo se o jogador tiver um (escuta apenas a lista de conversas)
   if (ctx.cloud && ctx.uid && G.hasPhone(s)) import('./phone.js').then((m) => { ctx.phone = m; m.setup(ctx); m.badge(); }).catch(() => {});
   if (!s.look) UI.openCreator();

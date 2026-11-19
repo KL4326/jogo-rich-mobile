@@ -477,3 +477,51 @@ export const WEDDINGS = [
 ];
 export const NAMES_F = ['Ana', 'Bia', 'Carla', 'Duda', 'Elisa', 'Fernanda', 'Gabi', 'Helena', 'Isa', 'Júlia', 'Larissa', 'Mari', 'Nina', 'Paula', 'Rafa', 'Sofia', 'Taís', 'Vivi', 'Yasmin', 'Lara', 'Clara', 'Bruna'];
 export const NAMES_M = ['Arthur', 'Bruno', 'Caio', 'Davi', 'Enzo', 'Felipe', 'Gui', 'Heitor', 'Igor', 'João', 'Léo', 'Matheus', 'Nico', 'Otávio', 'Pedro', 'Rafa', 'Samuel', 'Theo', 'Vitor', 'Lucas', 'Miguel', 'Diego'];
+
+// ===== Empresas criadas pelos jogadores =====
+// k = escala de dinheiro do segmento (receitas, custos e preços multiplicam por ele).
+// cat = categoria em 💎 Bens onde os produtos aparecem para todos comprarem (null = vende só para o mercado).
+// Nos produtos que viram bens: price/prestige/bonus/hours são o que o comprador paga e ganha.
+export const SEGMENTS = [
+  { id: 'alimentos', name: 'Alimentos', icon: '🍔', sector: 'food', k: 1, cat: null, color: '#ff8a3d', products: [
+    { name: 'Salgadinho', icon: '🍿' }, { name: 'Refrigerante', icon: '🥤' }, { name: 'Chocolate Gourmet', icon: '🍫' }, { name: 'Linha de Congelados', icon: '🧊' }, { name: 'Marca Global de Alimentos', icon: '🌎' }] },
+  { id: 'moda', name: 'Moda', icon: '👗', sector: 'retail', k: 1.5, cat: null, color: '#ff6b9a', products: [
+    { name: 'Camisetas', icon: '👕' }, { name: 'Tênis', icon: '👟' }, { name: 'Jeans de Grife', icon: '👖' }, { name: 'Bolsas de Couro', icon: '👜' }, { name: 'Coleção de Passarela', icon: '💃' }] },
+  { id: 'tech', name: 'Tecnologia', icon: '📱', sector: 'tech', k: 3, cat: 'luxo', color: '#4da3ff', products: [
+    { name: 'Fone sem Fio', icon: '🎧', price: 9000, prestige: 3 }, { name: 'Smartphone', icon: '📱', price: 25000, prestige: 5 }, { name: 'Notebook Gamer', icon: '💻', price: 90000, prestige: 9 },
+    { name: 'Óculos de Realidade Virtual', icon: '🥽', price: 250000, prestige: 15 }, { name: 'Robô Doméstico', icon: '🤖', price: 1.2e6, prestige: 32 }] },
+  { id: 'joias', name: 'Joalheria', icon: '💍', sector: 'retail', k: 3, cat: 'luxo', color: '#c08bff', products: [
+    { name: 'Relógio', icon: '⌚', price: 90000, prestige: 9 }, { name: 'Pulseira de Ouro', icon: '📿', price: 250000, prestige: 15 }, { name: 'Anel de Diamante', icon: '💍', price: 1.2e6, prestige: 32 },
+    { name: 'Colar de Safiras', icon: '💎', price: 4e6, prestige: 58 }, { name: 'Tiara Real', icon: '👑', price: 2.5e7, prestige: 170 }] },
+  { id: 'farma', name: 'Farmacêutica', icon: '💊', sector: 'health', k: 4, cat: null, color: '#3ddc84', products: [
+    { name: 'Vitaminas', icon: '💊' }, { name: 'Xarope', icon: '🧴' }, { name: 'Vacina', icon: '💉' }, { name: 'Remédio Inovador', icon: '🧪' }, { name: 'Cura Revolucionária', icon: '🧬' }] },
+  { id: 'auto', name: 'Montadora', icon: '🚗', sector: 'services', k: 6, cat: 'veiculos', color: '#ff5d73', products: [
+    { name: 'Moto Urbana', icon: '🏍️', price: 45000, prestige: 7, bonus: 0.175 }, { name: 'Carro Compacto', icon: '🚗', price: 130000, prestige: 12, bonus: 0.209 }, { name: 'SUV', icon: '🚙', price: 650000, prestige: 27, bonus: 0.26 },
+    { name: 'Esportivo', icon: '🏎️', price: 4e6, prestige: 70, bonus: 0.318 }, { name: 'Hipercarro', icon: '🏁', price: 3.5e7, prestige: 205, bonus: 0.387 }] },
+  { id: 'construtora', name: 'Construtora', icon: '🏗️', sector: 'realestate', k: 8, cat: 'moradia', color: '#e0a14a', products: [
+    { name: 'Apartamento', icon: '🏢', price: 180000, prestige: 8, hours: 1 }, { name: 'Casa', icon: '🏡', price: 550000, prestige: 19, hours: 2 }, { name: 'Cobertura', icon: '🌆', price: 3e6, prestige: 52, hours: 3 },
+    { name: 'Mansão', icon: '🏰', price: 2e7, prestige: 145, hours: 4 }, { name: 'Condomínio de Luxo', icon: '🏝️', price: 1.2e8, prestige: 360, hours: 5 }] },
+  { id: 'fintech', name: 'Banco Digital', icon: '🏦', sector: 'finance', k: 10, cat: null, color: '#8f6bff', products: [
+    { name: 'Conta Digital', icon: '💳' }, { name: 'Cartão de Crédito', icon: '💳' }, { name: 'Plataforma de Investimentos', icon: '📈' }, { name: 'Seguros', icon: '🛡️' }, { name: 'Super-App Financeiro', icon: '🏦' }] },
+  { id: 'energia', name: 'Energia', icon: '⚡', sector: 'energy', k: 25, cat: null, color: '#ffc93c', products: [
+    { name: 'Painéis Solares', icon: '☀️' }, { name: 'Parque Eólico', icon: '🌬️' }, { name: 'Hidrelétrica', icon: '💧' }, { name: 'Usina de Hidrogênio', icon: '⚗️' }, { name: 'Fusão Nuclear', icon: '⚛️' }] },
+  { id: 'nautica', name: 'Náutica e Aviação', icon: '🛩️', sector: 'services', k: 40, cat: 'ceumar', color: '#2ec4d6', products: [
+    { name: 'Jet Ski', icon: '🌊', price: 90000, prestige: 6, bonus: 0.12 }, { name: 'Lancha', icon: '🚤', price: 1.5e6, prestige: 37, bonus: 0.22 }, { name: 'Helicóptero', icon: '🚁', price: 2.5e7, prestige: 158, bonus: 0.4 },
+    { name: 'Jatinho', icon: '🛩️', price: 1.5e8, prestige: 420, bonus: 0.5 }, { name: 'Iate', icon: '🛥️', price: 6e8, prestige: 945, bonus: 0.55 }] },
+];
+export const SEGMENT = Object.fromEntries(SEGMENTS.map((x) => [x.id, x]));
+// Funcionários: salário por dia = pct × receita-base do produto mais avançado já lançado
+export const STAFF = [
+  { id: 'prod', name: 'Produção', icon: '🏭', pct: 0.015, desc: 'Fabricam os produtos. Sem gente suficiente, a empresa vende menos.' },
+  { id: 'vendas', name: 'Vendas', icon: '🤝', pct: 0.015, desc: '+5% de receita cada (até 4 por produto lançado).' },
+  { id: 'mkt', name: 'Marketing', icon: '📣', pct: 0.02, desc: '+4% de receita cada (até 3 por produto lançado).' },
+  { id: 'pd', name: 'Pesquisa (P&D)', icon: '🧪', pct: 0.03, desc: 'Desenvolvem produtos mais rápido. Produtos avançados exigem pesquisadores.' },
+];
+// Escada de produtos (igual em todo segmento, multiplicada por k)
+export const PRODUCT_TIERS = [
+  { rev: 600, mins: 5, need: 2, pd: 0 },
+  { rev: 3000, mins: 10, need: 4, pd: 1 },
+  { rev: 15000, mins: 20, need: 6, pd: 2 },
+  { rev: 75000, mins: 40, need: 10, pd: 4 },
+  { rev: 400000, mins: 60, need: 15, pd: 6 },
+];

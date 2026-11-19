@@ -104,8 +104,8 @@ export function watchFriends(uids, cb) {
 export const withTimeout = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(Object.assign(new Error('timeout'), { code: 'unavailable' })), ms))]);
 
 // ---------- Pix entre amigos ----------
-export async function sendPix(from, fromName, to, amount, desc = '') {
-  await F.addDoc(F.collection(db, 'transfers'), { from, fromName, to, amount, desc: String(desc || '').slice(0, 50), created: Date.now(), claimed: false });
+export async function sendPix(from, fromName, to, amount, desc = '', extra = {}) {
+  await F.addDoc(F.collection(db, 'transfers'), { ...extra, from, fromName, to, amount, desc: String(desc || '').slice(0, 50), created: Date.now(), claimed: false });
 }
 // Escuta Pix recebidos ainda não resgatados
 export function watchIncoming(uid, cb) {
@@ -164,4 +164,17 @@ export const deleteInvite = (id) => F.deleteDoc(F.doc(db, 'invites', id));
 export function watchInvites(uid, field, cb) {
   const q = F.query(F.collection(db, 'invites'), F.where(field, '==', uid));
   return F.onSnapshot(q, (snap) => cb(snap.docs.map((d) => ({ id: d.id, ...d.data() }))), () => {});
+}
+
+// ---------- Empresas dos jogadores (bolsa compartilhada) ----------
+export const putCompany = (id, data) => F.setDoc(F.doc(db, 'companies', id), data, { merge: true });
+export const delCompany = (id) => F.deleteDoc(F.doc(db, 'companies', id));
+export const setHolder = (id, uid, q) => F.updateDoc(F.doc(db, 'companies', id), { [`holders.${uid}`]: q > 0 ? q : F.deleteField() });
+export function watchCompanies(cb) {
+  return F.onSnapshot(F.collection(db, 'companies'), (snap) => cb(snap.docs.map((d) => ({ id: d.id, ...d.data() }))), (e) => cb(null, e));
+}
+// Ranking geral: os mais ricos do jogo todo (lido sob demanda, não fica escutando)
+export async function topProfiles(n = 50) {
+  const snap = await F.getDocs(F.query(F.collection(db, 'profiles'), F.orderBy('nw', 'desc'), F.limit(n)));
+  return snap.docs.map((d) => ({ uid: d.id, ...d.data() }));
 }
