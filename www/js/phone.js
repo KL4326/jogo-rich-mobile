@@ -220,10 +220,26 @@ async function send(extra = {}) {
 function startFeed() {
   if (!online() || st.offFeed) return;
   st.offFeed = Cloud.watchFeed([C.uid, ...(C.s.friends || [])], (list, err) => {
-    st.feed = list ? list.sort((a, b) => b.created - a.created).slice(0, 60) : null;
-    st.feedErr = err;
-    if (el && app === 'vitrine') { const f = $('.feed'); if (f) f.innerHTML = feedHTML(); }
+    const feed = list ? list.sort((a, b) => b.created - a.created).slice(0, 60) : null;
+    const sig = JSON.stringify(feed) + (err ? 'e' : '');
+    if (sig === st.feedSig) return; // nada mudou (ex.: confirmação do servidor de algo que já estava na tela)
+    st.feedSig = sig; st.feed = feed; st.feedErr = err;
+    if (el && app === 'vitrine') refreshFeed();
   });
+}
+// Atualiza o feed sem apagar o que a pessoa está digitando nos comentários
+function refreshFeed() {
+  const f = $('.feed'); if (!f) return;
+  const vals = {};
+  f.querySelectorAll('input[data-id]').forEach((i) => { if (i.value) vals[i.dataset.id] = i.value; });
+  const a = document.activeElement;
+  const focusId = a && f.contains(a) && a.dataset ? a.dataset.id : null;
+  const sel = focusId ? [a.selectionStart, a.selectionEnd] : null;
+  const scr = $('.pscreen'), top = scr ? scr.scrollTop : 0;
+  f.innerHTML = feedHTML();
+  for (const [id, v] of Object.entries(vals)) { const i = f.querySelector(`input[data-id="${id}"]`); if (i) i.value = v; }
+  if (focusId) { const i = f.querySelector(`input[data-id="${focusId}"]`); if (i) { i.focus({ preventScroll: true }); try { i.setSelectionRange(sel[0], sel[1]); } catch (e) { } } }
+  if (scr) scr.scrollTop = top;
 }
 function vitrine() {
   if (!online()) return needNet('Instantâneo');
