@@ -1072,3 +1072,21 @@ s.old { opacity: .6; font-size: 12px; margin-left: 4px; }
 .legacybox { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; text-align: center; background: #fff8e0; border: 2px solid var(--gold); border-radius: 14px; padding: 8px; margin: 8px 0; }
 .legacybox small { display: block; font-size: 11px; color: var(--ink2); font-weight: 700; }
 .bigmedal { font-size: 54px; margin: 4px 0; text-align: center; }
+/* ===== Criador no ranking ===== */
+.creator { position: relative; display: flex; align-items: center; gap: 10px; margin: 10px 0 14px; padding: 12px 14px 10px 6px; border-radius: 22px; color: #fff; cursor: pointer;
+  background: radial-gradient(circle at 18% 60%, #ffd86b55, transparent 55%), linear-gradient(135deg, #2a1660, #4b2a9e 55%, #1d1452);
+  border: 2px solid #ffd86b; box-shadow: 0 0 0 3px #ffd86b33, 0 0 22px #ffcf4a88, 0 5px 0 #120a38; overflow: hidden; }
+.creator::before { content: ''; position: absolute; inset: -40%; background: conic-gradient(from 0deg, transparent 0 70%, #fff3 80%, transparent 90%); animation: crspin 6s linear infinite; pointer-events: none; }
+@keyframes crspin { to { transform: rotate(360deg); } }
+.crav { position: relative; flex: none; width: 92px; display: flex; justify-content: center; filter: drop-shadow(0 0 10px #ffd86b) drop-shadow(0 0 4px #fff8); }
+.crav::after { content: ''; position: absolute; bottom: -2px; left: 10%; right: 10%; height: 12px; border-radius: 50%; background: radial-gradient(#ffd86b99, transparent 70%); }
+.creator .grow { position: relative; min-width: 0; }
+.crtag { display: inline-block; font-family: var(--display); font-size: 20px; letter-spacing: 2px; color: #ffe27a; text-shadow: 0 0 6px #ffcf4a, 0 0 14px #ffb300, 0 0 26px #ff9f1c; animation: crglow 2s ease-in-out infinite alternate; }
+@keyframes crglow { from { text-shadow: 0 0 4px #ffcf4a, 0 0 10px #ffb300; } to { text-shadow: 0 0 8px #fff2b0, 0 0 18px #ffcf4a, 0 0 32px #ff9f1c; } }
+.crname { display: block; font-size: 18px; margin: 1px 0; }
+.creator small { color: #e6dcff; font-size: 12px; display: block; }
+.crstats { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 6px 0 4px; }
+.crstats > div { background: #ffffff1a; border-radius: 12px; padding: 4px 8px; }
+.crstats b { font-family: var(--display); font-weight: 400; font-size: 16px; color: #fff; }
+.crstats b.up { color: #7dffb2; } .crstats b.down { color: #ff9aa8; }
+.crnote { opacity: .8; }

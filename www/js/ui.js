@@ -459,12 +459,23 @@ function payBar() {
 const dp = (c) => G.discPrice(C.s, c);
 const costBtn = (act, data, cost, label = '') => `<button class="btn gold" data-act="${act}" ${dataAttrs(data)} data-cost="${cost}">${label}<span>${money(cost)}</span></button>`;
 
+// ---------- CRIADOR (destaque no ranking) ----------
+function creatorCard(p, yearMode) {
+  return `<div class="creator" ${p.me ? '' : `data-act="friend" data-id="${p.id}"`}>
+    <div class="crav">${avatarSVG(p.look, { size: 120 })}</div>
+    <div class="grow"><span class="crtag">👑 CRIADOR</span>
+      <b class="crname">${esc(p.n)}${p.me ? ' (você)' : ''}</b>
+      <small>⭐${p.l} · 💳${CARDS[p.c].name} · 🎖️${p.a} · ${G.STATUS[G.statusIdx(p.p || 0)].icon}${fmt(p.p)}</small>
+      <div class="crstats"><div><small>${yearMode ? 'Cresceu no ano' : 'Patrimônio'}</small><b>${yearMode && p.w >= 0 ? '+' : ''}${money(p.w)}</b></div><div><small>Por dia</small><b class="${p.net >= 0 ? 'up' : 'down'}">${p.net >= 0 ? '+' : ''}${fmt(p.net || 0)}</b></div></div>
+      <small class="crnote">${p.me ? '🟢 você' : p.online ? '🟢 jogando agora' : '⚪ visto ' + ago(p.t)} · fora da disputa</small></div></div>`;
+}
+
 // ---------- TEMPORADA (ANO) E RENASCER ----------
 const growOf = (p, yr) => (p.yr === yr ? p.grow : p.lastYr === yr ? p.lastGrow : null);
 function seasonModal() {
   const s = C.s, mk = C.mk, cal = G.calendar();
   const me = { n: s.name + ' (você)', g: G.seasonGrow(s, mk), me: true, look: s.look };
-  const rows = [me, ...s.friends.map((uid) => C.friends[uid]).filter(Boolean).map((p) => ({ n: p.name, g: p.yr === cal.year ? p.grow : 0, look: p.look }))].sort((a, b) => b.g - a.g);
+  const rows = [...(C.uid === G.CREATOR ? [] : [me]), ...s.friends.filter((uid) => uid !== G.CREATOR).map((uid) => C.friends[uid]).filter(Boolean).map((p) => ({ n: p.name, g: p.yr === cal.year ? p.grow : 0, look: p.look }))].sort((a, b) => b.g - a.g);
   const nw = G.netWorth(s, mk), gain = G.rebirthGain(nw), why = G.canRebirth(s, mk);
   const hist = (s.seasonHist || []).slice(0, 6);
   modal(`<h3>📅 Ano ${cal.year} · dia ${cal.day}/365</h3>
@@ -1566,6 +1577,9 @@ function vRanking() {
   const all = global ? (ui.topList || []).map((p) => (p.uid === C.uid ? me : { ...fromProfile(p.uid, p), stranger: !s.friends.includes(p.uid) })) : [me, ...fr].sort((a, b) => b.w - a.w);
   if (global && ui.topList && !all.includes(me)) all.push(me);
   if (global) all.sort((a, b) => b.w - a.w);
+  // O criador do jogo fica num destaque à parte (fora da disputa)
+  const ci = all.findIndex((p) => (p.me ? C.uid : p.id) === G.CREATOR);
+  const creator = ci >= 0 ? all.splice(ci, 1)[0] : null;
   const pod = [all[1], all[0], all[2]];
   const medal = ['🥈', '🥇', '🥉'];
   const cls = ['p2', 'p1', 'p3'];
@@ -1574,6 +1588,7 @@ function vRanking() {
   ${C.cloud ? `<div class="seg2 rkseg">${[['amigos', '👥 Amigos'], ['ano', '📅 Ano'], ['todos', '🌎 Todos']].map(([m, n]) => `<button class="${(ui.rk || 'amigos') === m ? 'on' : ''}" data-act="rkmode" data-m="${m}">${n}</button>`).join('')}</div>` : ''}
   ${global && !ui.topList ? '<p class="muted center">⏳ Carregando o ranking geral…</p>' : ''}
   ${yearMode ? `<p class="hint small" data-act="season">📅 <b>Temporada do Ano ${cy}</b>: vence quem mais crescer até a virada (em <b data-live="yearleft"></b>). Toque para ver prêmios e renascer.</p>` : ''}
+  ${creator && !creator.loading ? creatorCard(creator, yearMode) : ''}
   <div class="podium">${pod.map((p, i) => p && !p.loading ? `<div class="pcol ${cls[i]} ${p.me ? 'me' : ''}"><div class="pav2" ${p.me ? '' : `data-act="friend" data-id="${p.id}"`}>${avatarSVG(p.look, { size: i === 1 ? 110 : 90 })}${p.online || p.me ? '<i class="on"></i>' : ''}</div><b>${esc(p.n)}</b><small>${money(p.w)}</small><div class="pbar"><span>${medal[i]}</span></div></div>` : '<div class="pcol empty"><div class="pbar"></div></div>').join('')}</div>
   <div class="ranklist">${all.map((p, i) => `<div class="rank ${p.me ? 'me' : ''}" ${p.me || p.loading || p.stranger ? '' : `data-act="friend" data-id="${p.id}"`}><span class="pos">${i + 1}º</span><span class="rav">${p.loading ? '' : avatarSVG(p.look, { size: 52 })}</span>
       <div class="grow"><b>${p.home || ''} ${esc(p.n)}${p.me ? ' (você)' : ''}${(p.me ? s.titles : (C.friends[p.id] || {}).titles) ? ` <span class="club">🏆${p.me ? s.titles : C.friends[p.id].titles}</span>` : ''}</b>${p.loading ? '' : `<small>⭐${p.l} · 💳${CARDS[p.c].name} · 🎖️${p.a} · ${G.STATUS[G.statusIdx(p.p || 0)].icon}${fmt(p.p)}${G.STATUS[G.statusIdx(p.p || 0)].club ? ' · <span class="club">👑 Clube</span>' : ''}</small><small class="${p.online || p.me ? 'up' : ''}">${p.me ? '🟢 você' : p.online ? '🟢 jogando agora' : '⚪ visto ' + ago(p.t)} · ${p.net >= 0 ? '+' : ''}${fmt(p.net || 0)}/dia</small>`}</div>

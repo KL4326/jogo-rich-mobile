@@ -1293,6 +1293,8 @@ export function sellPlayerGood(s, pid) {
   return null;
 }
 
+// Criador do jogo: aparece destacado no ranking e fica fora da disputa da temporada
+export const CREATOR = 'XKSi4cIA7HaYsEFpvUvY9cM8bbp1';
 // ---------- Calendário (igual para todos): 1 minuto = 1 dia, 365 dias = 1 ano ----------
 export const YEAR_DAYS = 365;
 // O Ano 1 começou em 19/11/2026 (alinhado ao relógio do mercado)

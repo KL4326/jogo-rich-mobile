@@ -443,7 +443,8 @@ function seasonCheck() {
 }
 function finishSeason({ ended, grow }) {
   const s = ctx.s;
-  const rivals = s.friends.map((uid) => ctx.friends[uid]).filter(Boolean)
+  if (ctx.uid === G.CREATOR) return; // o criador não disputa a temporada
+  const rivals = s.friends.filter((uid) => uid !== G.CREATOR).map((uid) => ctx.friends[uid]).filter(Boolean)
     .map((p) => (p.yr === ended ? p.grow : p.lastYr === ended ? p.lastGrow : null)).filter((g) => g !== null && g !== undefined);
   const place = 1 + rivals.filter((g) => g > grow).length;
   const n = rivals.length + 1;
