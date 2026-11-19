@@ -163,7 +163,7 @@ export class Market {
   // Taxa CDI por dia de jogo (varia a cada 6h)
   cdi() {
     const b6 = Math.floor(this.t / (BLOCK * 6));
-    return 0.0004 + 0.00025 * h32(11, 0, b6);
+    return 0.00025 + 0.00015 * h32(11, 0, b6);
   }
 }
 

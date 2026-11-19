@@ -447,19 +447,28 @@ function offlineProgress() {
   const away = now - s.last;
   if (away < 1000) return;
   const cap = G.offlineHours(s) * 3600_000;
-  const eff = Math.min(away, cap);
-  const before = G.netWorth(s, mk);
-  let left = eff;
-  while (left > 0) { const d = Math.min(left, 60_000); G.accrue(s, mk, d); left -= d; }
+  const counted = Math.min(away, cap);
+  const full = Math.min(counted, G.OFFLINE.fullMins * 60_000);
+  const nw0 = G.netWorth(s, mk);
+  // primeiros minutos: 100%; depois: metade (quem está jogando sempre rende mais)
+  let left = counted;
+  while (left > 0) {
+    const done = counted - left;
+    const d = Math.min(left, 60_000, done < full ? full - done : 60_000);
+    G.accrue(s, mk, d, done < full ? 1 : G.OFFLINE.eff);
+    left -= d;
+  }
+  const nw1 = G.netWorth(s, mk);
   s.last = now;
   mk.update(now);
-  const gain = G.netWorth(s, mk) - before;
+  const renda = nw1 - nw0, mercado = G.netWorth(s, mk) - nw1;
   const h = away / 3600_000;
   if (away < 120_000) return; // ausências curtas: soma em silêncio
   UI.modal(`<div class="celebrate"><h3>👋 Bem-vindo de volta!</h3>
     <p>Você ficou fora por <b>${h >= 1 ? h.toFixed(1) + ' horas' : Math.round(away / 60000) + ' minutos'}</b>.</p>
-    <div class="offgain ${gain >= 0 ? 'up' : 'down'}">${gain >= 0 ? '+' : ''}${money(gain)}</div>
-    <p class="muted">Variação do patrimônio (renda + mercado). ${away > cap ? `Sua renda offline vai até ${G.offlineHours(s)}h — aumente com cartões e moradia.` : ''}</p>
+    <div class="offgain ${renda >= 0 ? 'up' : 'down'}">${renda >= 0 ? '+' : ''}${money(renda)}</div>
+    <p class="muted">Renda enquanto esteve fora${Math.abs(mercado) >= 1 ? ` · Mercado (ações e cripto): <b class="${mercado >= 0 ? 'up' : 'down'}">${mercado >= 0 ? '+' : ''}${money(mercado)}</b>` : ''}</p>
+    <p class="muted small">⏳ Fora do jogo os primeiros ${G.OFFLINE.fullMins} min rendem 100% e o resto rende ${Math.round(G.OFFLINE.eff * 100)}%, por até <b>${G.offlineHours(s)}h</b>${away > cap ? ' (seu limite acabou antes de você voltar)' : ''}. Aumente o limite com cartões e moradia.</p>
     <button class="btn full" data-act="close">Continuar</button></div>`);
 }
 

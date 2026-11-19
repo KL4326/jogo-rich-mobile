@@ -127,9 +127,11 @@ const loveMult = (s) => (statusOf(s).love ? 1.25 : 1);
 export const pgoods = (s) => Object.values(s.pgoods || {});
 const allOwned = (s) => ALL_GOODS.filter((g) => s.goods[g.id]).concat(pgoods(s));
 export const prestige = (s) => (s.bonusPrestige || 0) + allOwned(s).reduce((p, g) => p + g.prestige, 0) + styleOf(s) + tripPrestige(s) + (s.love && s.love.wedding ? (WEDDINGS.find((w) => w.id === s.love.wedding) || { prestige: 0 }).prestige : 0);
+// Tempo fora do jogo: os primeiros minutos rendem 100%, o resto rende metade, até o limite de horas
+export const OFFLINE = { fullMins: 5, eff: 0.5, maxHours: 10 };
 export function offlineHours(s) {
   const home = homeOf(s);
-  return card(s).hours + (home ? home.hours : 0);
+  return Math.min(OFFLINE.maxHours, card(s).hours + (home ? home.hours : 0));
 }
 
 export function bizProfit(s, b, mk) {
@@ -190,16 +192,18 @@ export const sellRate = (g) => (g.cat === 'veiculos' || g.cat === 'ceumar' ? 0.6
 
 // ---------- Simulação ----------
 // Aplica dt milissegundos de economia. Retorna o lucro líquido.
-export function accrue(s, mk, dt) {
-  const days = dt / DAY_MS;
+// eff < 1 = tempo offline (rende menos). Gastos e juros da dívida correm normalmente.
+export function accrue(s, mk, dt, eff = 1) {
+  const real = dt / DAY_MS;
+  const days = real * eff;
   const ib = incomeBreakdown(s, mk);
   const cdi = mk.cdi();
   // juros compõem nas próprias aplicações
   s.poup += s.poup * cdi * 0.7 * days;
   s.cdb.forEach((x) => { x.amt += x.amt * cdi * fixedRate('cdb', x) * days; });
   s.tes.forEach((x) => { x.amt += x.amt * cdi * fixedRate('tes', x) * days; });
-  s.debt += s.debt * LOAN_RATE * days;
-  const cashGain = (ib.sal + ib.biz + ib.rent + ib.divs + ib.comp - ib.moradia - ib.manut) * days;
+  s.debt += s.debt * LOAN_RATE * real;
+  const cashGain = (ib.sal + ib.biz + ib.rent + ib.divs + Math.max(0, ib.comp)) * days - (ib.moradia + ib.manut + Math.max(0, -ib.comp)) * real;
   s.cash += cashGain;
   s.stats.earned += Math.max(0, ib.inc) * days;
   s.stats.divs += ib.divs * days;
