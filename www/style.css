@@ -1056,3 +1056,19 @@ s.old { opacity: .6; font-size: 12px; margin-left: 4px; }
 .cmt small { font-size: 10px; opacity: .55; }
 .pvcompose { position: sticky; bottom: -12px; margin-top: auto; background: #fff; border-top: 1px solid #0001; padding-bottom: 14px; }
 .pscreen.app-pview { background: #fff; }
+/* ===== Calendário / temporada ===== */
+.calbar { display: flex; align-items: center; gap: 10px; background: var(--card); color: var(--ink); border-radius: 16px; padding: 8px 12px; margin: 10px 0 6px; box-shadow: 0 4px 0 var(--edge); cursor: pointer; }
+.calbar .calic { font-size: 24px; }
+.calbar b { font-family: var(--display); font-weight: 400; font-size: 17px; }
+.calbar small { color: var(--ink2); font-size: 12px; }
+.calbar .right { text-align: right; }
+.calbar .right b { font-size: 16px; color: var(--purple); }
+.calbar .bar { margin-top: 3px; }
+.seasonme { text-align: center; background: #f3ecff; border-radius: 14px; padding: 8px; margin: 8px 0; }
+.seasonme small { display: block; color: var(--ink2); font-size: 12px; }
+.seasonme b { font-family: var(--display); font-weight: 400; font-size: 24px; }
+.ranklist.small .rank { padding: 5px 6px; }
+.ranklist.small .rav { width: 30px; height: 40px; }
+.legacybox { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; text-align: center; background: #fff8e0; border: 2px solid var(--gold); border-radius: 14px; padding: 8px; margin: 8px 0; }
+.legacybox small { display: block; font-size: 11px; color: var(--ink2); font-weight: 700; }
+.bigmedal { font-size: 54px; margin: 4px 0; text-align: center; }

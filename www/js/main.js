@@ -115,6 +115,9 @@ function profileOf(s) {
     corp: s.corp ? { name: s.corp.name, ticker: s.corp.ticker, float: s.corp.float, price: G.corpPrice(s, mk), profit: G.grossBizProfit(s, mk) } : null,
     look: s.look || null, partner: s.love ? { name: s.love.partner.name, look: s.love.partner.look, stage: s.love.stage } : null,
     trips: Object.keys(s.trips || {}).length, ctrl: G.controlled(s), jobName: (JOBS.find((j) => j.id === s.job) || {}).name, jobIcon: (JOBS.find((j) => j.id === s.job) || {}).icon,
+    yr: (s.season || {}).year || 0, grow: Math.round(G.seasonGrow(s, mk)),
+    lastYr: (s.lastSeason || {}).year || 0, lastGrow: Math.round((s.lastSeason || {}).grow || 0),
+    titles: s.titles || 0, legacy: G.legacyPts(s),
     veh: ([...GOODS.veiculos, ...GOODS.ceumar].filter((g) => s.goods[g.id]).concat(G.pgoods(s).filter((g) => g.bonus)).sort((a, b) => a.cost - b.cost).pop() || {}).icon || '',
   };
 }
@@ -169,6 +172,15 @@ function watchCompanies() {
   Cloud.watchCompanies((list) => {
     if (!list) return;
     ctx.companies = Object.fromEntries(list.map((d) => [d.id, d]));
+    // Empresa que saiu da bolsa (fechou ou o dono renasceu): suas ações são recompradas pelo último preço
+    for (const [id, h] of Object.entries(ctx.s.fport || {})) {
+      if (ctx.companies[id] || !h.seen) continue;
+      const got = h.q * h.price;
+      ctx.s.cash += got;
+      delete ctx.s.fport[id];
+      notify('🏢', `A <b>${esc(h.name)}</b> saiu da bolsa. Suas ${h.q.toLocaleString('pt-BR')} ações foram recompradas por <b class="up">${money(got)}</b>.`);
+      UI.toast(`🏢 ${esc(h.name)} saiu da bolsa: +${money(got)}`, 'gold');
+    }
     for (const d of list) {
       G.syncHolding(ctx.s, d);
       // ações antigas (de antes da bolsa compartilhada): registra que são suas
@@ -420,6 +432,44 @@ function cardModal(c) {
     <button class="btn full" data-act="close">Show! 😎</button></div>`);
 }
 
+// ---------- Temporada (ano) ----------
+let lastSeasonCheck = 0, pendingSeason = null, startedAt = Date.now();
+function seasonCheck() {
+  const s = ctx.s;
+  const r = G.seasonTick(s, mk);
+  if (r) pendingSeason = r;
+  // espera os perfis dos amigos carregarem para saber a colocação
+  if (pendingSeason && (!ctx.uid || Date.now() - startedAt > 8000)) { const ps = pendingSeason; pendingSeason = null; finishSeason(ps); }
+}
+function finishSeason({ ended, grow }) {
+  const s = ctx.s;
+  const rivals = s.friends.map((uid) => ctx.friends[uid]).filter(Boolean)
+    .map((p) => (p.yr === ended ? p.grow : p.lastYr === ended ? p.lastGrow : null)).filter((g) => g !== null && g !== undefined);
+  const place = 1 + rivals.filter((g) => g > grow).length;
+  const n = rivals.length + 1;
+  let pts = 0;
+  if (n >= 2 && grow > 0 && place <= 3) pts = G.seasonPrize(s, place, ended);
+  const medal = ['🥇', '🥈', '🥉'][place - 1] || '🎖️';
+  notify('🎆', `Fim do <b>Ano ${ended}</b>! Você cresceu <b class="${grow >= 0 ? 'up' : 'down'}">${money(grow)}</b>${n >= 2 ? ` e ficou em <b>${place}º de ${n}</b>` : ''}.${pts ? ` Prêmio: <b>+${pts} de legado</b> (+${pts * 2}% de renda para sempre)!` : ''}`);
+  UI.modal(`<div class="celebrate"><h3>🎆 Feliz Ano ${ended + 1}!</h3>
+    <p>O <b>Ano ${ended}</b> acabou. No ano você cresceu</p>
+    <div class="offgain ${grow >= 0 ? 'up' : 'down'}">${grow >= 0 ? '+' : ''}${money(grow)}</div>
+    ${n >= 2 ? `<p class="bigmedal">${medal}</p><p>Você ficou em <b>${place}º lugar</b> entre ${n} jogadores.</p>` : '<p class="muted">Adicione amigos para disputar a temporada!</p>'}
+    ${pts ? `<p class="up"><b>Prêmio: +${pts} pontos de legado</b> = +${pts * 2}% de renda para sempre${place === 1 ? ' e o título 🏆 Campeão do Ano' : ''}!</p>` : ''}
+    <p class="muted small">Um novo ano começou: todo mundo volta a disputar do zero. Vence quem mais crescer até a próxima virada.</p>
+    <button class="btn full" data-act="close">Bora! 🚀</button></div>`);
+  UI.confetti();
+  afterAction(); UI.render(); pushCloud(true).catch(() => {});
+}
+ctx.rebirth = () => {
+  const r = G.rebirth(ctx.s, mk);
+  if (typeof r === 'string') return r;
+  for (const id of r.sold) Cloud.setHolder(id, ctx.uid, 0).catch(() => {});
+  notify('🔁', `Você renasceu! Ganhou <b>+${r.gain} de legado</b>. Agora sua renda tem <b>+${Math.round((G.legacyMult(ctx.s) - 1) * 100)}%</b> para sempre.`);
+  afterAction(); UI.render(); pushCloud(true).catch(() => {});
+  return r;
+};
+
 let lastLevel = 0;
 function tick() {
   const s = ctx.s;
@@ -432,6 +482,7 @@ function tick() {
   s.last = now;
   if (dt > 0) G.accrue(s, mk, dt);
   if (mk.update(now)) UI.onMarketTick();
+  if (now - lastSeasonCheck > 3000) { lastSeasonCheck = now; seasonCheck(); }
   const done = G.checkCourse(s);
   if (done) { notify('🎓', `Você concluiu o curso <b>${done.name}</b>!`); UI.toast(`🎓 Você concluiu: <b>${done.name}</b>!`, 'gold'); afterAction(); UI.render(); }
   const tr = G.checkTrip(s);

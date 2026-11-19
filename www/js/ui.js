@@ -321,6 +321,8 @@ const handlers = {
   buypgood: (d, el) => { const r = C.buyPlayerGood(d.id, +d.t); if (typeof r === 'string') return toast('⚠️ ' + r, 'err'); burst(el); closeModal(); confetti(); toast('🎉 É seu! Parte do valor foi para a empresa dona da marca.', 'gold'); render(); },
   sellpgood: (d) => { if (act(() => G.sellPlayerGood(C.s, d.id))) { closeModal(); toast('💰 Vendido!', 'ok'); render(); } },
   pgoodold: (d) => confirmBox('Vender este bem? A marca saiu do mercado.', () => { if (act(() => G.sellPlayerGood(C.s, d.id))) { toast('💰 Vendido!', 'ok'); render(); } }),
+  season: () => seasonModal(),
+  rebirth: () => { const s = C.s, gain = G.rebirthGain(G.netWorth(s, C.mk)); confirmBox(`<b>Renascer agora?</b><br>Você perde dinheiro, negócios, investimentos, bens, empresas e cartões, e recomeça com R$ 1.500.<br>Em troca ganha <b>+${gain} de legado</b> = <b>+${gain * 2}% de renda para sempre</b> (total: +${(G.legacyPts(s) + gain) * 2}%).<br><small>Mantém: nível, estudos, profissão, visual, roupas, skins, viagens, amor, troféus e amigos.</small>`, () => { const r = C.rebirth(); if (typeof r === 'string') return toast('⚠️ ' + r, 'err'); closeModal(); confetti(); toast(`🔁 Você renasceu! +${r.gain} de legado`, 'gold'); ui.tab = 'inicio'; render(true); }); },
   rkmode: (d) => { ui.rk = d.m; if (d.m === 'todos') ui.topList = null; render(); },
   invitetag: async (d, el) => { el.disabled = true; const r = await C.addFriend(d.tag); if (r === 'sent') { toast('📨 Convite enviado!', 'ok'); keepScroll(render); } else if (r) toast('⚠️ ' + r, 'err'); else keepScroll(render); },
   fcorp: (d) => openFriendCorp(d.id),
@@ -456,6 +458,28 @@ function payBar() {
 }
 const dp = (c) => G.discPrice(C.s, c);
 const costBtn = (act, data, cost, label = '') => `<button class="btn gold" data-act="${act}" ${dataAttrs(data)} data-cost="${cost}">${label}<span>${money(cost)}</span></button>`;
+
+// ---------- TEMPORADA (ANO) E RENASCER ----------
+const growOf = (p, yr) => (p.yr === yr ? p.grow : p.lastYr === yr ? p.lastGrow : null);
+function seasonModal() {
+  const s = C.s, mk = C.mk, cal = G.calendar();
+  const me = { n: s.name + ' (você)', g: G.seasonGrow(s, mk), me: true, look: s.look };
+  const rows = [me, ...s.friends.map((uid) => C.friends[uid]).filter(Boolean).map((p) => ({ n: p.name, g: p.yr === cal.year ? p.grow : 0, look: p.look }))].sort((a, b) => b.g - a.g);
+  const nw = G.netWorth(s, mk), gain = G.rebirthGain(nw), why = G.canRebirth(s, mk);
+  const hist = (s.seasonHist || []).slice(0, 6);
+  modal(`<h3>📅 Ano ${cal.year} · dia ${cal.day}/365</h3>
+    <p class="muted">O ano vira em <b data-live="yearleft"></b> (1 minuto = 1 dia). Todos os jogadores viram juntos.</p>
+    <div class="seasonme"><small>Você cresceu neste ano</small><b data-live="sgrow"></b></div>
+    <h4>🏁 Ranking do ano (quem mais cresceu)</h4>
+    <div class="ranklist small">${rows.map((r, i) => `<div class="rank ${r.me ? 'me' : ''}"><span class="pos">${['🥇', '🥈', '🥉'][i] || i + 1 + 'º'}</span><span class="rav">${avatarSVG(r.look, { size: 40 })}</span><div class="grow"><b>${esc(r.n)}</b></div><div class="right"><b class="${r.g >= 0 ? 'up' : 'down'}">${r.g >= 0 ? '+' : ''}${money(r.g)}</b></div></div>`).join('')}</div>
+    <p class="hint small">🎁 Na virada: 🥇 +3 de legado e o título 🏆 · 🥈 +2 · 🥉 +1. Cada ponto de legado = <b>+2% de renda para sempre</b>. (Precisa de pelo menos 2 jogadores e crescimento positivo.)</p>
+    <div class="legacybox"><div><small>Seu legado</small><b>⭐ ${G.legacyPts(s)} pts</b></div><div><small>Bônus de renda</small><b class="up">+${Math.round((G.legacyMult(s) - 1) * 100)}%</b></div><div><small>Títulos</small><b>🏆 ${s.titles || 0}</b></div></div>
+    ${hist.length ? `<h4>📜 Anos anteriores</h4>${hist.map((h) => `<div class="fr"><span>Ano ${h.year}${h.place ? ' · ' + (['🥇', '🥈', '🥉'][h.place - 1] || h.place + 'º') : ''}</span><b class="${h.grow >= 0 ? 'up' : 'down'}">${h.grow >= 0 ? '+' : ''}${money(h.grow)}</b></div>`).join('')}` : ''}
+    <h4>🔁 Renascer</h4>
+    <p class="muted small">Recomece a economia do zero e ganhe legado conforme seu patrimônio (mínimo ${money(G.LEGACY.minNW)}, uma vez por ano). Quanto mais rico, mais pontos. Você mantém nível, estudos, profissão, visual, roupas, skins, viagens, amor, troféus e amigos.</p>
+    <div class="fr"><span>Se renascer agora ganha</span><b class="up">+${gain} pts (+${gain * 2}% de renda)</b></div>
+    <button class="btn ${why ? 'ghost' : 'red'} full" data-act="rebirth" ${why ? 'disabled' : ''}>🔁 Renascer${why ? '' : ` (+${gain} de legado)`}</button>${why ? `<small class="muted">${why}</small>` : ''}`);
+}
 
 // ---------- STATUS SOCIAL ----------
 const perksOf = (x) => [x.biz ? `🏭 +${Math.round(x.biz * 100)}% no lucro dos negócios` : '', x.disc ? `🏷️ ${Math.round(x.disc * 100)}% de desconto em bens, roupas, viagens e no amor` : '', x.luck ? '🍀 Mais boas notícias e menos imprevistos' : '', x.love ? '❤️ +25% de carinho em presentes e encontros' : '', x.club ? '👑 Selo do Clube dos Magnatas no ranking' : ''].filter(Boolean);
@@ -991,6 +1015,7 @@ function vInicio() {
   const q = quest();
   return `
   ${scene()}
+  <div class="calbar" data-act="season"><span class="calic">📅</span><div class="grow"><b>Ano <span data-live="year"></span></b> <small>· dia <span data-live="yday"></span>/365</small><div class="bar thin gold"><i data-live-w="year"></i></div></div><div class="right"><small>Vira o ano em</small><b data-live="yearleft"></b></div></div>
   ${buffsLine()}
   <div class="stats3" data-act="flow">
     <div><small>Ganha por dia</small><b class="up" data-live="inc"></b></div>
@@ -1533,6 +1558,9 @@ function vRanking() {
   const fromProfile = (uid, p) => ({ look: p.look, partner: p.partner, n: p.name, w: p.nw, l: p.level, a: p.ach, c: p.card || 0, p: p.prestige, net: p.net, t: p.updated, id: uid, home: p.home, tag: p.tag, online: Date.now() - p.updated < 11 * 60_000 });
   const fr = s.friends.map((uid) => { const p = C.friends[uid]; return p ? fromProfile(uid, p) : { n: 'Carregando…', w: -1, l: 0, a: 0, c: 0, p: 0, id: uid, loading: true }; });
   const global = ui.rk === 'todos' && C.cloud;
+  const yearMode = ui.rk === 'ano';
+  const cy = G.calendar().year;
+  if (yearMode) { me.w = G.seasonGrow(s, C.mk); fr.forEach((f) => { const p = C.friends[f.id]; f.w = p && p.yr === cy ? p.grow || 0 : 0; }); }
   if (global && !ui.topList && !ui.topLoading) { ui.topLoading = true; C.topPlayers().then((l) => { ui.topList = l; ui.topAt = Date.now(); }).catch(() => { ui.topList = []; }).finally(() => { ui.topLoading = false; if (ui.tab === 'perfil' && !modalOpen()) keepScroll(render); }); }
   if (global && ui.topAt && Date.now() - ui.topAt > 60_000 && !ui.topLoading) ui.topList = null;
   const all = global ? (ui.topList || []).map((p) => (p.uid === C.uid ? me : { ...fromProfile(p.uid, p), stranger: !s.friends.includes(p.uid) })) : [me, ...fr].sort((a, b) => b.w - a.w);
@@ -1543,12 +1571,13 @@ function vRanking() {
   const cls = ['p2', 'p1', 'p3'];
   return `
   <div class="mytag"><div><small>Sua tag de amigo</small><b>${C.cloud ? esc(s.tag || 'gerando…') : 'offline'}</b></div><button class="btn sm" data-act="copytag">Copiar</button></div>
-  ${C.cloud ? `<div class="seg2 rkseg">${[['amigos', '👥 Amigos'], ['todos', '🌎 Todos os jogadores']].map(([m, n]) => `<button class="${(ui.rk || 'amigos') === m ? 'on' : ''}" data-act="rkmode" data-m="${m}">${n}</button>`).join('')}</div>` : ''}
+  ${C.cloud ? `<div class="seg2 rkseg">${[['amigos', '👥 Amigos'], ['ano', '📅 Ano'], ['todos', '🌎 Todos']].map(([m, n]) => `<button class="${(ui.rk || 'amigos') === m ? 'on' : ''}" data-act="rkmode" data-m="${m}">${n}</button>`).join('')}</div>` : ''}
   ${global && !ui.topList ? '<p class="muted center">⏳ Carregando o ranking geral…</p>' : ''}
+  ${yearMode ? `<p class="hint small" data-act="season">📅 <b>Temporada do Ano ${cy}</b>: vence quem mais crescer até a virada (em <b data-live="yearleft"></b>). Toque para ver prêmios e renascer.</p>` : ''}
   <div class="podium">${pod.map((p, i) => p && !p.loading ? `<div class="pcol ${cls[i]} ${p.me ? 'me' : ''}"><div class="pav2" ${p.me ? '' : `data-act="friend" data-id="${p.id}"`}>${avatarSVG(p.look, { size: i === 1 ? 110 : 90 })}${p.online || p.me ? '<i class="on"></i>' : ''}</div><b>${esc(p.n)}</b><small>${money(p.w)}</small><div class="pbar"><span>${medal[i]}</span></div></div>` : '<div class="pcol empty"><div class="pbar"></div></div>').join('')}</div>
   <div class="ranklist">${all.map((p, i) => `<div class="rank ${p.me ? 'me' : ''}" ${p.me || p.loading || p.stranger ? '' : `data-act="friend" data-id="${p.id}"`}><span class="pos">${i + 1}º</span><span class="rav">${p.loading ? '' : avatarSVG(p.look, { size: 52 })}</span>
-      <div class="grow"><b>${p.home || ''} ${esc(p.n)}${p.me ? ' (você)' : ''}</b>${p.loading ? '' : `<small>⭐${p.l} · 💳${CARDS[p.c].name} · 🎖️${p.a} · ${G.STATUS[G.statusIdx(p.p || 0)].icon}${fmt(p.p)}${G.STATUS[G.statusIdx(p.p || 0)].club ? ' · <span class="club">👑 Clube</span>' : ''}</small><small class="${p.online || p.me ? 'up' : ''}">${p.me ? '🟢 você' : p.online ? '🟢 jogando agora' : '⚪ visto ' + ago(p.t)} · ${p.net >= 0 ? '+' : ''}${fmt(p.net || 0)}/dia</small>`}</div>
-      <div class="right"><b>${p.loading ? '…' : money(p.w)}</b>${p.me ? '' : p.stranger ? (p.tag && !(s.sent || {})[p.id] ? `<button class="lnk" data-act="invitetag" data-tag="${esc(p.tag)}">+ convidar</button>` : (s.sent || {})[p.id] ? '<small class="muted">convidado</small>' : '') : global ? '' : `<button class="lnk" data-act="delfriend" data-id="${p.id}">remover</button>`}</div></div>`).join('')}</div>
+      <div class="grow"><b>${p.home || ''} ${esc(p.n)}${p.me ? ' (você)' : ''}${(p.me ? s.titles : (C.friends[p.id] || {}).titles) ? ` <span class="club">🏆${p.me ? s.titles : C.friends[p.id].titles}</span>` : ''}</b>${p.loading ? '' : `<small>⭐${p.l} · 💳${CARDS[p.c].name} · 🎖️${p.a} · ${G.STATUS[G.statusIdx(p.p || 0)].icon}${fmt(p.p)}${G.STATUS[G.statusIdx(p.p || 0)].club ? ' · <span class="club">👑 Clube</span>' : ''}</small><small class="${p.online || p.me ? 'up' : ''}">${p.me ? '🟢 você' : p.online ? '🟢 jogando agora' : '⚪ visto ' + ago(p.t)} · ${p.net >= 0 ? '+' : ''}${fmt(p.net || 0)}/dia</small>`}</div>
+      <div class="right"><b class="${yearMode ? (p.w >= 0 ? 'up' : 'down') : ''}">${p.loading ? '…' : (yearMode && p.w >= 0 ? '+' : '') + money(p.w)}</b>${p.me ? '' : p.stranger ? (p.tag && !(s.sent || {})[p.id] ? `<button class="lnk" data-act="invitetag" data-tag="${esc(p.tag)}">+ convidar</button>` : (s.sent || {})[p.id] ? '<small class="muted">convidado</small>' : '') : global ? '' : `<button class="lnk" data-act="delfriend" data-id="${p.id}">remover</button>`}</div></div>`).join('')}</div>
   ${all.length > 6 ? `<small class="muted center rkcount">${all.length} jogadores · role a lista para ver todos ↕️</small>` : ''}
   ${s.friends.length ? '' : '<p class="muted center">Ainda só você aqui! Adicione a família pela tag 👇</p>'}
   ${invitesCard()}${sentCard()}
@@ -1626,6 +1655,10 @@ function liveValue(key) {
     case 'lovetime': return s.love && s.love.act ? '⏱️ ' + dur(s.love.act.end - Date.now()) : '';
     case 'aff': return s.love ? Math.round(s.love.aff) + ' / 100' : '';
     case 'cdevt': { const c = G.findComp(s, arg); return c && c.dev ? '⏳ ' + dur(c.dev.end - Date.now()) : '✅'; }
+    case 'year': return G.calendar().year;
+    case 'yday': return G.calendar().day;
+    case 'yearleft': return dur(G.calendar().next - Date.now());
+    case 'sgrow': { const g = G.seasonGrow(s, mk); return { t: (g >= 0 ? '+' : '') + money(g), c: g >= 0 ? 'up' : 'down' }; }
     case 'giftcd': { const t = ((s.love || {}).cd || {})[arg] || 0; return t > Date.now() ? '⏳ ' + dur(t - Date.now()) : '✅ pronto'; }
     case 'ccavail': return money(G.ccAvail(s));
     case 'ccclose': return s.cc ? dur(s.cc.nextClose - Date.now()) : '30:00';
@@ -1688,6 +1721,7 @@ function liveWidth(key) {
   const s = C.s;
   if (key === 'xp') { const L = G.level(s); const a = G.xpForLevel(L), b = G.xpForLevel(L + 1); return (s.xp - a) / (b - a); }
   if (key === 'aff') return s.love ? s.love.aff / 100 : 0;
+  if (key === 'year') return (G.calendar().day - 1 + (Date.now() % DAY_MS) / DAY_MS) / 365;
   if (key.startsWith('cdev:')) { const c = G.findComp(s, key.slice(5)); return c && c.dev ? (Date.now() - c.dev.start) / (c.dev.end - c.dev.start) : 1; }
   if (key === 'trip') { if (!s.trip) return 0; return (Date.now() - s.trip.start) / (s.trip.end - s.trip.start); }
   if (key === 'course') { if (!s.course) return 0; return (Date.now() - s.course.start) / (s.course.end - s.course.start); }

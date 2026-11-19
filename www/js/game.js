@@ -1,5 +1,5 @@
 // ===== Estado do jogador, economia e ações =====
-import { regime, BLOCK } from './market.js';
+import { regime, BLOCK, EPOCH } from './market.js';
 import { CLOTH, CLOTHES, defaultLook, randomLook, LEGEND, LEGEND_COST } from './avatar.js';
 import {
   DAY_MS, BUSINESSES, BIZ_GROWTH, BIZ_MILESTONES, COURSES, JOBS, PROPERTIES, GOODS, GOOD, ALL_GOODS,
@@ -72,7 +72,7 @@ export const nextMilestone = (lvl) => BIZ_MILESTONES.find((m) => lvl < m);
 export const SECTOR_MULT = { 1: 1.3, 0: 1, '-1': 0.75 };
 
 export function card(s) { return CARDS[s.cardMax]; }
-export const levelMult = (s) => (1 + LEVEL_BONUS * (level(s) - 1)) * lifeMult(s);
+export const levelMult = (s) => (1 + LEVEL_BONUS * (level(s) - 1)) * lifeMult(s) * legacyMult(s);
 // Felicidade: relacionamento (se o carinho estiver bom) + descanso pós-viagem
 export function loveBonus(s) { return s.love && s.love.aff >= 30 ? LOVE_STAGES[s.love.stage].bonus : 0; }
 export function restBonus(s) { return s.rested && s.rested > Date.now() ? REST_BONUS : 0; }
@@ -1125,7 +1125,7 @@ export function compStats(s, c, mk) {
   const boost = (1 + 0.05 * (st.vendas || 0)) * (1 + 0.04 * (st.mkt || 0));
   const clima = SECTOR_MULT[mk.sectorNow(seg.sector)];
   const mg = mgmtMult(s);
-  const rev = base * cap * boost * clima * mg;
+  const rev = base * cap * boost * clima * mg * legacyMult(s);
   const cost = STAFF.reduce((t, r) => t + (st[r.id] || 0) * wageOf(c, r.id), 0);
   return { rev, cost, profit: rev - cost, base, need, cap, boost, clima, mg };
 }
@@ -1248,7 +1248,7 @@ export function holdingPublic(s, mk) {
 // ----- Ações de empresas de outros jogadores (doc = dados públicos + id) -----
 export function syncHolding(s, doc) {
   const h = (s.fport || {})[doc.id];
-  if (h) Object.assign(h, { price: doc.price, profit: doc.profit, float: doc.float, name: doc.name, ticker: doc.ticker });
+  if (h) Object.assign(h, { price: doc.price, profit: doc.profit, float: doc.float, name: doc.name, ticker: doc.ticker, seen: true });
 }
 export function tradeCompany(s, doc, qty, side, heldByOthers = 0) {
   qty = Math.floor(qty);
@@ -1291,4 +1291,66 @@ export function sellPlayerGood(s, pid) {
   delete s.pgoods[pid];
   s.cash += g.cost * sellRate(g);
   return null;
+}
+
+// ---------- Calendário (igual para todos): 1 minuto = 1 dia, 365 dias = 1 ano ----------
+export const YEAR_DAYS = 365;
+// O Ano 1 começou em 19/11/2026 (alinhado ao relógio do mercado)
+const CAL_EPOCH = EPOCH + 74 * YEAR_DAYS * DAY_MS;
+export function calendar(now = Date.now()) {
+  const d = Math.max(0, Math.floor((now - CAL_EPOCH) / DAY_MS));
+  const year = Math.floor(d / YEAR_DAYS) + 1;
+  return { year, day: (d % YEAR_DAYS) + 1, next: CAL_EPOCH + year * YEAR_DAYS * DAY_MS };
+}
+// ---------- Legado: bônus permanente de renda (renascer e prêmios de temporada) ----------
+export const LEGACY = { perPt: 0.02, minNW: 1e8 };
+export const legacyPts = (s) => (s.legacy || {}).pts || 0;
+export const legacyMult = (s) => 1 + LEGACY.perPt * legacyPts(s);
+export const rebirthGain = (nw) => (nw >= LEGACY.minNW ? Math.floor(Math.sqrt(nw / 1e8)) : 0);
+export const SEASON_PRIZE = [3, 2, 1]; // pontos de legado para 1º, 2º e 3º do ano
+// Crescimento no ano atual (o que conta no ranking da temporada)
+export function seasonGrow(s, mk) {
+  if (!s.season) return 0;
+  return netWorth(s, mk) - s.season.start;
+}
+// Detecta a virada do ano. Retorna { ended, grow } se o ano mudou.
+export function seasonTick(s, mk) {
+  const cal = calendar();
+  const nw = netWorth(s, mk);
+  if (!s.season) { s.season = { year: cal.year, start: nw }; return null; }
+  if (cal.year <= s.season.year) return null;
+  const ended = s.season.year, grow = nw - s.season.start;
+  s.seasonHist = [{ year: ended, grow }, ...(s.seasonHist || [])].slice(0, 20);
+  s.lastSeason = { year: ended, grow };
+  s.season = { year: cal.year, start: nw };
+  return { ended, grow };
+}
+export function seasonPrize(s, place, year) {
+  const pts = SEASON_PRIZE[place - 1] || 0;
+  s.legacy = s.legacy || { pts: 0, n: 0 };
+  s.legacy.pts += pts;
+  if (place === 1) s.titles = (s.titles || 0) + 1;
+  s.seasonHist = (s.seasonHist || []).map((h) => (h.year === year ? { ...h, place } : h));
+  return pts;
+}
+export function canRebirth(s, mk) {
+  const nw = netWorth(s, mk);
+  if (nw < LEGACY.minNW) return `Precisa de pelo menos ${(LEGACY.minNW / 1e6).toLocaleString('pt-BR')} milhões de patrimônio`;
+  if ((s.legacy || {}).year === calendar().year) return 'Você já renasceu neste ano. Espere a virada!';
+  return null;
+}
+// Recomeça a economia do zero e ganha pontos de legado. Mantém a vida (visual, roupas, estudos, profissão, viagens, amor, troféus, amigos, nível).
+export function rebirth(s, mk) {
+  const why = canRebirth(s, mk); if (why) return why;
+  const nw = netWorth(s, mk);
+  const gain = rebirthGain(nw);
+  const sold = Object.keys(s.fport || {});
+  const fresh = newStateBase(s.name, s.look, Date.now());
+  for (const k of ['cash', 'debt', 'biz', 'port', 'props', 'goods', 'poup', 'cdb', 'tes', 'cardMax', 'peakNW']) s[k] = fresh[k];
+  s.pgoods = {}; s.companies = []; s.fport = {}; s.ins = {}; s.buffs = [];
+  delete s.corp; delete s.cc; delete s.loans;
+  s.payMode = 'cash';
+  s.legacy = { pts: legacyPts(s) + gain, n: ((s.legacy || {}).n || 0) + 1, year: calendar().year, best: Math.max(nw, (s.legacy || {}).best || 0) };
+  s.season = { year: calendar().year, start: netWorth(s, mk) };
+  return { gain, nw, sold };
 }
