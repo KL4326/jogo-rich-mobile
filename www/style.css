@@ -1090,3 +1090,4 @@ s.old { opacity: .6; font-size: 12px; margin-left: 4px; }
 .crstats b { font-family: var(--display); font-weight: 400; font-size: 16px; color: #fff; }
 .crstats b.up { color: #7dffb2; } .crstats b.down { color: #ff9aa8; }
 .crnote { opacity: .8; }
+.crtools { border: 2px dashed var(--gold); } .crtools .lrow input { flex: 1; min-width: 0; }

@@ -322,6 +322,18 @@ const handlers = {
   sellpgood: (d) => { if (act(() => G.sellPlayerGood(C.s, d.id))) { closeModal(); toast('💰 Vendido!', 'ok'); render(); } },
   pgoodold: (d) => confirmBox('Vender este bem? A marca saiu do mercado.', () => { if (act(() => G.sellPlayerGood(C.s, d.id))) { toast('💰 Vendido!', 'ok'); render(); } }),
   season: () => seasonModal(),
+  crcash: (d, el) => {
+    if (C.uid !== G.CREATOR) return;
+    const v = d.v ? +d.v : parseFloat(($('#crval') || {}).value);
+    if (!(v > 0)) return toast('⚠️ Digite um valor', 'err');
+    C.s.cash += v; burst(el); toast(`🧪 +${money(v)} adicionado`, 'gold'); C.afterAction(); keepScroll(render);
+  },
+  crprest: (d) => {
+    if (C.uid !== G.CREATOR) return;
+    const v = +d.v;
+    C.s.bonusPrestige = v ? (C.s.bonusPrestige || 0) + v : 0;
+    G.statusRefresh(); toast(v ? `✨ +${fmt(v)} de prestígio de teste` : '✨ Prestígio de teste zerado', 'gold'); C.afterAction(); keepScroll(render);
+  },
   rebirth: () => { const s = C.s, gain = G.rebirthGain(G.netWorth(s, C.mk)); confirmBox(`<b>Renascer agora?</b><br>Você perde dinheiro, negócios, investimentos, bens, empresas e cartões, e recomeça com R$ 1.500.<br>Em troca ganha <b>+${gain} de legado</b> = <b>+${gain * 2}% de renda para sempre</b> (total: +${(G.legacyPts(s) + gain) * 2}%).<br><small>Mantém: nível, estudos, profissão, visual, roupas, skins, viagens, amor, troféus e amigos.</small>`, () => { const r = C.rebirth(); if (typeof r === 'string') return toast('⚠️ ' + r, 'err'); closeModal(); confetti(); toast(`🔁 Você renasceu! +${r.gain} de legado`, 'gold'); ui.tab = 'inicio'; render(true); }); },
   rkmode: (d) => { ui.rk = d.m; if (d.m === 'todos') ui.topList = null; render(); },
   invitetag: async (d, el) => { el.disabled = true; const r = await C.addFriend(d.tag); if (r === 'sent') { toast('📨 Convite enviado!', 'ok'); keepScroll(render); } else if (r) toast('⚠️ ' + r, 'err'); else keepScroll(render); },
@@ -468,6 +480,15 @@ function creatorCard(p, yearMode) {
       <small>⭐${p.l} · 💳${CARDS[p.c].name} · 🎖️${p.a} · ${G.STATUS[G.statusIdx(p.p || 0)].icon}${fmt(p.p)}</small>
       <div class="crstats"><div><small>${yearMode ? 'Cresceu no ano' : 'Patrimônio'}</small><b>${yearMode && p.w >= 0 ? '+' : ''}${money(p.w)}</b></div><div><small>Por dia</small><b class="${p.net >= 0 ? 'up' : 'down'}">${p.net >= 0 ? '+' : ''}${fmt(p.net || 0)}</b></div></div>
       <small class="crnote">${p.me ? '🟢 você' : p.online ? '🟢 jogando agora' : '⚪ visto ' + ago(p.t)} · fora da disputa</small></div></div>`;
+}
+
+// Ferramentas de teste: só aparecem na conta do criador
+function creatorTools() {
+  const amts = [[1e6, '1 mi'], [1e9, '1 bi'], [1e10, '10 bi'], [1e11, '100 bi'], [1e12, '1 tri']];
+  return `<div class="box col crtools"><b>🧪 Ferramentas do Criador</b><small class="muted">Só aparece na sua conta. Você está fora da disputa do ranking.</small>
+    <div class="quick">${amts.map(([v, n]) => `<button class="chipbtn" data-act="crcash" data-v="${v}">+ ${n}</button>`).join('')}</div>
+    <div class="lrow"><input id="crval" type="number" inputmode="numeric" placeholder="Outro valor (R$)"><button class="btn sm" data-act="crcash">Adicionar</button></div>
+    <div class="quick">${[[1000, '1 mil'], [10000, '10 mil']].map(([v, n]) => `<button class="chipbtn" data-act="crprest" data-v="${v}">✨ + ${n} prestígio</button>`).join('')}<button class="chipbtn" data-act="crprest" data-v="0">✨ Zerar prestígio de teste</button></div></div>`;
 }
 
 // ---------- TEMPORADA (ANO) E RENASCER ----------
@@ -1614,7 +1635,7 @@ function vConquistas() {
 }
 function vAjustes() {
   const s = C.s;
-  return `<div class="box col"><b>✏️ Seu nome</b><input id="newname" maxlength="18" value="${esc(s.name)}"><button class="btn full" data-act="rename">Salvar</button></div>
+  return `${C.uid === G.CREATOR ? creatorTools() : ''}<div class="box col"><b>✏️ Seu nome</b><input id="newname" maxlength="18" value="${esc(s.name)}"><button class="btn full" data-act="rename">Salvar</button></div>
   <div class="box col sndbox"><b>🔊 Som</b>
     <div class="lrow"><span>🎵 Música de fundo</span><button class="tgl ${A.settings().music ? 'on' : ''}" data-act="sndset" data-k="music"><i></i></button></div>
     <input type="range" min="0" max="1" step="0.05" value="${A.settings().mvol}" data-vol="mvol">
