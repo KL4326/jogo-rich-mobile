@@ -471,6 +471,28 @@ function payBar() {
 const dp = (c) => G.discPrice(C.s, c);
 const costBtn = (act, data, cost, label = '') => `<button class="btn gold" data-act="${act}" ${dataAttrs(data)} data-cost="${cost}">${label}<span>${money(cost)}</span></button>`;
 
+// ---------- CAMPEÃO DO ÚLTIMO ANO ----------
+function lastChampion() {
+  const s = C.s, ly = G.calendar().year - 1;
+  if (ly < 1) return null;
+  const cands = [];
+  if (C.uid !== G.CREATOR && s.lastSeason && s.lastSeason.year === ly) cands.push({ n: s.name, look: s.look, g: s.lastSeason.grow, me: true, titles: s.titles || 0 });
+  for (const uid of s.friends) {
+    const p = C.friends[uid];
+    if (!p || uid === G.CREATOR) continue;
+    const g = p.lastYr === ly ? p.lastGrow : p.yr === ly ? p.grow : null;
+    if (g !== null && g !== undefined) cands.push({ n: p.name, look: p.look, g, id: uid, titles: p.titles || 0 });
+  }
+  const best = cands.filter((c) => c.g > 0).sort((a, b) => b.g - a.g)[0];
+  return best ? { ...best, year: ly } : null;
+}
+function championBanner() {
+  const c = lastChampion();
+  if (!c) return '';
+  return `<div class="champ" ${c.me ? '' : `data-act="friend" data-id="${c.id}"`}><div class="chav">${avatarSVG(c.look, { size: 74 })}<span class="chcrown">👑</span></div>
+    <div class="grow"><small>🏆 CAMPEÃO DO ANO ${c.year}</small><b>${esc(c.n)}${c.me ? ' (você!)' : ''}</b><span>Cresceu <b class="up">+${money(c.g)}</b> no ano${c.titles > 1 ? ` · ${c.titles} títulos` : ''}</span></div></div>`;
+}
+
 // ---------- CRIADOR (destaque no ranking) ----------
 function creatorCard(p, yearMode) {
   return `<div class="creator" ${p.me ? '' : `data-act="friend" data-id="${p.id}"`}>
@@ -1033,9 +1055,10 @@ function friendView(uid) {
       <div><small>Trabalho</small><b>${p.jobIcon || ''} ${esc(p.jobName || '')}</b></div><div><small>Amor</small><b>${p.partner ? LOVE_STAGES[p.partner.stage].icon + ' ' + LOVE_STAGES[p.partner.stage].name : '💔 Solteiro(a)'}</b></div>
       <div><small>Viagens</small><b>🛂 ${p.trips || 0}</b></div><div><small>Status</small><b>${G.STATUS[G.statusIdx(p.prestige || 0)].icon} ${G.STATUS[G.statusIdx(p.prestige || 0)].name}</b></div>
       <div><small>Troféus</small><b>🎖️ ${p.ach}</b></div><div><small>Veículo</small><b>${p.veh || '🚶'}</b></div>
-      <div><small>Empresas controladas</small><b>👑 ${p.ctrl || 0}</b></div>
+      <div><small>Empresas controladas</small><b>👑 ${p.ctrl || 0}</b></div><div><small>Vitórias de temporada</small><b>🏆 ${p.titles || 0}</b></div>
+      <div><small>Legado</small><b>⭐ ${p.legacy || 0} <small>(+${(p.legacy || 0) * 2}%)</small></b></div><div><small>${p.lastYr ? `No Ano ${p.lastYr} cresceu` : 'Ano anterior'}</small><b class="${(p.lastGrow || 0) >= 0 ? 'up' : 'down'}">${p.lastYr ? `${p.lastGrow >= 0 ? '+' : ''}${money(p.lastGrow)}` : '—'}</b></div>
     </div>
-    <small class="muted">${Date.now() - p.updated < 180000 ? '🟢 jogando agora' : '⚪ visto ' + ago(p.updated)}</small>
+    <small class="muted">${Date.now() - p.updated < 11 * 60_000 ? '🟢 jogando agora' : '⚪ visto ' + ago(p.updated)}</small>
     <button class="btn full pixbtn" data-act="pix" data-id="${uid}">💸 Enviar Pix para ${esc(p.name)}</button>
     ${G.hasPhone(C.s) && C.uid ? `<button class="btn full ghost" data-act="phonechat" data-id="${uid}">💬 Mandar mensagem</button>` : ''}</div>`);
 }
@@ -1609,6 +1632,7 @@ function vRanking() {
   ${C.cloud ? `<div class="seg2 rkseg">${[['amigos', '👥 Amigos'], ['ano', '📅 Ano'], ['todos', '🌎 Todos']].map(([m, n]) => `<button class="${(ui.rk || 'amigos') === m ? 'on' : ''}" data-act="rkmode" data-m="${m}">${n}</button>`).join('')}</div>` : ''}
   ${global && !ui.topList ? '<p class="muted center">⏳ Carregando o ranking geral…</p>' : ''}
   ${yearMode ? `<p class="hint small" data-act="season">📅 <b>Temporada do Ano ${cy}</b>: vence quem mais crescer até a virada (em <b data-live="yearleft"></b>). Toque para ver prêmios e renascer.</p>` : ''}
+  ${championBanner()}
   ${creator && !creator.loading ? creatorCard(creator, yearMode) : ''}
   <div class="podium">${pod.map((p, i) => p && !p.loading ? `<div class="pcol ${cls[i]} ${p.me ? 'me' : ''}"><div class="pav2" ${p.me ? '' : `data-act="friend" data-id="${p.id}"`}>${avatarSVG(p.look, { size: i === 1 ? 110 : 90 })}${p.online || p.me ? '<i class="on"></i>' : ''}</div><b>${esc(p.n)}</b><small>${money(p.w)}</small><div class="pbar"><span>${medal[i]}</span></div></div>` : '<div class="pcol empty"><div class="pbar"></div></div>').join('')}</div>
   <div class="ranklist">${all.map((p, i) => `<div class="rank ${p.me ? 'me' : ''}" ${p.me || p.loading || p.stranger ? '' : `data-act="friend" data-id="${p.id}"`}><span class="pos">${i + 1}º</span><span class="rav">${p.loading ? '' : avatarSVG(p.look, { size: 52 })}</span>
