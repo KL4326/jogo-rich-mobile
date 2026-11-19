@@ -123,7 +123,7 @@ export async function claimPix(id) {
   });
 }
 
-// ---------- Celular: Vitrine (rede social) ----------
+// ---------- Celular: Instantâneo (rede social) ----------
 export const myUid = () => (auth && auth.currentUser ? auth.currentUser.uid : null);
 export async function createPost(p) { await F.addDoc(F.collection(db, 'posts'), p); }
 export function watchFeed(uids, cb) {
@@ -134,7 +134,7 @@ export const likePost = (id, uid, on) => F.updateDoc(F.doc(db, 'posts', id), { [
 export const commentPost = (id, c) => F.updateDoc(F.doc(db, 'posts', id), { comments: F.arrayUnion(c) });
 export const deletePost = (id) => F.deleteDoc(F.doc(db, 'posts', id));
 
-// ---------- Celular: Papo (mensagens privadas) ----------
+// ---------- Celular: Vapo-Vapo (mensagens privadas) ----------
 export const chatId = (a, b) => [a, b].sort().join('_');
 export async function sendMsg(cid, members, msg) {
   await F.addDoc(F.collection(db, 'chats', cid, 'msgs'), msg);

@@ -1234,6 +1234,7 @@ export function compPublic(s, c, mk) {
     name: c.name, ticker: c.ticker, seg: c.seg, float: c.float, shares: COMP.shares, price: compPrice(s, c, mk), profit: st.profit, founded: c.founded,
     products: seg.cat ? c.products.map((p) => { const k = seg.products[p.tier]; return { tier: p.tier, model: p.model, kind: k.name, icon: k.icon, cat: seg.cat, price: k.price, prestige: k.prestige, bonus: k.bonus || 0, hours: k.hours || 0 }; }) : [],
     nprod: c.products.length,
+    plist: c.products.map((p) => ({ icon: seg.products[p.tier].icon, kind: seg.products[p.tier].name, model: p.model, v: p.v || 1 })),
   };
 }
 // Holding antiga (reúne os negócios) também aparece na bolsa

@@ -1042,3 +1042,5 @@ s.old { opacity: .6; font-size: 12px; margin-left: 4px; }
 .toast.tap { pointer-events: auto; cursor: pointer; }
 .toast.tap:active { transform: scale(.97); }
 .toast .taphint { display: block; font-size: 11px; opacity: .7; margin-top: 2px; }
+.plist { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0; } .plist small { opacity: .6; }
+.papp { white-space: nowrap; }

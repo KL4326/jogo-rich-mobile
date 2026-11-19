@@ -145,7 +145,7 @@ const handlers = {
   phonechat: (d) => import('./phone.js').then((m) => { C.phone = m; closeModal(); m.open(C, 'chat', { uid: d.id }); }),
   invok: (d) => C.acceptInvite(d.id),
   invno: (d) => C.declineInvite(d.id),
-  phone: () => G.hasPhone(C.s) ? handlers.phoneopen() : modal(`<h3>📱 Você ainda não tem celular</h3><p>Com um celular você usa a <b>📷 Câmera</b>, conversa no <b>💬 Papo</b> (privado e no <b>🌎 Geral</b> com todos os jogadores) e posta na <b>✨ Vitrine</b>.</p><p class="muted">Compre um em 💎 Bens → 💍 Luxo. O <b>Celular Básico</b> custa só ${money(500)}.</p><button class="btn full" data-act="tab" data-tab="bens" data-sub="luxo">Ir para a loja</button>`),
+  phone: () => G.hasPhone(C.s) ? handlers.phoneopen() : modal(`<h3>📱 Você ainda não tem celular</h3><p>Com um celular você usa a <b>📷 Câmera</b>, conversa no <b>💬 Vapo-Vapo</b> (privado e no <b>🌎 Geral</b> com todos os jogadores) e posta no <b>✨ Instantâneo</b>.</p><p class="muted">Compre um em 💎 Bens → 💍 Luxo. O <b>Celular Básico</b> custa só ${money(500)}.</p><button class="btn full" data-act="tab" data-tab="bens" data-sub="luxo">Ir para a loja</button>`),
   phoneopen: () => import('./phone.js').then((m) => { C.phone = m; m.open(C); }).catch(() => toast('⚠️ Não foi possível abrir o celular', 'err')),
   tab: (d) => { ui.tab = d.tab; if (d.sub) ui.sub[d.tab] = d.sub; closeModal(); renderTabs(); render(true); $('#view').scrollTop = 0; },
   sub: (d) => { ui.sub[ui.tab] = d.sub; render(true); $('#view').scrollTop = 0; },
@@ -172,7 +172,7 @@ const handlers = {
   buyprop: (d, el) => act(() => G.buyProp(C.s, C.mk, d.id), '🔑 Imóvel comprado!', el) && render(),
   sellprop: (d) => confirmBox('Vender este imóvel?', () => act(() => G.sellProp(C.s, C.mk, d.id), 'Imóvel vendido') && render()),
   good: (d) => openGood(d.id),
-  buygood: (d, el) => { if (act(() => G.buyGood(C.s, d.id), null, el)) { closeModal(); confetti(); toast(`🎉 ${G_NAME(d.id)} é seu!`, 'gold'); if (d.id === 'celular' || d.id === 'celular0') setTimeout(() => toast('📱 Toque no celular lá em cima para usar Câmera, Papo e Vitrine!', 'gold'), 1200); render(); } },
+  buygood: (d, el) => { if (act(() => G.buyGood(C.s, d.id), null, el)) { closeModal(); confetti(); toast(`🎉 ${G_NAME(d.id)} é seu!`, 'gold'); if (d.id === 'celular' || d.id === 'celular0') setTimeout(() => toast('📱 Toque no celular lá em cima para usar Câmera, Vapo-Vapo e Instantâneo!', 'gold'), 1200); render(); } },
   sellgood: (d) => confirmBox('Vender este bem? Você recebe só uma parte do valor.', () => act(() => G.sellGood(C.s, d.id), 'Vendido') && render()),
   loan: (d) => openLoan(d.kind),
   loango: (d) => {
@@ -852,6 +852,7 @@ function openPlayerCompany(id) {
   modal(`<h3>${seg ? seg.icon : '🏛️'} ${esc(d.name)} <small class="muted">${esc(d.ticker)}</small></h3>
     <p class="muted">${mine ? 'Sua empresa' : `Empresa de ${esc(d.ownerName || '?')}`} · ${seg ? `${seg.name} · ${SECTOR[seg.sector].icon} ${WX[C.mk.sectorNow(seg.sector)]} ${WXN[C.mk.sectorNow(seg.sector)]}` : 'Holding de negócios'} · ${d.nprod || 0} produto(s)</p>
     <div class="pricehead"><b class="bigprice">${price2(d.price)}</b><small class="${d.profit >= 0 ? 'up' : 'down'}">lucro ${money(d.profit)}/dia</small></div>
+    ${(d.plist || []).length ? `<div class="plist">${d.plist.map((x) => `<span class="pill">${x.icon} ${esc(x.model)} <small>${esc(x.kind)}${x.v > 1 ? ' v' + x.v : ''}</small></span>`).join('')}</div>${seg && !seg.cat ? '<small class="muted">Esses produtos são vendidos ao mercado (não aparecem em 💎 Bens).</small>' : ''}` : ''}
     <div class="ownbox"><div class="lrow"><span>Na bolsa</span><b>${fmt(total)} ações (${Math.round((d.float || 0) * 100)}%)</b></div>
     <div class="lrow"><span>Com outros jogadores</span><b>${fmt(others)}</b></div>
     <div class="lrow"><span>Disponíveis para comprar</span><b>${fmt(free)}</b></div>
@@ -868,7 +869,7 @@ function vMarcas() {
   if (!C.cloud) return '<p class="emptyf">Disponível com a conta online.</p>';
   const docs = Object.values(C.companies || {}).filter((d) => (d.products || []).length);
   const mineOwned = G.pgoods(s);
-  return `<p class="hint small">🏷️ Produtos criados pelas empresas dos jogadores. Funcionam como os outros bens (prestígio, bônus de salário, casa) e <b>20% do preço vai para o dono da marca</b>.</p>
+  return `<p class="hint small">🏷️ Produtos criados pelas empresas dos jogadores. Funcionam como os outros bens (prestígio, bônus de salário, casa) e <b>20% do preço vai para o dono da marca</b>.<br>Só aparecem aqui Montadora, Construtora, Joalheria, Tecnologia e Náutica. Bancos, alimentos, moda, farmácia e energia vendem para o mercado: veja os produtos delas em 📈 Bolsa → 🏢 Jogadores.</p>
   ${docs.length ? docs.map((d) => `<div class="brandhead">${compLogo(d)}<div><b>${esc(d.name)}</b><small>${SEGMENT[d.seg] ? SEGMENT[d.seg].name : ''} · de ${d.owner === C.uid ? 'você' : esc(d.ownerName || '?')}</small></div></div>
     <div class="goods">${d.products.map((p) => { const own = !!(s.pgoods || {})[`${d.id}:${p.tier}`]; return `<div class="gcard ${RAR[Math.min(RAR.length - 1, p.tier * 2)]} ${own ? 'own' : ''}" data-act="pgood" data-id="${d.id}" data-t="${p.tier}">
       ${own ? '<span class="owned">✓</span>' : ''}<span class="rar">${esc(p.kind)}</span><div class="gi">${p.icon}</div><b>${esc(d.name)} ${esc(p.model)}</b><small>${p.bonus ? `+${Math.round(p.bonus * 100)}% salário` : p.hours ? `+${p.hours}h offline` : `✨ ${p.prestige}`}</small>

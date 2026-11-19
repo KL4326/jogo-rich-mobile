@@ -1,4 +1,4 @@
-// ===== Celular: câmera, galeria, mensagens (Papo) e rede social (Vitrine) =====
+// ===== Celular: câmera, galeria, mensagens (Vapo-Vapo) e rede social (Instantâneo) =====
 // Carregado só quando o jogador abre o celular. Os "fotos" são descrições leves
 // (lugar + visual do personagem + filtro) desenhadas na hora, sem imagens pesadas.
 import * as Cloud from './cloud.js';
@@ -108,7 +108,7 @@ const needNet = (t) => `${bar(t)}<div class="pempty">📡<p>Esse app precisa de 
 // ---------- tela inicial ----------
 function home() {
   const n = unread();
-  const apps = [['camera', '📷', 'Câmera', 'cam'], ['galeria', '🖼️', 'Galeria', 'gal'], ['papo', '💬', 'Papo', 'papo', n], ['vitrine', '✨', 'Vitrine', 'vit']];
+  const apps = [['camera', '📷', 'Câmera', 'cam'], ['galeria', '🖼️', 'Galeria', 'gal'], ['papo', '💬', 'Vapo‑Vapo', 'papo', n], ['vitrine', '✨', 'Instantâneo', 'vit']];
   const d = new Date();
   return `<div class="pwall"><div class="pbig">${d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</div><small>${cap(d.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' }))}</small>
     <div class="papps">${apps.map(([a, i, t, c, b]) => `<button class="papp" data-pa="go" data-a="${a}"><span class="pico ${c}">${i}${b ? `<i>${b}</i>` : ''}</span>${t}</button>`).join('')}</div></div>`;
@@ -160,21 +160,21 @@ function photoView(t) {
   if (!p) return;
   st.sel = p;
   $('.pscreen').innerHTML = `${bar('Foto', 'galeria')}<div class="vf">${photoHTML(p, true)}</div><small class="phint">${new Date(p.t).toLocaleString('pt-BR')}</small>
-    <div class="pbtns"><button class="btn" data-pa="go" data-a="post" data-use="1">✨ Postar na Vitrine</button><button class="btn ghost" data-pa="sendphoto">💬 Enviar no Papo</button><button class="btn red sm" data-pa="delphoto">🗑️ Apagar</button></div>`;
+    <div class="pbtns"><button class="btn" data-pa="go" data-a="post" data-use="1">✨ Postar no Instantâneo</button><button class="btn ghost" data-pa="sendphoto">💬 Enviar no Vapo-Vapo</button><button class="btn red sm" data-pa="delphoto">🗑️ Apagar</button></div>`;
 }
 
-// ---------- Papo (mensagens) ----------
+// ---------- Vapo-Vapo (mensagens) ----------
 function papo() {
-  if (!online()) return needNet('Papo');
+  if (!online()) return needNet('Vapo-Vapo');
   const friends = C.s.friends || [];
   const g = st.geral;
   const geralRow = `<button class="chrow geral" data-pa="go" data-a="chat" data-uid="geral"><span class="fav gico">🌎</span>
       <div class="grow"><b>Geral <span class="gtag">todos os jogadores</span></b><small>${g ? `${g.from === C.uid ? 'Você' : esc(g.name || 'Jogador')}: ${esc(g.text || '📷 Foto')}` : 'Converse com todo mundo do jogo'}</small></div>
       <div class="cmeta">${g ? `<small>${ago(g.t)}</small>` : ''}${geralUnread() ? '<i class="udot"></i>' : ''}</div></button>`;
-  if (!friends.length) return `${bar(st.share ? 'Enviar foto para…' : 'Papo')}<div class="clist">${geralRow}</div><div class="pempty sm">💬<p>Adicione amigos pela tag no 🏆 Perfil para conversar no privado.</p></div>`;
+  if (!friends.length) return `${bar(st.share ? 'Enviar foto para…' : 'Vapo-Vapo')}<div class="clist">${geralRow}</div><div class="pempty sm">💬<p>Adicione amigos pela tag no 🏆 Perfil para conversar no privado.</p></div>`;
   const byUid = Object.fromEntries(st.chats.map((c) => [other(c), c]));
   const rows = friends.map((uid) => ({ uid, c: byUid[uid] })).sort((a, b) => ((b.c && b.c.last && b.c.last.t) || 0) - ((a.c && a.c.last && a.c.last.t) || 0));
-  return `${bar(st.share ? 'Enviar foto para…' : 'Papo')}<div class="clist">${geralRow}${rows.map(({ uid, c }) => {
+  return `${bar(st.share ? 'Enviar foto para…' : 'Vapo-Vapo')}<div class="clist">${geralRow}${rows.map(({ uid, c }) => {
     const p = C.friends[uid];
     const on = p && Date.now() - p.updated < 3 * 60_000;
     return `<button class="chrow" data-pa="go" data-a="chat" data-uid="${uid}"><span class="fav ${on ? 'on' : ''}">${p && p.look ? avatarSVG(p.look, { size: 70 }) : '👤'}</span>
@@ -199,7 +199,7 @@ const msgsHTML = () => (st.err ? '<div class="pempty">⚠️<p>Sem acesso às me
   : st.msgs.length ? st.msgs.map((m, i) => `<div class="msg ${m.from === C.uid ? 'me' : ''}">${st.chat.cid === 'geral' && m.from !== C.uid && (i === 0 || st.msgs[i - 1].from !== m.from) ? `<b class="mname" style="color:hsl(${hash(m.from) % 360} 60% 40%)">${esc(m.name || 'Jogador')}${m.tag ? ` <small>${esc(m.tag)}</small>` : ''}</b>` : ''}${m.photo ? photoHTML(m.photo) : ''}${m.text ? `<p>${esc(m.text)}</p>` : ''}<small>${new Date(m.t).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</small></div>`).join('')
     : '<div class="pempty sm">👋<p>Diga oi!</p></div>');
 function chat() {
-  if (!online() || !st.chat) return needNet('Papo');
+  if (!online() || !st.chat) return needNet('Vapo-Vapo');
   const p = C.friends[st.chat.uid];
   const head = st.chat.cid === 'geral' ? bar('🌎 Geral', 'papo', '<small>todos os jogadores</small>') : bar(esc(p ? p.name : 'Amigo'), 'papo', p && p.look ? `<span class="fav sm">${avatarSVG(p.look, { size: 52 })}</span>` : '');
   return `${head}
@@ -216,7 +216,7 @@ async function send(extra = {}) {
   try { if (cid === 'geral') await Cloud.sendGeral({ ...msg, name: C.s.name, tag: C.s.tag || '' }); else await Cloud.sendMsg(cid, [C.uid, uid], msg); A.sfx('tick'); } catch (e) { toast('⚠️ ' + Cloud.errMsg(e), 'err'); if (inp) inp.value = text; }
 }
 
-// ---------- Vitrine (rede social) ----------
+// ---------- Instantâneo (rede social) ----------
 function startFeed() {
   if (!online() || st.offFeed) return;
   st.offFeed = Cloud.watchFeed([C.uid, ...(C.s.friends || [])], (list, err) => {
@@ -226,11 +226,11 @@ function startFeed() {
   });
 }
 function vitrine() {
-  if (!online()) return needNet('Vitrine');
-  return `${bar('Vitrine', 'home', '<button class="pnew" data-pa="go" data-a="post">＋</button>')}<div class="feed">${feedHTML()}</div>`;
+  if (!online()) return needNet('Instantâneo');
+  return `${bar('Instantâneo', 'home', '<button class="pnew" data-pa="go" data-a="post">＋</button>')}<div class="feed">${feedHTML()}</div>`;
 }
 function feedHTML() {
-  if (st.feedErr) return '<div class="pempty">⚠️<p>Sem acesso à Vitrine. Peça para quem cuida do jogo publicar as regras novas do Firebase.</p></div>';
+  if (st.feedErr) return '<div class="pempty">⚠️<p>Sem acesso ao Instantâneo. Peça para quem cuida do jogo publicar as regras novas do Firebase.</p></div>';
   if (!st.feed) return '<div class="pempty sm">⏳<p>Carregando…</p></div>';
   if (!st.feed.length) return '<div class="pempty">✨<p>Ninguém postou ainda. Seja o primeiro! Toque em ＋.</p></div>';
   return st.feed.map((p) => {
@@ -292,7 +292,7 @@ async function act(a, d, b) {
     b.disabled = true;
     try {
       await Cloud.createPost({ uid: C.uid, name: s.name, tag: s.tag || '', look: s.look, text, photo: st.draftPhoto || null, created: Date.now(), likes: {}, comments: [] });
-      A.sfx('coin'); toast('✨ Publicado na Vitrine!', 'ok', false);
+      A.sfx('coin'); toast('✨ Publicado no Instantâneo!', 'ok', false);
       st.draftPhoto = null;
       trimMine();
       go('vitrine');
