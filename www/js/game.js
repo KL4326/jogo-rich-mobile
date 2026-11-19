@@ -1094,7 +1094,7 @@ function applyInsurance(s, e) {
 }
 
 // ---------- Empresas criadas pelos jogadores ----------
-export const COMP = { shares: 1e7, pe: 400, maxFloat: 0.49, fee: 0.005, foundK: 50000, devMult: 150, minLevel: 8, margin: 0.2, versionCost: 0.4, versionTime: 0.5 };
+export const COMP = { shares: 1e7, pe: 400, maxFloat: 0.49, fee: 0.005, foundK: 50000, devMult: 300, minLevel: 8, margin: 0.2, versionCost: 0.4, versionTime: 0.5 };
 const STAFF_MAP = Object.fromEntries(STAFF.map((r) => [r.id, r]));
 const MGMT = { ceo: 0.3, diretor: 0.15, gerente: 0.08, operador: 0.08 };
 const EXTRA_COMP = { gerente: 1, operador: 1, diretor: 2, ceo: 4 };
