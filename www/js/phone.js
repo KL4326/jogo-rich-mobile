@@ -178,7 +178,7 @@ function papo() {
   const rows = friends.map((uid) => ({ uid, c: byUid[uid] })).sort((a, b) => ((b.c && b.c.last && b.c.last.t) || 0) - ((a.c && a.c.last && a.c.last.t) || 0));
   return `${bar(st.share ? 'Enviar foto para…' : 'Vapo-Vapo')}<div class="clist">${geralRow}${rows.map(({ uid, c }) => {
     const p = C.friends[uid];
-    const on = p && Date.now() - p.updated < 3 * 60_000;
+    const on = p && Date.now() - p.updated < 11 * 60_000;
     return `<button class="chrow" data-pa="go" data-a="chat" data-uid="${uid}"><span class="fav ${on ? 'on' : ''}">${p && p.look ? avatarSVG(p.look, { size: 70 }) : '👤'}</span>
       <div class="grow"><b>${esc(p ? p.name : 'Carregando…')}</b><small>${c && c.last ? `${c.last.from === C.uid ? 'Você: ' : ''}${esc(c.last.text)}` : 'Toque para conversar'}</small></div>
       <div class="cmeta">${c && c.last ? `<small>${ago(c.last.t)}</small>` : ''}${c && isUnread(c) ? '<i class="udot"></i>' : ''}</div></button>`;

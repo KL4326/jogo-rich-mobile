@@ -94,12 +94,12 @@ async function enterGame(user, newName) {
   await sleep(Math.max(0, 1800 - (Date.now() - t0)));
   hideSplash();
   start(s);
-  pushCloud();
+  pushCloud(true).catch(() => {});
   if (isNew && s.look) UI.openHelp();
 }
 
 async function logout() {
-  await pushCloud().catch(() => {});
+  await pushCloud(true).catch(() => {});
   await Cloud.logout();
   localStorage.removeItem('magnata_save_v1');
   location.reload();
@@ -118,24 +118,43 @@ function profileOf(s) {
     veh: ([...GOODS.veiculos, ...GOODS.ceumar].filter((g) => s.goods[g.id]).concat(G.pgoods(s).filter((g) => g.bonus)).sort((a, b) => a.cost - b.cost).pop() || {}).icon || '',
   };
 }
-let lastPush = 0;
-async function pushCloud() {
+// Economia de cota do Firebase (plano grátis: 50 mil leituras/dia para todos os jogadores juntos):
+// salva no máximo a cada 20 s e só reenvia o perfil/empresas quando algo mudou de verdade.
+let lastPush = 0, pushTimer = null, lastProfSig = '', lastProfAt = 0;
+const sig2 = (n) => (n ? Number(Number(n).toPrecision(2)) : 0); // 2 algarismos: 36,4 bi -> 36 bi
+async function pushCloud(force = false) {
   if (!ctx.uid || !ctx.s) return;
+  const wait = 20_000 - (Date.now() - lastPush);
+  if (!force && wait > 0) { if (!pushTimer) pushTimer = setTimeout(() => { pushTimer = null; pushCloud(true).catch(() => {}); }, wait); return; }
   lastPush = Date.now();
   G.save(ctx.s);
-  await Cloud.pushSave(ctx.uid, ctx.s, profileOf(ctx.s));
+  const prof = profileOf(ctx.s);
+  const sig = JSON.stringify({ ...prof, updated: 0, nw: sig2(prof.nw), net: sig2(prof.net), prestige: sig2(prof.prestige) });
+  const sendProf = sig !== lastProfSig || Date.now() - lastProfAt > 10 * 60_000;
+  await Cloud.pushSave(ctx.uid, ctx.s, sendProf ? prof : null);
+  if (sendProf) { lastProfSig = sig; lastProfAt = Date.now(); }
   pushCompanies().catch(() => {});
 }
 // ---------- Empresas na bolsa (todos os jogadores) ----------
 const compDocId = (c) => `${ctx.uid}_${c.id}`;
+const compSent = {};
 ctx.compDocId = (c) => compDocId(c);
 ctx.holdingDocId = () => `${ctx.uid}_h`;
 async function pushCompanies() {
   const s = ctx.s;
   if (!ctx.uid) return;
-  const base = { owner: ctx.uid, ownerName: s.name, updated: Date.now() };
-  const jobs = (s.companies || []).map((c) => Cloud.putCompany(compDocId(c), { ...G.compPublic(s, c, mk), ...base }));
-  if (s.corp) jobs.push(Cloud.putCompany(ctx.holdingDocId(), { ...G.holdingPublic(s, mk), ...base }));
+  const base = { owner: ctx.uid, ownerName: s.name };
+  const jobs = [];
+  const put = (id, data) => {
+    // só envia se mudou (preço/lucro com 2 algarismos) ou a cada 15 min
+    const sig = JSON.stringify({ ...data, price: sig2(data.price), profit: sig2(data.profit) });
+    const last = compSent[id];
+    if (last && last.sig === sig && Date.now() - last.t < 15 * 60_000) return;
+    compSent[id] = { sig, t: Date.now() };
+    jobs.push(Cloud.putCompany(id, { ...data, updated: Date.now() }));
+  };
+  for (const c of s.companies || []) put(compDocId(c), { ...G.compPublic(s, c, mk), ...base });
+  if (s.corp) put(ctx.holdingDocId(), { ...G.holdingPublic(s, mk), ...base });
   // empresas fechadas saem da bolsa
   for (const [id, d] of Object.entries(ctx.companies)) {
     if (d.owner !== ctx.uid) continue;
@@ -190,7 +209,7 @@ ctx.buyPlayerGood = (id, tier) => {
 ctx.compBuyback = (c, pct) => G.compBuyback(ctx.s, mk, c.id, pct, heldByOthers(ctx.companies[compDocId(c)]));
 let topCache = { t: 0, list: null };
 ctx.topPlayers = async () => {
-  if (Date.now() - topCache.t < 60_000 && topCache.list) return topCache.list;
+  if (Date.now() - topCache.t < 5 * 60_000 && topCache.list) return topCache.list;
   const list = await Cloud.topProfiles(50);
   topCache = { t: Date.now(), list };
   return list;
@@ -308,9 +327,13 @@ async function sendPix(uid, amount, desc = '') {
   return null;
 }
 const claiming = new Set();
+const pendingPix = new Set(); // Pix que falharam (ex.: servidor sem cota): tenta de novo a cada 2 min
+setInterval(() => { for (const id of [...pendingPix]) claimOne(id); }, 120_000);
 function watchPix() {
   if (!ctx.uid) return;
-  Cloud.watchIncoming(ctx.uid, async (id, d) => {
+  Cloud.watchIncoming(ctx.uid, (id) => claimOne(id));
+}
+async function claimOne(id) {
     if (claiming.has(id)) return;
     claiming.add(id);
     try {
@@ -322,7 +345,8 @@ function watchPix() {
         UI.toast(`✨ Você recebeu <b>${t.prestige.toLocaleString('pt-BR')}</b> de prestígio (teste)!`, 'gold');
         notify('✨', `Prestígio de teste: <b>${t.prestige > 0 ? '+' : ''}${t.prestige.toLocaleString('pt-BR')}</b>`);
         UI.confetti(); afterAction(); UI.render(); pushCloud().catch(() => {});
-        return;
+        pendingPix.delete(id);
+      return;
       }
       if (t.kind === 'sale') {
         ctx.s.stats.pSales = (ctx.s.stats.pSales || 0) + 1;
@@ -331,6 +355,7 @@ function watchPix() {
         UI.toast(`🛒 <b>${esc(t.fromName)}</b> comprou ${esc(t.item || 'um produto')} da sua marca! +${money(t.amount)}`, 'gold');
         notify('🛒', `<b>${esc(t.fromName)}</b> comprou <b>${esc(t.item || 'um produto')}</b>${c ? ` da ${esc(c.name)}` : ''}: <b class="up">+${money(t.amount)}</b> (sua margem de ${Math.round(G.COMP.margin * 100)}%)`);
         afterAction(); UI.render(); pushCloud().catch(() => {});
+        pendingPix.delete(id);
         return;
       }
       ctx.s.stats.pixIn = (ctx.s.stats.pixIn || 0) + t.amount;
@@ -342,8 +367,11 @@ function watchPix() {
       afterAction();
       UI.render();
       pushCloud().catch(() => {});
-    } catch (e) { /* outro aparelho já resgatou */ }
-  });
+      pendingPix.delete(id);
+    } catch (e) {
+      if (e && e.message === 'já resgatado') pendingPix.delete(id); // outro aparelho já resgatou
+      else { pendingPix.add(id); claiming.delete(id); }
+    }
 }
 function removeFriend(uid) {
   ctx.s.friends = ctx.s.friends.filter((f) => f !== uid);
@@ -490,11 +518,11 @@ function start(s) {
   setInterval(tick, 250);
   setInterval(() => G.save(ctx.s), 5000);
   setInterval(UI.slowRefresh, 3000);
-  setInterval(() => { if (Date.now() - lastPush > 55_000) pushCloud().catch(() => {}); }, 15_000);
+  setInterval(() => { if (Date.now() - lastPush > 120_000) pushCloud(true).catch(() => {}); }, 15_000);
   // Capacitor (app Android) avisa ao voltar do segundo plano
   document.addEventListener('resume', () => { offlineProgress(); UI.render(); });
   document.addEventListener('visibilitychange', () => {
-    if (document.hidden) { A.pause(); G.save(ctx.s); pushCloud().catch(() => {}); }
+    if (document.hidden) { A.pause(); G.save(ctx.s); pushCloud(true).catch(() => {}); }
     else { A.resume(); offlineProgress(); UI.render(); checkUpdate(); }
   });
   checkUpdate();
@@ -510,7 +538,7 @@ async function checkUpdate() {
     if (loadedVersion === null) { loadedVersion = v; window.GAME_VERSION = v; return; }
     if (v !== loadedVersion && started) {
       G.save(ctx.s);
-      await pushCloud().catch(() => {});
+      await pushCloud(true).catch(() => {});
       UI.toast('🔄 Nova versão do jogo! Atualizando...', 'gold');
       setTimeout(() => location.reload(), 1500);
     }

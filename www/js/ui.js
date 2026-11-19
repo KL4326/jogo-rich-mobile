@@ -1530,7 +1530,7 @@ function vPerfil() {
 function vRanking() {
   const s = C.s;
   const me = { look: s.look, partner: s.love ? { look: s.love.partner.look } : null, n: s.name, w: G.netWorth(s, C.mk), l: G.level(s), a: Object.keys(s.ach).length, c: s.cardMax, p: G.prestige(s), net: G.incomeBreakdown(s, C.mk).net, me: true, home: (G.homeOf(s) || {}).icon || '🏚️' };
-  const fromProfile = (uid, p) => ({ look: p.look, partner: p.partner, n: p.name, w: p.nw, l: p.level, a: p.ach, c: p.card || 0, p: p.prestige, net: p.net, t: p.updated, id: uid, home: p.home, tag: p.tag, online: Date.now() - p.updated < 3 * 60_000 });
+  const fromProfile = (uid, p) => ({ look: p.look, partner: p.partner, n: p.name, w: p.nw, l: p.level, a: p.ach, c: p.card || 0, p: p.prestige, net: p.net, t: p.updated, id: uid, home: p.home, tag: p.tag, online: Date.now() - p.updated < 11 * 60_000 });
   const fr = s.friends.map((uid) => { const p = C.friends[uid]; return p ? fromProfile(uid, p) : { n: 'Carregando…', w: -1, l: 0, a: 0, c: 0, p: 0, id: uid, loading: true }; });
   const global = ui.rk === 'todos' && C.cloud;
   if (global && !ui.topList && !ui.topLoading) { ui.topLoading = true; C.topPlayers().then((l) => { ui.topList = l; ui.topAt = Date.now(); }).catch(() => { ui.topList = []; }).finally(() => { ui.topLoading = false; if (ui.tab === 'perfil' && !modalOpen()) keepScroll(render); }); }

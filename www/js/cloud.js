@@ -83,7 +83,7 @@ export async function loadSave(uid) {
 export async function pushSave(uid, s, profile) {
   await Promise.all([
     F.setDoc(F.doc(db, 'saves', uid), { json: JSON.stringify(s), last: s.last }),
-    F.setDoc(F.doc(db, 'profiles', uid), profile),
+    profile ? F.setDoc(F.doc(db, 'profiles', uid), profile) : null,
   ]);
 }
 export async function getProfile(uid) {
