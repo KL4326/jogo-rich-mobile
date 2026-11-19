@@ -1039,3 +1039,6 @@ s.old { opacity: .6; font-size: 12px; margin-left: 4px; }
 .ranklist::-webkit-scrollbar-thumb { background: var(--purple); border-radius: 6px; }
 .rkcount { display: block; margin: 6px 0; color: #fffc; }
 .pricehead small { display: block; }
+.toast.tap { pointer-events: auto; cursor: pointer; }
+.toast.tap:active { transform: scale(.97); }
+.toast .taphint { display: block; font-size: 11px; opacity: .7; margin-top: 2px; }

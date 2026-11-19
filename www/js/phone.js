@@ -23,7 +23,7 @@ export function setup(ctx) {
     const before = unread();
     st.chats = list.sort((a, b) => ((b.last && b.last.t) || 0) - ((a.last && a.last.t) || 0));
     const after = unread();
-    if (after > before && !(el && app === 'chat')) { A.sfx('notify'); const c = st.chats[0]; if (c && c.last) toast(`💬 ${esc(nameOf(other(c)))}: ${esc(c.last.text).slice(0, 40)}`, 'gold', false); }
+    if (after > before && !(el && app === 'chat')) { A.sfx('notify'); const c = st.chats[0]; if (c && c.last) { const uid = other(c); toast(`💬 ${esc(nameOf(uid))}: ${esc(c.last.text).slice(0, 40)}`, 'gold', false, () => open(C, 'chat', { uid })); } }
     badge();
     if (el && app === 'papo') draw();
   });
@@ -32,7 +32,7 @@ export function setup(ctx) {
     if (!list || !list.length) return;
     const m = list[0], was = st.geral && st.geral.id;
     st.geral = m;
-    if (was && was !== m.id && m.from !== C.uid && !(el && app === 'chat' && st.chat && st.chat.cid === 'geral')) { A.sfx('notify'); toast(`🌎 ${esc(m.name || 'Jogador')}: ${esc(m.text || '📷 Foto').slice(0, 40)}`, 'gold', false); }
+    if (was && was !== m.id && m.from !== C.uid && !(el && app === 'chat' && st.chat && st.chat.cid === 'geral')) { A.sfx('notify'); toast(`🌎 ${esc(m.name || 'Jogador')}: ${esc(m.text || '📷 Foto').slice(0, 40)}`, 'gold', false, () => open(C, 'chat', { uid: 'geral' })); }
     badge();
     if (el && app === 'papo') draw();
   });

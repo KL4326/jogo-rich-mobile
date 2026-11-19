@@ -73,15 +73,17 @@ export function init(ctx) {
 }
 
 // ---------- efeitos ----------
-export function toast(msg, kind = '', snd) {
+export function toast(msg, kind = '', snd, onTap) {
   if (snd !== false) A.sfx(snd || (kind === 'err' ? 'error' : kind === 'gold' ? 'notify' : ''));
   const el = document.createElement('div');
-  el.className = 'toast ' + kind;
-  el.innerHTML = msg;
+  el.className = 'toast ' + kind + (onTap ? ' tap' : '');
+  el.innerHTML = msg + (onTap ? '<small class="taphint">toque para abrir ›</small>' : '');
+  if (onTap) el.addEventListener('click', () => { el.remove(); A.unlock(); onTap(); });
   $('#toasts').appendChild(el);
   const all = $('#toasts').children; while (all.length > 3) all[0].remove();
-  setTimeout(() => el.classList.add('out'), 2600);
-  setTimeout(() => el.remove(), 3000);
+  const life = onTap ? 4500 : 2600;
+  setTimeout(() => el.classList.add('out'), life);
+  setTimeout(() => el.remove(), life + 400);
 }
 function burst(el, glyph = '🪙', n = 7) {
   if (!el || !el.getBoundingClientRect) return;
