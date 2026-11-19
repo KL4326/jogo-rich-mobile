@@ -316,6 +316,14 @@ function watchPix() {
     try {
       const t = await Cloud.claimPix(id);
       ctx.s.cash += t.amount;
+      if (t.kind === 'prestige' && Number.isFinite(t.prestige)) {
+        ctx.s.bonusPrestige = Math.max(0, (ctx.s.bonusPrestige || 0) + t.prestige);
+        G.statusRefresh();
+        UI.toast(`✨ Você recebeu <b>${t.prestige.toLocaleString('pt-BR')}</b> de prestígio (teste)!`, 'gold');
+        notify('✨', `Prestígio de teste: <b>${t.prestige > 0 ? '+' : ''}${t.prestige.toLocaleString('pt-BR')}</b>`);
+        UI.confetti(); afterAction(); UI.render(); pushCloud().catch(() => {});
+        return;
+      }
       if (t.kind === 'sale') {
         ctx.s.stats.pSales = (ctx.s.stats.pSales || 0) + 1;
         const c = (ctx.s.companies || []).find((x) => compDocId(x) === t.comp);

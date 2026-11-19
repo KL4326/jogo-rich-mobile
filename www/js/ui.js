@@ -467,6 +467,7 @@ function statusModal() {
     <p class="muted">Seu <b>prestígio</b> (✨ ${fmt(st.p)}) define seu status social. Quanto mais famoso, mais vantagens!</p>
     ${nx ? `<div class="bar gold"><i style="width:${pct}%"></i></div><small>Faltam <b>✨ ${fmt(nx.min - st.p)}</b> para ${nx.icon} ${nx.name}</small>` : '<p class="up"><b>Você chegou ao topo! 🌍</b></p>'}
     <div class="stlist">${G.STATUS.map((x, i) => `<div class="stier ${i === st.idx ? 'cur' : i < st.idx ? 'done' : ''}"><div class="sthead"><span>${x.icon}</span><b>${x.name}</b><small>✨ ${fmt(x.min)}</small>${i === st.idx ? '<em>você</em>' : i < st.idx ? '<em class="ok">✓</em>' : ''}</div>${perksOf(x).length ? `<ul>${perksOf(x).map((t) => `<li>${t}</li>`).join('')}</ul>` : '<small class="muted">Sem vantagens ainda</small>'}</div>`).join('')}</div>
+    ${C.s.bonusPrestige ? `<p class="muted small">🧪 Inclui ✨ ${fmt(C.s.bonusPrestige)} de prestígio de teste.</p>` : ''}
     <p class="hint small">✨ Como ganhar prestígio: comprando 💎 bens (carros, casas, luxo), 👗 roupas com estilo, 🌟 skins lendárias, ✈️ conhecendo destinos novos e 💒 casando.</p>`);
 }
 

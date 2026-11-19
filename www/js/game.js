@@ -126,7 +126,7 @@ const loveMult = (s) => (statusOf(s).love ? 1.25 : 1);
 // Bens comprados de marcas de outros jogadores (guardam uma cópia dos dados)
 export const pgoods = (s) => Object.values(s.pgoods || {});
 const allOwned = (s) => ALL_GOODS.filter((g) => s.goods[g.id]).concat(pgoods(s));
-export const prestige = (s) => allOwned(s).reduce((p, g) => p + g.prestige, 0) + styleOf(s) + tripPrestige(s) + (s.love && s.love.wedding ? (WEDDINGS.find((w) => w.id === s.love.wedding) || { prestige: 0 }).prestige : 0);
+export const prestige = (s) => (s.bonusPrestige || 0) + allOwned(s).reduce((p, g) => p + g.prestige, 0) + styleOf(s) + tripPrestige(s) + (s.love && s.love.wedding ? (WEDDINGS.find((w) => w.id === s.love.wedding) || { prestige: 0 }).prestige : 0);
 export function offlineHours(s) {
   const home = homeOf(s);
   return card(s).hours + (home ? home.hours : 0);
