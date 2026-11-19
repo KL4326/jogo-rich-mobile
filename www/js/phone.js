@@ -85,9 +85,10 @@ function stopMsgs() { if (st.offMsgs) { st.offMsgs(); st.offMsgs = null; } st.ch
 
 function go(a, d = {}) {
   if (a !== 'chat') stopMsgs();
-  if (a !== 'vitrine' && a !== 'post') stopFeed();
+  if (a !== 'vitrine' && a !== 'post' && a !== 'pview') stopFeed();
   app = a;
-  if (a === 'vitrine') startFeed();
+  if (a === 'pview') st.pid = d.id;
+  if (a === 'vitrine' || a === 'pview') startFeed();
   if (a === 'chat') openChat(d.uid);
   draw();
 }
@@ -95,12 +96,13 @@ function go(a, d = {}) {
 function draw() {
   if (!el) return;
   $('.pclock').textContent = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-  const v = { home, camera, galeria, papo, chat, vitrine, post }[app] || home;
+  const v = { home, camera, galeria, papo, chat, vitrine, post, pview }[app] || home;
   const scr = $('.pscreen');
   scr.className = 'pscreen app-' + app;
   $('.pframe').classList.toggle('lt', !['home', 'camera'].includes(app));
   scr.innerHTML = v();
   if (app === 'chat') { const m = $('.msgs'); if (m) m.scrollTop = m.scrollHeight; }
+  if (app === 'pview' && st.pvBottom) { st.pvBottom = false; scr.scrollTop = scr.scrollHeight; }
 }
 const bar = (t, back = 'home', extra = '') => `<div class="ptop"><button data-pa="go" data-a="${back}">‹</button><b>${t}</b>${extra || '<span></span>'}</div>`;
 const needNet = (t) => `${bar(t)}<div class="pempty">📡<p>Esse app precisa de internet e de uma conta conectada.</p></div>`;
@@ -225,6 +227,7 @@ function startFeed() {
     if (sig === st.feedSig) return; // nada mudou (ex.: confirmação do servidor de algo que já estava na tela)
     st.feedSig = sig; st.feed = feed; st.feedErr = err;
     if (el && app === 'vitrine') refreshFeed();
+    if (el && app === 'pview') refreshPview();
   });
 }
 // Atualiza o feed sem apagar o que a pessoa está digitando nos comentários
@@ -254,12 +257,40 @@ function feedHTML() {
     const com = p.comments || [];
     return `<div class="post"><div class="phead"><span class="fav sm">${p.look ? avatarSVG(p.look, { size: 52 }) : '👤'}</span><div class="grow"><b>${esc(p.name)}</b><small>${ago(p.created)}</small></div>${p.uid === C.uid ? `<button class="pdel" data-pa="delpost" data-id="${p.id}">🗑️</button>` : ''}</div>
       ${p.photo ? `<div class="ppho" data-pa="like" data-id="${p.id}" data-dbl="1">${photoHTML(p.photo, true)}</div>` : ''}
-      ${p.text ? `<p class="ptext ${p.photo ? '' : 'big'}">${esc(p.text)}</p>` : ''}
-      <div class="pacts"><button class="${liked ? 'liked' : ''}" data-pa="like" data-id="${p.id}">${liked ? '❤️' : '🤍'} ${likes.length || ''}</button><span>💬 ${com.length || ''}</span></div>
+      ${p.text ? `<p class="ptext ${p.photo ? '' : 'big'}" data-pa="go" data-a="pview" data-id="${p.id}">${esc(p.text)}</p>` : ''}
+      <div class="pacts"><button class="${liked ? 'liked' : ''}" data-pa="like" data-id="${p.id}">${liked ? '❤️' : '🤍'} ${likes.length || ''}</button><button data-pa="go" data-a="pview" data-id="${p.id}">💬 ${com.length || ''}</button></div>
       ${likes.length ? `<small class="plikes">Curtido por ${likes.slice(0, 3).map((u) => esc(u === C.uid ? 'você' : nameOf(u))).join(', ')}${likes.length > 3 ? ` e mais ${likes.length - 3}` : ''}</small>` : ''}
-      <div class="pcoms">${com.slice(-4).map((c) => `<p><b>${esc(c.name)}</b> ${esc(c.text)}</p>`).join('')}${com.length > 4 ? `<small>+ ${com.length - 4} comentários anteriores</small>` : ''}</div>
+      ${com.length > 2 ? `<button class="pall" data-pa="go" data-a="pview" data-id="${p.id}">Ver todos os ${com.length} comentários</button>` : ''}
+      <div class="pcoms" data-pa="go" data-a="pview" data-id="${p.id}">${com.slice(-2).map((c) => `<p><b>${esc(c.name)}</b> ${esc(c.text)}</p>`).join('')}</div>
       <div class="compose sm"><input maxlength="150" placeholder="Comentar…" data-enter="comment" data-id="${p.id}" autocomplete="off"><button data-pa="comment" data-id="${p.id}">➤</button></div></div>`;
   }).join('');
+}
+// Publicação aberta: foto/texto + todos os comentários e campo de comentar fixo embaixo
+function pviewBody() {
+  const p = (st.feed || []).find((x) => x.id === st.pid);
+  if (!p) return st.feed ? '<div class="pempty">🗑️<p>Essa publicação foi apagada.</p></div>' : '<div class="pempty sm">⏳<p>Carregando…</p></div>';
+  const likes = Object.keys(p.likes || {}), liked = !!(p.likes || {})[C.uid];
+  const com = p.comments || [];
+  return `<div class="post open"><div class="phead"><span class="fav sm">${p.look ? avatarSVG(p.look, { size: 52 }) : '👤'}</span><div class="grow"><b>${esc(p.name)}</b><small>${ago(p.created)}</small></div></div>
+    ${p.photo ? `<div class="ppho" data-pa="like" data-id="${p.id}" data-dbl="1">${photoHTML(p.photo, true)}</div>` : ''}
+    ${p.text ? `<p class="ptext ${p.photo ? '' : 'big'}">${esc(p.text)}</p>` : ''}
+    <div class="pacts"><button class="${liked ? 'liked' : ''}" data-pa="like" data-id="${p.id}">${liked ? '❤️' : '🤍'} ${likes.length || ''}</button><span>💬 ${com.length || ''}</span></div>
+    ${likes.length ? `<small class="plikes">Curtido por ${likes.map((u) => esc(u === C.uid ? 'você' : nameOf(u))).join(', ')}</small>` : ''}</div>
+    <div class="cthread">${com.length ? com.map((c) => `<div class="cmt ${c.uid === C.uid ? 'me' : ''}"><b>${esc(c.name)}</b><p>${esc(c.text)}</p><small>${ago(c.t)}</small></div>`).join('') : '<div class="pempty sm">💬<p>Nenhum comentário ainda. Seja o primeiro!</p></div>'}</div>`;
+}
+function pview() {
+  if (!online()) return needNet('Publicação');
+  return `${bar('Publicação', 'vitrine')}<div class="pvbody">${pviewBody()}</div>
+    <div class="compose pvcompose"><input maxlength="150" placeholder="Escreva um comentário…" data-enter="comment" data-id="${st.pid}" autocomplete="off"><button data-pa="comment" data-id="${st.pid}">➤</button></div>`;
+}
+function refreshPview() {
+  const b = $('.pvbody'); if (!b) return;
+  const scr = $('.pscreen');
+  const atEnd = scr && scr.scrollHeight - scr.scrollTop - scr.clientHeight < 60;
+  const top = scr ? scr.scrollTop : 0;
+  b.innerHTML = pviewBody();
+  if (scr) scr.scrollTop = atEnd || st.pvBottom ? scr.scrollHeight : top;
+  st.pvBottom = false;
 }
 function post() {
   if (!online()) return needNet('Nova postagem');
@@ -328,6 +359,7 @@ async function act(a, d, b) {
     const inp = el.querySelector(`input[data-id="${d.id}"]`);
     const text = inp && inp.value.trim(); if (!text) return;
     inp.value = '';
+    if (app === 'pview') st.pvBottom = true;
     Cloud.commentPost(d.id, { uid: C.uid, name: s.name, text, t: Date.now() }).catch((e) => { toast('⚠️ ' + Cloud.errMsg(e), 'err'); inp.value = text; });
     return;
   }

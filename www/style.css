@@ -1044,3 +1044,15 @@ s.old { opacity: .6; font-size: 12px; margin-left: 4px; }
 .toast .taphint { display: block; font-size: 11px; opacity: .7; margin-top: 2px; }
 .plist { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0; } .plist small { opacity: .6; }
 .papp { white-space: nowrap; }
+.pall { display: block; border: 0; background: none; padding: 2px 0; color: var(--ink2); font: 600 13px system-ui; cursor: pointer; }
+.pcoms[data-pa] { cursor: pointer; }
+.ptext[data-pa] { cursor: pointer; }
+.post.open { border-bottom: 1px solid #0001; }
+.cthread { padding: 6px 12px 10px; display: flex; flex-direction: column; gap: 6px; }
+.cmt { background: #f3eefc; border-radius: 4px 14px 14px 14px; padding: 6px 10px; max-width: 92%; align-self: flex-start; }
+.cmt.me { background: #ffe9f1; }
+.cmt b { font-size: 13px; }
+.cmt p { margin: 1px 0; font-size: 14px; word-wrap: break-word; }
+.cmt small { font-size: 10px; opacity: .55; }
+.pvcompose { position: sticky; bottom: -12px; margin-top: auto; background: #fff; border-top: 1px solid #0001; padding-bottom: 14px; }
+.pscreen.app-pview { background: #fff; }
