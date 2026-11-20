@@ -178,3 +178,8 @@ export async function topProfiles(n = 50) {
   const snap = await F.getDocs(F.query(F.collection(db, 'profiles'), F.orderBy('nw', 'desc'), F.limit(n)));
   return snap.docs.map((d) => ({ uid: d.id, ...d.data() }));
 }
+// Lê a bolsa uma vez (mais barato que ficar escutando cada mudança)
+export async function getCompanies() {
+  const snap = await F.getDocs(F.collection(db, 'companies'));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}

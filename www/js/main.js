@@ -127,13 +127,13 @@ let lastPush = 0, pushTimer = null, lastProfSig = '', lastProfAt = 0;
 const sig2 = (n) => (n ? Number(Number(n).toPrecision(2)) : 0); // 2 algarismos: 36,4 bi -> 36 bi
 async function pushCloud(force = false) {
   if (!ctx.uid || !ctx.s) return;
-  const wait = 20_000 - (Date.now() - lastPush);
+  const wait = 60_000 - (Date.now() - lastPush);
   if (!force && wait > 0) { if (!pushTimer) pushTimer = setTimeout(() => { pushTimer = null; pushCloud(true).catch(() => {}); }, wait); return; }
   lastPush = Date.now();
   G.save(ctx.s);
   const prof = profileOf(ctx.s);
   const sig = JSON.stringify({ ...prof, updated: 0, nw: sig2(prof.nw), net: sig2(prof.net), prestige: sig2(prof.prestige) });
-  const sendProf = sig !== lastProfSig || Date.now() - lastProfAt > 10 * 60_000;
+  const sendProf = (sig !== lastProfSig && Date.now() - lastProfAt > 3 * 60_000) || Date.now() - lastProfAt > 10 * 60_000;
   await Cloud.pushSave(ctx.uid, ctx.s, sendProf ? prof : null);
   if (sendProf) { lastProfSig = sig; lastProfAt = Date.now(); }
   pushCompanies().catch(() => {});
@@ -149,12 +149,14 @@ async function pushCompanies() {
   const base = { owner: ctx.uid, ownerName: s.name };
   const jobs = [];
   const put = (id, data) => {
-    // só envia se mudou (preço/lucro com 2 algarismos) ou a cada 15 min
-    const sig = JSON.stringify({ ...data, price: sig2(data.price), profit: sig2(data.profit) });
+    // Mudança de estrutura (nome, produtos, ações na bolsa) vai na hora; preço/lucro no máximo a cada 15 min
+    const shape = JSON.stringify({ ...data, price: 0, profit: 0 });
     const last = compSent[id];
-    if (last && last.sig === sig && Date.now() - last.t < 15 * 60_000) return;
-    compSent[id] = { sig, t: Date.now() };
-    jobs.push(Cloud.putCompany(id, { ...data, updated: Date.now() }));
+    const priceMoved = last && Math.abs(data.price - last.price) > Math.max(0.01, last.price * 0.03);
+    if (last && last.shape === shape && (!priceMoved || Date.now() - last.t < 15 * 60_000) && Date.now() - last.t < 60 * 60_000) return;
+    compSent[id] = { shape, price: data.price, t: Date.now() };
+    ctx.companies[id] = { ...(ctx.companies[id] || {}), ...data, id, updated: Date.now() };
+    jobs.push(Cloud.putCompany(id, { ...data, updated: Date.now() }).catch(() => { delete compSent[id]; }));
   };
   for (const c of s.companies || []) put(compDocId(c), { ...G.compPublic(s, c, mk), ...base });
   if (s.corp) put(ctx.holdingDocId(), { ...G.holdingPublic(s, mk), ...base });
@@ -162,14 +164,26 @@ async function pushCompanies() {
   for (const [id, d] of Object.entries(ctx.companies)) {
     if (d.owner !== ctx.uid) continue;
     const alive = id === ctx.holdingDocId() ? !!s.corp : (s.companies || []).some((c) => compDocId(c) === id);
-    if (!alive) jobs.push(Cloud.delCompany(id));
+    if (!alive) { delete ctx.companies[id]; jobs.push(Cloud.delCompany(id)); }
   }
   await Promise.all(jobs);
 }
 ctx.pushCompanies = () => pushCompanies().catch(() => {});
+let compFetchAt = 0, compFetching = false;
+// Busca a bolsa: ao abrir telas que mostram empresas (no máx. a cada 2 min) e a cada 10 min
+ctx.refreshCompanies = (force = false) => {
+  if (!ctx.uid || compFetching) return;
+  if (!force && Date.now() - compFetchAt < 2 * 60_000) return;
+  compFetching = true;
+  Cloud.getCompanies().then((list) => { compFetchAt = Date.now(); applyCompanies(list); }).catch(() => {}).finally(() => { compFetching = false; });
+};
 function watchCompanies() {
   if (!ctx.uid) return;
-  Cloud.watchCompanies((list) => {
+  ctx.refreshCompanies(true);
+  setInterval(() => { if (!document.hidden) ctx.refreshCompanies(true); }, 10 * 60_000);
+}
+function applyCompanies(list) {
+  {
     if (!list) return;
     ctx.companies = Object.fromEntries(list.map((d) => [d.id, d]));
     // Empresa que saiu da bolsa (fechou ou o dono renasceu): suas ações são recompradas pelo último preço
@@ -188,8 +202,16 @@ function watchCompanies() {
       if (h && h.q > 0 && (d.holders || {})[ctx.uid] !== h.q) Cloud.setHolder(d.id, ctx.uid, h.q).catch(() => {});
     }
     UI.onCompanies();
-  });
+  }
 }
+// Suas próprias empresas sempre aparecem com o valor ao vivo (a bolsa dos outros atualiza a cada poucos minutos)
+ctx.liveDoc = (d) => {
+  if (!d || d.owner !== ctx.uid) return d;
+  const s = ctx.s;
+  if (d.id === ctx.holdingDocId()) return s.corp ? { ...d, price: G.corpPrice(s, mk), profit: G.grossBizProfit(s, mk), float: s.corp.float } : d;
+  const c = (s.companies || []).find((x) => compDocId(x) === d.id);
+  return c ? { ...d, ...G.compPublic(s, c, mk) } : d;
+};
 const heldByOthers = (doc) => Object.entries((doc && doc.holders) || {}).reduce((t, [u, q]) => t + (u === ctx.uid ? 0 : q), 0);
 ctx.heldByOthers = heldByOthers;
 // Compra/venda de ações de empresa de jogador
@@ -199,6 +221,7 @@ ctx.tradeCompany = async (id, qty, side) => {
   const r = G.tradeCompany(ctx.s, doc, qty, side, heldByOthers(doc));
   if (typeof r === 'string') return r;
   Cloud.setHolder(id, ctx.uid, r.q).catch(() => {});
+  doc.holders = { ...(doc.holders || {}) }; if (r.q > 0) doc.holders[ctx.uid] = r.q; else delete doc.holders[ctx.uid];
   afterAction();
   pushCloud().catch(() => {});
   return r;

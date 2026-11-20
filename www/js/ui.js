@@ -904,7 +904,8 @@ function devModal(id, tier) {
 function playerCompaniesHTML() {
   if (!C.cloud) return '';
   const s = C.s;
-  const docs = Object.values(C.companies || {}).sort((a, b) => b.price * (b.shares || 1e7) - a.price * (a.shares || 1e7));
+  C.refreshCompanies && C.refreshCompanies();
+  const docs = Object.values(C.companies || {}).map((d) => (C.liveDoc ? C.liveDoc(d) : d)).sort((a, b) => b.price * (b.shares || 1e7) - a.price * (a.shares || 1e7));
   const filt = ui.sf || 'all';
   if (filt !== 'all' && filt !== 'jog' && filt !== 'mine') return '';
   const list = filt === 'mine' ? docs.filter((d) => (s.fport || {})[d.id] || d.owner === C.uid) : docs;
@@ -918,7 +919,8 @@ function playerCompaniesHTML() {
   }).join('') : '<p class="emptyf">Nenhum jogador criou empresa ainda. Seja o primeiro em 🏭 Negócios → Minhas Empresas!</p>'}`;
 }
 function openPlayerCompany(id) {
-  const d = (C.companies || {})[id]; if (!d) return;
+  const raw = (C.companies || {})[id]; if (!raw) return;
+  const d = C.liveDoc ? C.liveDoc(raw) : raw;
   const s = C.s;
   const h = (s.fport || {})[id];
   const others = C.heldByOthers(d);
@@ -929,7 +931,7 @@ function openPlayerCompany(id) {
   ui.pcomp = id;
   const divDay = Math.max(0, d.profit) / G.COMP.shares;
   modal(`<h3>${seg ? seg.icon : '🏛️'} ${esc(d.name)} <small class="muted">${esc(d.ticker)}</small></h3>
-    <p class="muted">${mine ? 'Sua empresa' : `Empresa de ${esc(d.ownerName || '?')}`} · ${seg ? `${seg.name} · ${SECTOR[seg.sector].icon} ${WX[C.mk.sectorNow(seg.sector)]} ${WXN[C.mk.sectorNow(seg.sector)]}` : 'Holding de negócios'} · ${d.nprod || 0} produto(s)</p>
+    <p class="muted">${mine ? 'Sua empresa (valor ao vivo)' : `Empresa de ${esc(d.ownerName || '?')} · atualizado ${d.updated ? ago(d.updated) : '—'}`} · ${seg ? `${seg.name} · ${SECTOR[seg.sector].icon} ${WX[C.mk.sectorNow(seg.sector)]} ${WXN[C.mk.sectorNow(seg.sector)]}` : 'Holding de negócios'} · ${d.nprod || 0} produto(s)</p>
     <div class="pricehead"><b class="bigprice">${price2(d.price)}</b><small class="${d.profit >= 0 ? 'up' : 'down'}">lucro ${money(d.profit)}/dia</small></div>
     ${(d.plist || []).length ? `<div class="plist">${d.plist.map((x) => `<span class="pill">${x.icon} ${esc(x.model)} <small>${esc(x.kind)}${x.v > 1 ? ' v' + x.v : ''}</small></span>`).join('')}</div>${seg && !seg.cat ? '<small class="muted">Esses produtos são vendidos ao mercado (não aparecem em 💎 Bens).</small>' : ''}` : ''}
     <div class="ownbox"><div class="lrow"><span>Na bolsa</span><b>${fmt(total)} ações (${Math.round((d.float || 0) * 100)}%)</b></div>
@@ -946,6 +948,7 @@ function openPlayerCompany(id) {
 function vMarcas() {
   const s = C.s;
   if (!C.cloud) return '<p class="emptyf">Disponível com a conta online.</p>';
+  C.refreshCompanies && C.refreshCompanies();
   const docs = Object.values(C.companies || {}).filter((d) => (d.products || []).length);
   const mineOwned = G.pgoods(s);
   return `<p class="hint small">🏷️ Produtos criados pelas empresas dos jogadores. Funcionam como os outros bens (prestígio, bônus de salário, casa) e <b>20% do preço vai para o dono da marca</b>.<br>Só aparecem aqui Montadora, Construtora, Joalheria, Tecnologia e Náutica. Bancos, alimentos, moda, farmácia e energia vendem para o mercado: veja os produtos delas em 📈 Bolsa → 🏢 Jogadores.</p>
