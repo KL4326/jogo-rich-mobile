@@ -72,7 +72,7 @@ export const nextMilestone = (lvl) => BIZ_MILESTONES.find((m) => lvl < m);
 export const SECTOR_MULT = { 1: 1.3, 0: 1, '-1': 0.75 };
 
 export function card(s) { return CARDS[s.cardMax]; }
-export const levelMult = (s) => (1 + LEVEL_BONUS * (level(s) - 1)) * lifeMult(s) * legacyMult(s) * bankruptMult(s) * (1 + exclBonus(s, 'all'));
+export const levelMult = (s) => (1 + LEVEL_BONUS * (level(s) - 1)) * lifeMult(s) * legacyMult(s) * bankruptMult(s) * (1 + exclBonus(s, 'all')) * wearMult(s);
 // Felicidade: relacionamento (se o carinho estiver bom) + descanso pós-viagem
 export function loveBonus(s) { return s.love && s.love.aff >= 30 ? LOVE_STAGES[s.love.stage].bonus : 0; }
 export function restBonus(s) { return s.rested && s.rested > Date.now() ? REST_BONUS : 0; }
@@ -1141,7 +1141,7 @@ export function compStats(s, c, mk) {
   const boost = (1 + 0.05 * (st.vendas || 0)) * (1 + 0.04 * (st.mkt || 0));
   const clima = COMP_CLIMA[mk.sectorNow(seg.sector)]; // empresas sentem mais a crise do setor
   const mg = mgmtMult(s);
-  const rev = base * cap * boost * clima * mg * legacyMult(s) * bankruptMult(s) * (1 + exclBonus(s, 'all'));
+  const rev = base * cap * boost * clima * mg * legacyMult(s) * bankruptMult(s) * (1 + exclBonus(s, 'all')) * wearMult(s);
   const cost = STAFF.reduce((t, r) => t + (st[r.id] || 0) * wageOf(c, r.id), 0);
   return { rev, cost, profit: rev - cost, base, need, cap, boost, clima, mg };
 }
@@ -1349,20 +1349,34 @@ export function seasonGrow(s, mk) {
   if (!s.season) return 0;
   return netWorth(s, mk) - s.season.start;
 }
+// Crescimento em % (é o que vale no ranking): base = patrimônio no início da temporada (não diminui ao renascer), mínimo R$ 1 mi
+const seasonBase = (season) => Math.max(1e6, season.base || season.start || 0);
+export function seasonPct(s, mk) {
+  if (!s.season) return 0;
+  return (seasonGrow(s, mk) / seasonBase(s.season)) * 100;
+}
+// ⏳ Desgaste do império: −10% de renda por temporada sem renascer (máx. −40%), zera ao renascer
+export const WEAR = { step: 0.1, max: 4 };
+export const wearMult = (s) => 1 - WEAR.step * Math.min(WEAR.max, s.wear || 0);
 // Detecta a virada do ano. Retorna { ended, grow } se o ano mudou.
 export function seasonTick(s, mk) {
   const cal = calendar();
   const nw = netWorth(s, mk);
-  if (!s.season) { s.season = { year: cal.year, start: nw }; return null; }
+  if (!s.season) { s.season = { year: cal.year, start: nw, base: nw }; return null; }
   if (cal.year <= s.season.year) return null;
   const ended = s.season.year, grow = nw - s.season.start;
-  s.seasonHist = [{ year: ended, grow }, ...(s.seasonHist || [])].slice(0, 20);
-  s.lastSeason = { year: ended, grow };
+  const pct = (grow / seasonBase(s.season)) * 100;
+  s.seasonHist = [{ year: ended, grow, pct }, ...(s.seasonHist || [])].slice(0, 20);
+  s.lastSeason = { year: ended, grow, pct };
+  // Quem podia renascer (tinha patrimônio para isso) e não renasceu nessa temporada acumula desgaste
+  let wore = false;
+  if (ended >= SEASON_FIRST && (s.legacy || {}).year !== ended && nw >= LEGACY.minNW) { // conta a partir das temporadas de 3 dias s.wear = Math.min(WEAR.max, (s.wear || 0) + 1); wore = true; }
   // 💸 Inflação: dinheiro parado na conta perde 10% a cada virada (investido não perde)
   const inflation = s.cash > 0 ? s.cash * INFLATION : 0;
   s.cash -= inflation;
-  s.season = { year: cal.year, start: netWorth(s, mk) };
-  return { ended, grow, inflation };
+  const nw2 = netWorth(s, mk);
+  s.season = { year: cal.year, start: nw2, base: nw2 };
+  return { ended, grow, pct, inflation, wore, wear: s.wear || 0 };
 }
 export function seasonPrize(s, place, year) {
   const pts = SEASON_PRIZE[place - 1] || 0;
@@ -1390,7 +1404,8 @@ export function rebirth(s, mk) {
   delete s.corp; delete s.cc; delete s.loans;
   s.payMode = 'cash';
   s.legacy = { pts: Math.min(LEGACY.maxPts, legacyPts(s) + gain), n: ((s.legacy || {}).n || 0) + 1, year: calendar().year, best: Math.max(nw, (s.legacy || {}).best || 0) };
-  s.season = { year: calendar().year, start: netWorth(s, mk) };
+  s.season = { year: calendar().year, start: netWorth(s, mk), base: Math.max((s.season || {}).base || 0, nw) };
+  s.wear = 0;
   return { gain, nw, sold };
 }
 

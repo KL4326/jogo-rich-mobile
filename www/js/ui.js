@@ -479,11 +479,11 @@ function lastChampion() {
   const s = C.s, ly = G.calendar().year - 1;
   if (ly < 1) return null;
   const cands = [];
-  if (C.uid !== G.CREATOR && s.lastSeason && s.lastSeason.year === ly) cands.push({ n: s.name, look: s.look, g: s.lastSeason.grow, me: true, titles: s.titles || 0 });
+  if (C.uid !== G.CREATOR && s.lastSeason && s.lastSeason.year === ly) cands.push({ n: s.name, look: s.look, g: s.lastSeason.pct ?? 0, me: true, titles: s.titles || 0 });
   for (const uid of s.friends) {
     const p = C.friends[uid];
     if (!p || uid === G.CREATOR) continue;
-    const g = p.lastYr === ly ? p.lastGrow : p.yr === ly ? p.grow : null;
+    const g = p.lastYr === ly ? p.lastPct : p.yr === ly ? p.pct : null;
     if (g !== null && g !== undefined) cands.push({ n: p.name, look: p.look, g, id: uid, titles: p.titles || 0 });
   }
   const best = cands.filter((c) => c.g > 0).sort((a, b) => b.g - a.g)[0];
@@ -493,7 +493,7 @@ function championBanner() {
   const c = lastChampion();
   if (!c) return '';
   return `<div class="champ" ${c.me ? '' : `data-act="friend" data-id="${c.id}"`}><div class="chav">${avatarSVG(c.look, { size: 74 })}<span class="chcrown">👑</span></div>
-    <div class="grow"><small>🏆 CAMPEÃO DO ANO ${c.year}</small><b>${esc(c.n)}${c.me ? ' (você!)' : ''}</b><span>Cresceu <b class="up">+${money(c.g)}</b> no ano${c.titles > 1 ? ` · ${c.titles} títulos` : ''}</span></div></div>`;
+    <div class="grow"><small>🏆 CAMPEÃO DO ANO ${c.year}</small><b>${esc(c.n)}${c.me ? ' (você!)' : ''}</b><span>Cresceu <b class="up">${pctTxt(c.g)}</b> no ano${c.titles > 1 ? ` · ${c.titles} títulos` : ''}</span></div></div>`;
 }
 
 // ---------- CRIADOR (destaque no ranking) ----------
@@ -503,7 +503,7 @@ function creatorCard(p, yearMode) {
     <div class="grow"><span class="crtag">👑 CRIADOR</span>
       <b class="crname">${esc(p.n)}${p.me ? ' (você)' : ''}</b>
       <small>⭐${p.l} · 💳${CARDS[p.c].name} · 🎖️${p.a} · ${G.STATUS[G.statusIdx(p.p || 0)].icon}${fmt(p.p)}</small>
-      <div class="crstats"><div><small>${yearMode ? 'Cresceu no ano' : 'Patrimônio'}</small><b>${yearMode && p.w >= 0 ? '+' : ''}${money(p.w)}</b></div><div><small>Por dia</small><b class="${p.net >= 0 ? 'up' : 'down'}">${p.net >= 0 ? '+' : ''}${fmt(p.net || 0)}</b></div></div>
+      <div class="crstats"><div><small>${yearMode ? 'Cresceu no ano' : 'Patrimônio'}</small><b>${yearMode ? pctTxt(p.w) : money(p.w)}</b></div><div><small>Por dia</small><b class="${p.net >= 0 ? 'up' : 'down'}">${p.net >= 0 ? '+' : ''}${fmt(p.net || 0)}</b></div></div>
       <small class="crnote">${p.me ? '🟢 você' : p.online ? '🟢 jogando agora' : '⚪ visto ' + ago(p.t)} · fora da disputa</small></div></div>`;
 }
 
@@ -517,21 +517,23 @@ function creatorTools() {
 }
 
 // ---------- TEMPORADA (ANO) E RENASCER ----------
+const pctTxt = (g) => `${g >= 0 ? '+' : ''}${(+g).toFixed(1)}%`;
 const growOf = (p, yr) => (p.yr === yr ? p.grow : p.lastYr === yr ? p.lastGrow : null);
 function seasonModal() {
   const s = C.s, mk = C.mk, cal = G.calendar();
-  const me = { n: s.name + ' (você)', g: G.seasonGrow(s, mk), me: true, look: s.look };
-  const rows = [...(C.uid === G.CREATOR ? [] : [me]), ...s.friends.filter((uid) => uid !== G.CREATOR).map((uid) => C.friends[uid]).filter(Boolean).map((p) => ({ n: p.name, g: p.yr === cal.year ? p.grow : 0, look: p.look }))].sort((a, b) => b.g - a.g);
+  const me = { n: s.name + ' (você)', g: G.seasonPct(s, mk), me: true, look: s.look };
+  const rows = [...(C.uid === G.CREATOR ? [] : [me]), ...s.friends.filter((uid) => uid !== G.CREATOR).map((uid) => C.friends[uid]).filter(Boolean).map((p) => ({ n: p.name, g: p.yr === cal.year ? p.pct || 0 : 0, look: p.look }))].sort((a, b) => b.g - a.g);
   const nw = G.netWorth(s, mk), gain = G.rebirthGain(nw), why = G.canRebirth(s, mk);
   const hist = (s.seasonHist || []).slice(0, 6);
   modal(`<h3>📅 Ano ${cal.year} · dia ${cal.day}/365</h3>
     <p class="muted">O ano (temporada) vira em <b data-live="yearleft"></b>. Cada temporada dura <b>3 dias</b> e todos os jogadores viram juntos.</p>
     <div class="seasonme"><small>Você cresceu neste ano</small><b data-live="sgrow"></b></div>
-    <h4>🏁 Ranking do ano (quem mais cresceu)</h4>
-    <div class="ranklist small">${rows.map((r, i) => `<div class="rank ${r.me ? 'me' : ''}"><span class="pos">${['🥇', '🥈', '🥉'][i] || i + 1 + 'º'}</span><span class="rav">${avatarSVG(r.look, { size: 40 })}</span><div class="grow"><b>${esc(r.n)}</b></div><div class="right"><b class="${r.g >= 0 ? 'up' : 'down'}">${r.g >= 0 ? '+' : ''}${money(r.g)}</b></div></div>`).join('')}</div>
+    <h4>🏁 Ranking do ano (quem mais cresceu em %)</h4>
+    <div class="ranklist small">${rows.map((r, i) => `<div class="rank ${r.me ? 'me' : ''}"><span class="pos">${['🥇', '🥈', '🥉'][i] || i + 1 + 'º'}</span><span class="rav">${avatarSVG(r.look, { size: 40 })}</span><div class="grow"><b>${esc(r.n)}</b></div><div class="right"><b class="${r.g >= 0 ? 'up' : 'down'}">${pctTxt(r.g)}</b></div></div>`).join('')}</div>
     <p class="hint small">🎁 Na virada: 🥇 +3 de legado e o título 🏆 · 🥈 +2 · 🥉 +1. O legado dá bônus de renda para sempre: os primeiros pontos valem mais (~3% cada) e o bônus vai crescendo cada vez mais devagar, até o máximo de <b>+300%</b>. (Precisa de pelo menos 2 jogadores e crescimento positivo.)</p>
     <div class="legacybox"><div><small>Seu legado</small><b>⭐ ${G.legacyPts(s)} pts</b></div><div><small>Bônus de renda</small><b class="up">+${Math.round((G.legacyMult(s) - 1) * 100)}%</b></div><div><small>Títulos</small><b>🏆 ${s.titles || 0}</b></div></div>
     ${hist.length ? `<h4>📜 Anos anteriores</h4>${hist.map((h) => `<div class="fr"><span>Ano ${h.year}${h.place ? ' · ' + (['🥇', '🥈', '🥉'][h.place - 1] || h.place + 'º') : ''}</span><b class="${h.grow >= 0 ? 'up' : 'down'}">${h.grow >= 0 ? '+' : ''}${money(h.grow)}</b></div>`).join('')}` : ''}
+    ${C.s.wear ? `<p class="warnbox">⏳ Desgaste do império: <b>−${C.s.wear * 10}% de renda</b> por ${C.s.wear} temporada(s) sem renascer. Renascer zera.</p>` : '<p class="hint small">⏳ Quem tem patrimônio para renascer e passa a temporada inteira sem renascer ganha <b>−10% de renda</b> por temporada (desgaste do império, até −40%). Renascer zera.</p>'}
     <h4>🔁 Renascer</h4>
     <p class="muted small">Recomece a economia do zero e ganhe legado conforme seu patrimônio (mínimo ${money(G.LEGACY.minNW)}, uma vez por ano). Quanto mais rico, mais pontos. Você mantém nível, estudos, profissão, visual, roupas, skins, viagens, amor, troféus e amigos.</p>
     <div class="fr"><span>Se renascer agora ganha</span><b class="up">+${gain} pts (bônus vai para +${G.legacyPct(Math.min(G.LEGACY.maxPts, G.legacyPts(s) + gain))}%)</b></div>
@@ -1062,7 +1064,7 @@ function friendView(uid) {
       <div><small>Viagens</small><b>🛂 ${p.trips || 0}</b></div><div><small>Status</small><b>${G.STATUS[G.statusIdx(p.prestige || 0)].icon} ${G.STATUS[G.statusIdx(p.prestige || 0)].name}</b></div>
       <div><small>Troféus</small><b>🎖️ ${p.ach}</b></div><div><small>Veículo</small><b>${p.veh || '🚶'}</b></div>
       <div><small>Empresas controladas</small><b>👑 ${p.ctrl || 0}</b></div><div><small>Vitórias de temporada</small><b>🏆 ${p.titles || 0}</b></div>
-      <div><small>Legado</small><b>⭐ ${p.legacy || 0} <small>(+${G.legacyPct(p.legacy || 0)}%)</small></b></div><div><small>${p.lastYr ? `No Ano ${p.lastYr} cresceu` : 'Ano anterior'}</small><b class="${(p.lastGrow || 0) >= 0 ? 'up' : 'down'}">${p.lastYr ? `${p.lastGrow >= 0 ? '+' : ''}${money(p.lastGrow)}` : '—'}</b></div>
+      <div><small>Legado</small><b>⭐ ${p.legacy || 0} <small>(+${G.legacyPct(p.legacy || 0)}%)</small></b></div><div><small>${p.lastYr ? `No Ano ${p.lastYr} cresceu` : 'Ano anterior'}</small><b class="${(p.lastGrow || 0) >= 0 ? 'up' : 'down'}">${p.lastYr ? (p.lastPct !== undefined ? pctTxt(p.lastPct) : `${p.lastGrow >= 0 ? '+' : ''}${money(p.lastGrow)}`) : '—'}</b></div>
     </div>
     ${(p.excl || []).filter((id) => EXCL[id]).length ? `<div class="exclshow"><b>💎 Exclusivos</b>${p.excl.filter((id) => EXCL[id]).map((id) => `<span class="pill gold">${EXCL[id].icon} ${esc(EXCL[id].name)}</span>`).join('')}</div>` : ''}
     <small class="muted">${Date.now() - p.updated < 11 * 60_000 ? '🟢 jogando agora' : '⚪ visto ' + ago(p.updated)}</small>
@@ -1171,6 +1173,7 @@ function flowHTML() {
     (G.lifeMult(C.s) > 1 ? `<div class="fr"><span>😊 Felicidade e descanso</span><b>+${Math.round((G.lifeMult(C.s) - 1) * 100)}%</b></div>` : '') +
     `<div class="fr"><span>⭐ Bônus de nível</span><b>+${Math.round(LEVEL_BONUS * 100 * (G.level(C.s) - 1))}%</b></div>` +
     (G.isBankrupt(C.s) ? '<div class="fr"><span>💀 Falido(a)</span><b class="down">−30%</b></div>' : '') +
+    (C.s.wear ? `<div class="fr"><span>⏳ Desgaste do império (${C.s.wear} temporada${C.s.wear > 1 ? 's' : ''} sem renascer)</span><b class="down">−${C.s.wear * 10}%</b></div>` : '') +
     `<p class="muted small">🦁 IR progressivo: 0% até R$ 2 mil/dia, depois 7,5% · 15% · 22,5% · 27,5% (acima de R$ 2 mi/dia). Venda de ações com lucro e IPO pagam 15%. Patrimônio acima de R$ 1 bi paga 1% ao ano. Total já pago: <b>${money(C.s.stats.taxPaid || 0)}</b>.</p>`;
 }
 function newsHTML(n) {
@@ -1648,7 +1651,7 @@ function vRanking() {
   const global = ui.rk === 'todos' && C.cloud;
   const yearMode = ui.rk === 'ano';
   const cy = G.calendar().year;
-  if (yearMode) { me.w = G.seasonGrow(s, C.mk); fr.forEach((f) => { const p = C.friends[f.id]; f.w = p && p.yr === cy ? p.grow || 0 : 0; }); }
+  if (yearMode) { me.w = G.seasonPct(s, C.mk); fr.forEach((f) => { const p = C.friends[f.id]; f.w = p && p.yr === cy ? p.pct || 0 : 0; }); }
   if (global && !ui.topList && !ui.topLoading) { ui.topLoading = true; C.topPlayers().then((l) => { ui.topList = l; ui.topAt = Date.now(); }).catch(() => { ui.topList = []; }).finally(() => { ui.topLoading = false; if (ui.tab === 'perfil' && !modalOpen()) keepScroll(render); }); }
   if (global && ui.topAt && Date.now() - ui.topAt > 60_000 && !ui.topLoading) ui.topList = null;
   const all = global ? (ui.topList || []).map((p) => (p.uid === C.uid ? me : { ...fromProfile(p.uid, p), stranger: !s.friends.includes(p.uid) })) : [me, ...fr].sort((a, b) => b.w - a.w);
@@ -1664,13 +1667,13 @@ function vRanking() {
   <div class="mytag"><div><small>Sua tag de amigo</small><b>${C.cloud ? esc(s.tag || 'gerando…') : 'offline'}</b></div><button class="btn sm" data-act="copytag">Copiar</button></div>
   ${C.cloud ? `<div class="seg2 rkseg">${[['amigos', '👥 Amigos'], ['ano', '📅 Ano'], ['todos', '🌎 Todos']].map(([m, n]) => `<button class="${(ui.rk || 'amigos') === m ? 'on' : ''}" data-act="rkmode" data-m="${m}">${n}</button>`).join('')}</div>` : ''}
   ${global && !ui.topList ? '<p class="muted center">⏳ Carregando o ranking geral…</p>' : ''}
-  ${yearMode ? `<p class="hint small" data-act="season">📅 <b>Temporada do Ano ${cy}</b>: vence quem mais crescer até a virada (em <b data-live="yearleft"></b>). Toque para ver prêmios e renascer.</p>` : ''}
+  ${yearMode ? `<p class="hint small" data-act="season">📅 <b>Temporada do Ano ${cy}</b>: vence quem mais crescer <b>em %</b> até a virada (em <b data-live="yearleft"></b>). Toque para ver prêmios e renascer.</p>` : ''}
   ${championBanner()}
   ${creator && !creator.loading ? creatorCard(creator, yearMode) : ''}
-  <div class="podium">${pod.map((p, i) => p && !p.loading ? `<div class="pcol ${cls[i]} ${p.me ? 'me' : ''}"><div class="pav2" ${p.me ? '' : `data-act="friend" data-id="${p.id}"`}>${avatarSVG(p.look, { size: i === 1 ? 110 : 90 })}${p.online || p.me ? '<i class="on"></i>' : ''}</div><b>${esc(p.n)}</b><small>${money(p.w)}</small><div class="pbar"><span>${medal[i]}</span></div></div>` : '<div class="pcol empty"><div class="pbar"></div></div>').join('')}</div>
+  <div class="podium">${pod.map((p, i) => p && !p.loading ? `<div class="pcol ${cls[i]} ${p.me ? 'me' : ''}"><div class="pav2" ${p.me ? '' : `data-act="friend" data-id="${p.id}"`}>${avatarSVG(p.look, { size: i === 1 ? 110 : 90 })}${p.online || p.me ? '<i class="on"></i>' : ''}</div><b>${esc(p.n)}</b><small>${yearMode ? pctTxt(p.w) : money(p.w)}</small><div class="pbar"><span>${medal[i]}</span></div></div>` : '<div class="pcol empty"><div class="pbar"></div></div>').join('')}</div>
   <div class="ranklist">${all.map((p, i) => `<div class="rank ${p.me ? 'me' : ''}" ${p.me || p.loading || p.stranger ? '' : `data-act="friend" data-id="${p.id}"`}><span class="pos">${i + 1}º</span><span class="rav">${p.loading ? '' : avatarSVG(p.look, { size: 52 })}</span>
       <div class="grow"><b>${p.home || ''} ${esc(p.n)}${p.me ? ' (você)' : ''}${((p.me ? Object.keys(s.excl || {}) : (C.friends[p.id] || {}).excl) || []).map((id) => (EXCL[id] ? ` <span class="exclmini">${EXCL[id].icon}</span>` : '')).join('')}${(p.me ? s.titles : (C.friends[p.id] || {}).titles) ? ` <span class="club">🏆${p.me ? s.titles : C.friends[p.id].titles}</span>` : ''}</b>${p.loading ? '' : `<small>⭐${p.l} · 💳${CARDS[p.c].name} · 🎖️${p.a} · ${G.STATUS[G.statusIdx(p.p || 0)].icon}${fmt(p.p)}${G.STATUS[G.statusIdx(p.p || 0)].club ? ' · <span class="club">👑 Clube</span>' : ''}</small><small class="${p.online || p.me ? 'up' : ''}">${p.me ? '🟢 você' : p.online ? '🟢 jogando agora' : '⚪ visto ' + ago(p.t)} · ${p.net >= 0 ? '+' : ''}${fmt(p.net || 0)}/dia</small>`}</div>
-      <div class="right"><b class="${yearMode ? (p.w >= 0 ? 'up' : 'down') : ''}">${p.loading ? '…' : (yearMode && p.w >= 0 ? '+' : '') + money(p.w)}</b>${p.me ? '' : p.stranger ? (p.tag && !(s.sent || {})[p.id] ? `<button class="lnk" data-act="invitetag" data-tag="${esc(p.tag)}">+ convidar</button>` : (s.sent || {})[p.id] ? '<small class="muted">convidado</small>' : '') : global ? '' : `<button class="lnk" data-act="delfriend" data-id="${p.id}">remover</button>`}</div></div>`).join('')}</div>
+      <div class="right"><b class="${yearMode ? (p.w >= 0 ? 'up' : 'down') : ''}">${p.loading ? '…' : yearMode ? pctTxt(p.w) : money(p.w)}</b>${p.me ? '' : p.stranger ? (p.tag && !(s.sent || {})[p.id] ? `<button class="lnk" data-act="invitetag" data-tag="${esc(p.tag)}">+ convidar</button>` : (s.sent || {})[p.id] ? '<small class="muted">convidado</small>' : '') : global ? '' : `<button class="lnk" data-act="delfriend" data-id="${p.id}">remover</button>`}</div></div>`).join('')}</div>
   ${all.length > 6 ? `<small class="muted center rkcount">${all.length} jogadores · role a lista para ver todos ↕️</small>` : ''}
   ${s.friends.length ? '' : '<p class="muted center">Ainda só você aqui! Adicione a família pela tag 👇</p>'}
   ${invitesCard()}${sentCard()}
@@ -1751,7 +1754,7 @@ function liveValue(key) {
     case 'year': return G.calendar().year;
     case 'yday': return G.calendar().day;
     case 'yearleft': return dur(G.calendar().next - Date.now());
-    case 'sgrow': { const g = G.seasonGrow(s, mk); return { t: (g >= 0 ? '+' : '') + money(g), c: g >= 0 ? 'up' : 'down' }; }
+    case 'sgrow': { const g = G.seasonGrow(s, mk), p = G.seasonPct(s, mk); return { t: `${pctTxt(p)} (${g >= 0 ? '+' : ''}${money(g)})`, c: g >= 0 ? 'up' : 'down' }; }
     case 'falido': return s.bankrupt ? dur(s.bankrupt.until - Date.now()) : '';
     case 'insolv': return s.insolvent ? dur(s.insolvent + G.BANKRUPT.graceDays * DAY_MS - Date.now()) : '';
     case 'exclt': { const x = EXCL[arg]; return x ? dur(x.end - Date.now()) : ''; }
