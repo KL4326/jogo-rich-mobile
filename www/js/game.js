@@ -170,8 +170,12 @@ export function incomeBreakdown(s, mk) {
   const loan = s.debt * LOAN_RATE;
   // 🦁 Impostos: IR progressivo sobre a renda do trabalho/negócios, IPVA/IPTU sobre bens e imóveis, fortuna acima de R$ 1 bi
   const ir = incomeTax(sal + biz + rent + Math.max(0, comp));
-  const tBens = (allOwned(s).reduce((t, g) => t + g.cost, 0) + PROPERTIES.reduce((t, p) => t + (s.props[p.id] || 0) * p.cost, 0)) * TAX.bens / 365;
-  const tFort = Math.max(0, netWorthFast(s, mk) - TAX.fortunaMin) * TAX.fortuna / 365;
+  // Impostos sobre patrimônio: por temporada (3 dias reais) e NUNCA mais que 25% da renda bruta (não levam ninguém à falência sozinhos)
+  let tBens = (allOwned(s).reduce((t, g) => t + g.cost, 0) + PROPERTIES.reduce((t, p) => t + (s.props[p.id] || 0) * p.cost, 0)) * TAX.bens / TAX.seasonDays;
+  let tFort = Math.max(0, netWorthFast(s, mk) - TAX.fortunaMin) * TAX.fortuna / TAX.seasonDays;
+  const gross = sal + biz + rent + divs + juros + Math.max(0, comp);
+  const capW = Math.max(0, gross) * TAX.wealthCap;
+  if (tBens + tFort > capW) { const k = capW / (tBens + tFort); tBens *= k; tFort *= k; }
   const tax = ir + tBens + tFort;
   const inc = sal + biz + rent + divs + juros + Math.max(0, comp);
   const exp = moradia + manut + loan + Math.max(0, -comp) + tax;
@@ -754,6 +758,17 @@ export function ensureLife(s) {
   s.companies = s.companies || [];
   s.pgoods = s.pgoods || {};
   // Legado da fórmula antiga (quebrada): quem passou do teto fica com 50 pontos (+118%)
+  // Anistia (uma vez): o imposto sobre fortuna antigo (1% a cada 6h) gerou dívidas impagáveis. Perdoa dívida e saldo negativo até o total de impostos já pagos.
+  if (!s.taxAmnesty) {
+    s.taxAmnesty = true;
+    let left = (s.stats && s.stats.taxPaid) || 0;
+    const negCash = Math.min(left, Math.max(0, -s.cash)); s.cash += negCash; left -= negCash;
+    const d = Math.min(left, s.debt || 0); s.debt -= d; left -= d;
+    if (s.cc) { const f = Math.min(left, s.cc.fatura || 0); s.cc.fatura -= f; }
+    s.amnesty = negCash + d;
+    if (s.debt < 0.01) s.debt = 0;
+    if (s.insolvent && s.debt === 0 && s.cash >= 0) s.insolvent = null;
+  }
   if (s.legacy && !s.legacy.fix2 && (s.legacy.pts > LEGACY.maxPts || s.legacy.oldPts)) { s.legacy.oldPts = s.legacy.oldPts || s.legacy.pts; s.legacy.pts = 50; s.legacy.fix2 = true; }
   // Ações antigas das holdings dos amigos eram guardadas pelo id do amigo; agora pelo id da empresa
   for (const k of Object.keys(s.fport || {})) if (!k.includes('_')) { s.fport[k + '_h'] = s.fport[k]; delete s.fport[k]; }
@@ -1416,8 +1431,10 @@ export const TAX = {
   // Imposto de Renda progressivo por faixa de renda POR DIA (como o IR de verdade, só a parte acima de cada faixa paga mais)
   ir: [[2000, 0], [20000, 0.075], [200000, 0.15], [2e6, 0.225], [Infinity, 0.275]],
   ganho: 0.15, // ganho de capital: lucro ao vender ações/cripto e dinheiro do IPO
-  bens: 0.02, // IPVA/IPTU: 2% ao ano do valor dos bens e imóveis
-  fortuna: 0.01, fortunaMin: 1e9, // 1% ao ano sobre o patrimônio acima de R$ 1 bi
+  bens: 0.02, // IPVA/IPTU: 2% por temporada do valor dos bens e imóveis
+  fortuna: 0.01, fortunaMin: 1e9, // 1% por temporada sobre o patrimônio acima de R$ 1 bi
+  seasonDays: 4320, // 1 temporada = 3 dias reais = 4.320 dias do jogo
+  wealthCap: 0.25, // IPVA/IPTU + fortuna somados nunca passam de 25% da renda bruta
 };
 export function incomeTax(daily) {
   let tax = 0, prev = 0;

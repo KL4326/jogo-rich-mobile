@@ -84,6 +84,7 @@ async function enterGame(user, newName) {
   else if (local && (local.uid === user.uid || !local.uid)) s = local; // aproveita o progresso deste celular
   else s = G.newState(newName || user.displayName || 'Jogador');
   s.uid = user.uid;
+  G.ensureLife(s); // aplica as atualizações/migrações também no save que veio da nuvem
   if (!Array.isArray(s.friends) || s.friends.some((f) => typeof f !== 'string')) s.friends = [];
   if (!s.tag) {
     try { s.tag = await Cloud.reserveTag(user.uid, s.name); } catch (e) { /* tenta de novo depois */ }
@@ -625,6 +626,7 @@ function start(s) {
   watchPix();
   watchInvites();
   watchCompanies();
+  if (s.amnesty > 0) { notify('🕊️', `Anistia fiscal: o imposto sobre fortuna estava exagerado e foi corrigido. Perdoamos <b class="up">${money(s.amnesty)}</b> em dívidas causadas por ele.`); s.amnesty = 0; G.save(s); }
   // Celular: só carrega o módulo se o jogador tiver um (escuta apenas a lista de conversas)
   if (ctx.cloud && ctx.uid && G.hasPhone(s)) import('./phone.js').then((m) => { ctx.phone = m; m.setup(ctx); m.badge(); }).catch(() => {});
   if (!s.look) UI.openCreator();

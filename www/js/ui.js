@@ -1166,7 +1166,7 @@ function flowHTML() {
   const rows = [
     ['💼 Salário', ib.sal - ib.salVeh - ib.salLend], ['🚗 Bônus do veículo', ib.salVeh], ['🌟 Bônus da skin lendária', ib.salLend], ['🏭 Negócios', ib.biz], ['🏢 Suas empresas', ib.comp], ['🔑 Aluguéis', ib.rent], ['💸 Dividendos', ib.divs], ['🏦 Juros', ib.juros],
     ['🏠 Aluguel da moradia', -ib.moradia], ['🔧 Manutenção', -ib.manut], ['💳 Juros da dívida', -ib.loan],
-    [`🦁 Imposto de Renda (${(G.irRate(ib.sal + ib.biz + ib.rent + Math.max(0, ib.comp)) * 100).toFixed(1)}%)`, -ib.ir], ['🚗 IPVA/IPTU (2% ao ano)', -ib.tBens], ['💎 Imposto sobre fortuna', -ib.tFort],
+    [`🦁 Imposto de Renda (${(G.irRate(ib.sal + ib.biz + ib.rent + Math.max(0, ib.comp)) * 100).toFixed(1)}%)`, -ib.ir], ['🚗 IPVA/IPTU (2% por temporada)', -ib.tBens], ['💎 Imposto sobre fortuna', -ib.tFort],
   ].filter((r) => Math.abs(r[1]) > 0.0001);
   return rows.map(([n, v]) => `<div class="fr"><span>${n}</span><b class="${v < 0 ? 'down' : 'up'}">${v < 0 ? '-' : '+'}${money(Math.abs(v))}</b></div>`).join('') +
     `<div class="fr total"><span>Sobra por dia</span><b class="${ib.net < 0 ? 'down' : 'up'}">${money(ib.net)}</b></div>` +
@@ -1174,7 +1174,7 @@ function flowHTML() {
     `<div class="fr"><span>⭐ Bônus de nível</span><b>+${Math.round(LEVEL_BONUS * 100 * (G.level(C.s) - 1))}%</b></div>` +
     (G.isBankrupt(C.s) ? '<div class="fr"><span>💀 Falido(a)</span><b class="down">−30%</b></div>' : '') +
     (C.s.wear ? `<div class="fr"><span>⏳ Desgaste do império (${C.s.wear} temporada${C.s.wear > 1 ? 's' : ''} sem renascer)</span><b class="down">−${C.s.wear * 10}%</b></div>` : '') +
-    `<p class="muted small">🦁 IR progressivo: 0% até R$ 2 mil/dia, depois 7,5% · 15% · 22,5% · 27,5% (acima de R$ 2 mi/dia). Venda de ações com lucro e IPO pagam 15%. Patrimônio acima de R$ 1 bi paga 1% ao ano. Total já pago: <b>${money(C.s.stats.taxPaid || 0)}</b>.</p>`;
+    `<p class="muted small">🦁 IR progressivo: 0% até R$ 2 mil/dia, depois 7,5% · 15% · 22,5% · 27,5% (acima de R$ 2 mi/dia). Venda de ações com lucro e IPO pagam 15%. Patrimônio acima de R$ 1 bi paga 1% por temporada e bens 2% por temporada, mas esses dois juntos nunca passam de 25% da sua renda. Total já pago: <b>${money(C.s.stats.taxPaid || 0)}</b>.</p>`;
 }
 function newsHTML(n) {
   const list = C.mk.news(n);
