@@ -753,7 +753,8 @@ export function ensureLife(s) {
   s.trips = s.trips || {};
   s.companies = s.companies || [];
   s.pgoods = s.pgoods || {};
-  if (s.legacy && s.legacy.pts > LEGACY.maxPts) { s.legacy.oldPts = s.legacy.pts; s.legacy.pts = LEGACY.maxPts; }
+  // Legado da fórmula antiga (quebrada): quem passou do teto fica com 50 pontos (+118%)
+  if (s.legacy && !s.legacy.fix2 && (s.legacy.pts > LEGACY.maxPts || s.legacy.oldPts)) { s.legacy.oldPts = s.legacy.oldPts || s.legacy.pts; s.legacy.pts = 50; s.legacy.fix2 = true; }
   // Ações antigas das holdings dos amigos eram guardadas pelo id do amigo; agora pelo id da empresa
   for (const k of Object.keys(s.fport || {})) if (!k.includes('_')) { s.fport[k + '_h'] = s.fport[k]; delete s.fport[k]; }
   if (s.love === undefined) s.love = null;
@@ -1370,7 +1371,8 @@ export function seasonTick(s, mk) {
   s.lastSeason = { year: ended, grow, pct };
   // Quem podia renascer (tinha patrimônio para isso) e não renasceu nessa temporada acumula desgaste
   let wore = false;
-  if (ended >= SEASON_FIRST && (s.legacy || {}).year !== ended && nw >= LEGACY.minNW) { // conta a partir das temporadas de 3 dias s.wear = Math.min(WEAR.max, (s.wear || 0) + 1); wore = true; }
+  // conta a partir das temporadas de 3 dias
+  if (ended >= SEASON_FIRST && (s.legacy || {}).year !== ended && nw >= LEGACY.minNW) { s.wear = Math.min(WEAR.max, (s.wear || 0) + 1); wore = true; }
   // 💸 Inflação: dinheiro parado na conta perde 10% a cada virada (investido não perde)
   const inflation = s.cash > 0 ? s.cash * INFLATION : 0;
   s.cash -= inflation;
@@ -1480,7 +1482,7 @@ export function declareBankruptcy(s, mk) {
 // ---------- 💎 Itens exclusivos (tempo limitado) ----------
 export const exclOwned = (s) => Object.keys(s.excl || {}).map((id) => EXCL[id]).filter(Boolean);
 export function exclBonus(s, kind) { let b = 0; for (const id in s.excl || {}) { const x = EXCL[id]; if (x && x.bonus[kind]) b += x.bonus[kind]; } return b; }
-export const activeExclusives = (now = Date.now()) => EXCLUSIVES.filter((x) => now >= x.start && now < x.end);
+export const activeExclusives = (now = Date.now()) => EXCLUSIVES.filter((x) => x.start && now >= x.start && now < x.end);
 export function buyExclusive(s, id) {
   const x = EXCL[id]; if (!x) return 'Item não encontrado';
   const now = Date.now();
