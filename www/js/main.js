@@ -455,6 +455,27 @@ function cardModal(c) {
     <button class="btn full" data-act="close">Show! 😎</button></div>`);
 }
 
+// ---------- Falência ----------
+function solvencyCheck() {
+  const r = G.solvencyTick(ctx.s, mk);
+  if (!r) return;
+  if (r.warn) { notify('🚨', '<b>Risco de falência!</b> Suas dívidas passaram do valor de tudo que você tem. Você tem <b>30 dias</b> (30 min) para se recuperar, senão o banco leiloa seus bens.'); UI.toast('🚨 Risco de falência! Veja o Início.', 'err'); UI.render(); }
+  if (r.recovered) { UI.toast('😮‍💨 Você saiu do risco de falência!', 'ok'); notify('😮‍💨', 'Você saiu do risco de falência.'); UI.render(); }
+  if (r.cleared) { notify('🌅', 'Seu período de <b>falido(a)</b> acabou: renda normal e cartão liberado.'); UI.toast('🌅 Fim da falência! Renda e cartão de volta.', 'gold'); UI.render(); }
+  if (r.bankrupt) {
+    const b = r.bankrupt;
+    for (const id of b.fportIds) Cloud.setHolder(id, ctx.uid, 0).catch(() => {});
+    notify('💀', `<b>Você faliu.</b> O banco leiloou ${b.sold.length} item(ns) com desconto e arrecadou ${money(b.raised)} para pagar ${money(b.owed)} de dívidas.${b.forgiven > 0 ? ` O resto (${money(b.forgiven)}) foi perdoado.` : ''} Falido(a) por 1 ano: −30% de renda e cartão bloqueado.`);
+    UI.modal(`<div class="celebrate bankrupt"><h3>💀 Falência!</h3>
+      <p>Suas dívidas ficaram maiores que tudo que você tinha por 30 dias. O banco leiloou seus bens <b>pela metade do preço</b>:</p>
+      <div class="soldlist">${b.sold.slice(0, 12).map((x) => `<span class="pill bad">🔨 ${esc(x)}</span>`).join('')}${b.sold.length > 12 ? `<span class="pill">+${b.sold.length - 12}</span>` : ''}</div>
+      <div class="fr"><span>Dívidas</span><b class="down">${money(b.owed)}</b></div><div class="fr"><span>Arrecadado no leilão</span><b>${money(b.raised)}</b></div>${b.forgiven > 0 ? `<div class="fr"><span>Perdoado</span><b>${money(b.forgiven)}</b></div>` : ''}
+      <p class="muted small">Por 1 ano do jogo (~6h): renda −30%, cartão e empréstimos bloqueados. Você mantém nível, estudos, profissão, visual, viagens, amor e troféus.</p>
+      <button class="btn full" data-act="close">Recomeçar 😤</button></div>`);
+    afterAction(); UI.render(); pushCloud(true).catch(() => {});
+  }
+}
+
 // ---------- Temporada (ano) ----------
 let lastSeasonCheck = 0, pendingSeason = null, startedAt = Date.now();
 function seasonCheck() {
@@ -464,8 +485,9 @@ function seasonCheck() {
   // espera os perfis dos amigos carregarem para saber a colocação
   if (pendingSeason && (!ctx.uid || Date.now() - startedAt > 8000)) { const ps = pendingSeason; pendingSeason = null; finishSeason(ps); }
 }
-function finishSeason({ ended, grow }) {
+function finishSeason({ ended, grow, inflation }) {
   const s = ctx.s;
+  if (inflation > 1) notify('💸', `Inflação da virada: seu dinheiro parado perdeu <b class="down">${money(inflation)}</b> (10%). Dinheiro investido não perde.`);
   if (ctx.uid === G.CREATOR) return; // o criador não disputa a temporada
   const rivals = s.friends.filter((uid) => uid !== G.CREATOR).map((uid) => ctx.friends[uid]).filter(Boolean)
     .map((p) => (p.yr === ended ? p.grow : p.lastYr === ended ? p.lastGrow : null)).filter((g) => g !== null && g !== undefined);
@@ -480,6 +502,7 @@ function finishSeason({ ended, grow }) {
     <div class="offgain ${grow >= 0 ? 'up' : 'down'}">${grow >= 0 ? '+' : ''}${money(grow)}</div>
     ${n >= 2 ? `<p class="bigmedal">${medal}</p><p>Você ficou em <b>${place}º lugar</b> entre ${n} jogadores.</p>` : '<p class="muted">Adicione amigos para disputar a temporada!</p>'}
     ${pts ? `<p class="up"><b>Prêmio: +${pts} pontos de legado</b> = +${pts * 2}% de renda para sempre${place === 1 ? ' e o título 🏆 Campeão do Ano' : ''}!</p>` : ''}
+    ${inflation > 1 ? `<p class="down small">💸 Inflação: o dinheiro parado na conta perdeu ${money(inflation)} (10%). Investimentos não perdem!</p>` : ''}
     <p class="muted small">Um novo ano começou: todo mundo volta a disputar do zero. Vence quem mais crescer até a próxima virada.</p>
     <button class="btn full" data-act="close">Bora! 🚀</button></div>`);
   UI.confetti();
@@ -506,7 +529,7 @@ function tick() {
   s.last = now;
   if (dt > 0) G.accrue(s, mk, dt);
   if (mk.update(now)) UI.onMarketTick();
-  if (now - lastSeasonCheck > 3000) { lastSeasonCheck = now; seasonCheck(); }
+  if (now - lastSeasonCheck > 3000) { lastSeasonCheck = now; seasonCheck(); solvencyCheck(); }
   const done = G.checkCourse(s);
   if (done) { notify('🎓', `Você concluiu o curso <b>${done.name}</b>!`); UI.toast(`🎓 Você concluiu: <b>${done.name}</b>!`, 'gold'); afterAction(); UI.render(); }
   const tr = G.checkTrip(s);

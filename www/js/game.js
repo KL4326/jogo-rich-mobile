@@ -72,7 +72,7 @@ export const nextMilestone = (lvl) => BIZ_MILESTONES.find((m) => lvl < m);
 export const SECTOR_MULT = { 1: 1.3, 0: 1, '-1': 0.75 };
 
 export function card(s) { return CARDS[s.cardMax]; }
-export const levelMult = (s) => (1 + LEVEL_BONUS * (level(s) - 1)) * lifeMult(s) * legacyMult(s);
+export const levelMult = (s) => (1 + LEVEL_BONUS * (level(s) - 1)) * lifeMult(s) * legacyMult(s) * bankruptMult(s);
 // Felicidade: relacionamento (se o carinho estiver bom) + descanso pós-viagem
 export function loveBonus(s) { return s.love && s.love.aff >= 30 ? LOVE_STAGES[s.love.stage].bonus : 0; }
 export function restBonus(s) { return s.rested && s.rested > Date.now() ? REST_BONUS : 0; }
@@ -168,9 +168,14 @@ export function incomeBreakdown(s, mk) {
   const manut = allOwned(s).reduce((t, g) => t + g.cost * 0.0002, 0);
   const comp = compIncome(s, mk); // lucro (ou prejuízo) das suas empresas, já sem a parte dos acionistas
   const loan = s.debt * LOAN_RATE;
+  // 🦁 Impostos: IR progressivo sobre a renda do trabalho/negócios, IPVA/IPTU sobre bens e imóveis, fortuna acima de R$ 1 bi
+  const ir = incomeTax(sal + biz + rent + Math.max(0, comp));
+  const tBens = (allOwned(s).reduce((t, g) => t + g.cost, 0) + PROPERTIES.reduce((t, p) => t + (s.props[p.id] || 0) * p.cost, 0)) * TAX.bens / 365;
+  const tFort = Math.max(0, netWorthFast(s, mk) - TAX.fortunaMin) * TAX.fortuna / 365;
+  const tax = ir + tBens + tFort;
   const inc = sal + biz + rent + divs + juros + Math.max(0, comp);
-  const exp = moradia + manut + loan + Math.max(0, -comp);
-  return { sal, salVeh, salLend, biz, rent, divs, juros, moradia, manut, loan, comp, inc, exp, net: inc - exp };
+  const exp = moradia + manut + loan + Math.max(0, -comp) + tax;
+  return { sal, salVeh, salLend, biz, rent, divs, juros, moradia, manut, loan, comp, ir, tBens, tFort, tax, inc, exp, net: inc - exp };
 }
 
 export function netWorth(s, mk) {
@@ -203,8 +208,10 @@ export function accrue(s, mk, dt, eff = 1) {
   s.cdb.forEach((x) => { x.amt += x.amt * cdi * fixedRate('cdb', x) * days; });
   s.tes.forEach((x) => { x.amt += x.amt * cdi * fixedRate('tes', x) * days; });
   s.debt += s.debt * LOAN_RATE * real;
-  const cashGain = (ib.sal + ib.biz + ib.rent + ib.divs + Math.max(0, ib.comp)) * days - (ib.moradia + ib.manut + Math.max(0, -ib.comp)) * real;
+  const taxNow = ib.ir * days + (ib.tBens + ib.tFort) * real;
+  const cashGain = (ib.sal + ib.biz + ib.rent + ib.divs + Math.max(0, ib.comp)) * days - (ib.moradia + ib.manut + Math.max(0, -ib.comp)) * real - taxNow;
   s.cash += cashGain;
+  s.stats.taxPaid = (s.stats.taxPaid || 0) + taxNow;
   s.stats.earned += Math.max(0, ib.inc) * days;
   s.stats.divs += ib.divs * days;
   s.stats.rents += ib.rent * days;
@@ -234,6 +241,7 @@ export function setPay(s, mode, parc) { s.payMode = mode; if (parc) s.parc = par
 function shop(s, amount) {
   amount = discPrice(s, amount); // desconto do status social
   if (s.payMode === 'card') {
+    if (isBankrupt(s)) return 'Cartão bloqueado: você está falido(a). Pague com dinheiro.';
     const c = ensureCC(s);
     if (amount > ccAvail(s) + 1e-6) return 'Limite do cartão insuficiente';
     const n = s.parc || 1;
@@ -343,7 +351,9 @@ export function trade(s, mk, sym, qty, side) {
   } else {
     if (qty > h.q + 1e-9) return 'Você não tem tudo isso';
     const avg = h.cost / h.q;
-    const recv = qty * price * (1 - TRADE_FEE);
+    const gross = qty * price * (1 - TRADE_FEE);
+    const ct = capTax(s, gross - avg * qty);
+    const recv = gross - ct;
     const profit = recv - avg * qty;
     h.cost -= avg * qty; h.q -= qty;
     if (h.q < 1e-9) { h.q = 0; h.cost = 0; }
@@ -352,7 +362,7 @@ export function trade(s, mk, sym, qty, side) {
     s.stats.tradeProfit += profit;
     s.stats.bestTrade = Math.max(s.stats.bestTrade, profit);
     if (profit > 0) addXP(s, 5 + Math.min(60, Math.round(Math.log10(1 + profit) * 4)));
-    return { profit };
+    return { profit, tax: ct };
   }
   return null;
 }
@@ -428,6 +438,7 @@ export function sellGood(s, id) {
 
 export function borrow(s, amt) {
   const lim = card(s).limit;
+  if (isBankrupt(s)) return 'Banco não empresta para quem está falido(a)';
   if (!(amt > 0)) return 'Valor inválido';
   if (s.debt + amt > lim + 1e-6) return 'Acima do limite do seu cartão';
   s.debt += amt; s.cash += amt;
@@ -961,7 +972,8 @@ export function foundCorp(s, name, ticker) {
 export function ipo(s, mk, pct) {
   const c = s.corp; if (!c) return 'Funde sua empresa primeiro';
   if (!(pct > 0) || c.float + pct > CORP.maxFloat + 1e-9) return `Você pode vender no máximo ${Math.round(CORP.maxFloat * 100)}% (para continuar no controle)`;
-  const got = pct * CORP.shares * corpPrice(s, mk) * (1 - CORP.fee * 4);
+  const gross = pct * CORP.shares * corpPrice(s, mk) * (1 - CORP.fee * 4);
+  const got = gross - capTax(s, gross);
   c.float += pct; c.ipoAt = c.ipoAt || Date.now();
   s.cash += got;
   s.stats.ipoCash = (s.stats.ipoCash || 0) + got;
@@ -1094,6 +1106,7 @@ function applyInsurance(s, e) {
 }
 
 // ---------- Empresas criadas pelos jogadores ----------
+export const COMP_CLIMA = { 1: 1.3, 0: 1, '-1': 0.6 };
 export const COMP = { shares: 1e7, pe: 400, maxFloat: 0.49, fee: 0.005, foundK: 50000, devMult: 300, minLevel: 8, margin: 0.2, versionCost: 0.4, versionTime: 0.5 };
 const STAFF_MAP = Object.fromEntries(STAFF.map((r) => [r.id, r]));
 const MGMT = { ceo: 0.3, diretor: 0.15, gerente: 0.08, operador: 0.08 };
@@ -1123,9 +1136,9 @@ export function compStats(s, c, mk) {
   const need = c.products.reduce((t, p) => t + PRODUCT_TIERS[p.tier].need, 0);
   const cap = need ? Math.min(1, (st.prod || 0) / need) : 0;
   const boost = (1 + 0.05 * (st.vendas || 0)) * (1 + 0.04 * (st.mkt || 0));
-  const clima = SECTOR_MULT[mk.sectorNow(seg.sector)];
+  const clima = COMP_CLIMA[mk.sectorNow(seg.sector)]; // empresas sentem mais a crise do setor
   const mg = mgmtMult(s);
-  const rev = base * cap * boost * clima * mg * legacyMult(s);
+  const rev = base * cap * boost * clima * mg * legacyMult(s) * bankruptMult(s);
   const cost = STAFF.reduce((t, r) => t + (st[r.id] || 0) * wageOf(c, r.id), 0);
   return { rev, cost, profit: rev - cost, base, need, cap, boost, clima, mg };
 }
@@ -1205,7 +1218,8 @@ export function compIpo(s, mk, id, pct) {
   const c = findComp(s, id); if (!c) return 'Empresa não encontrada';
   if (!c.products.length) return 'Lance pelo menos um produto antes de abrir o capital';
   if (!(pct > 0) || c.float + pct > COMP.maxFloat + 1e-9) return `Você pode vender no máximo ${Math.round(COMP.maxFloat * 100)}% (para continuar no controle)`;
-  const got = pct * COMP.shares * compPrice(s, c, mk) * (1 - COMP.fee * 4);
+  const gross = pct * COMP.shares * compPrice(s, c, mk) * (1 - COMP.fee * 4);
+  const got = gross - capTax(s, gross);
   c.float += pct; c.ipoAt = c.ipoAt || Date.now();
   s.cash += got;
   s.stats.ipoCash = (s.stats.ipoCash || 0) + got;
@@ -1267,13 +1281,15 @@ export function tradeCompany(s, doc, qty, side, heldByOthers = 0) {
   }
   if (qty > h.q) return 'Você não tem tudo isso';
   const avg = h.cost / h.q;
-  const recv = qty * doc.price * (1 - COMP.fee);
+  const gross = qty * doc.price * (1 - COMP.fee);
+  const ct = capTax(s, gross - avg * qty);
+  const recv = gross - ct;
   h.cost -= avg * qty; h.q -= qty;
   s.cash += recv;
   const left = h.q;
   if (h.q <= 0) delete s.fport[doc.id];
   s.stats.trades++;
-  return { profit: recv - avg * qty, q: left };
+  return { profit: recv - avg * qty, q: left, tax: ct };
 }
 // ----- Bens das marcas dos jogadores -----
 export const pgoodId = (doc, prod) => `${doc.id}:${prod.tier}`;
@@ -1297,6 +1313,7 @@ export function sellPlayerGood(s, pid) {
 export const CREATOR = 'XKSi4cIA7HaYsEFpvUvY9cM8bbp1';
 // ---------- Calendário (igual para todos): 1 minuto = 1 dia, 365 dias = 1 ano ----------
 export const YEAR_DAYS = 365;
+export const INFLATION = 0.1;
 // O Ano 1 começou em 19/11/2026 (alinhado ao relógio do mercado)
 const CAL_EPOCH = EPOCH + 74 * YEAR_DAYS * DAY_MS;
 export function calendar(now = Date.now()) {
@@ -1324,8 +1341,11 @@ export function seasonTick(s, mk) {
   const ended = s.season.year, grow = nw - s.season.start;
   s.seasonHist = [{ year: ended, grow }, ...(s.seasonHist || [])].slice(0, 20);
   s.lastSeason = { year: ended, grow };
-  s.season = { year: cal.year, start: nw };
-  return { ended, grow };
+  // 💸 Inflação: dinheiro parado na conta perde 10% a cada virada (investido não perde)
+  const inflation = s.cash > 0 ? s.cash * INFLATION : 0;
+  s.cash -= inflation;
+  s.season = { year: cal.year, start: netWorth(s, mk) };
+  return { ended, grow, inflation };
 }
 export function seasonPrize(s, place, year) {
   const pts = SEASON_PRIZE[place - 1] || 0;
@@ -1355,4 +1375,72 @@ export function rebirth(s, mk) {
   s.legacy = { pts: legacyPts(s) + gain, n: ((s.legacy || {}).n || 0) + 1, year: calendar().year, best: Math.max(nw, (s.legacy || {}).best || 0) };
   s.season = { year: calendar().year, start: netWorth(s, mk) };
   return { gain, nw, sold };
+}
+
+// ---------- 🦁 Impostos ----------
+export const TAX = {
+  // Imposto de Renda progressivo por faixa de renda POR DIA (como o IR de verdade, só a parte acima de cada faixa paga mais)
+  ir: [[2000, 0], [20000, 0.075], [200000, 0.15], [2e6, 0.225], [Infinity, 0.275]],
+  ganho: 0.15, // ganho de capital: lucro ao vender ações/cripto e dinheiro do IPO
+  bens: 0.02, // IPVA/IPTU: 2% ao ano do valor dos bens e imóveis
+  fortuna: 0.01, fortunaMin: 1e9, // 1% ao ano sobre o patrimônio acima de R$ 1 bi
+};
+export function incomeTax(daily) {
+  let tax = 0, prev = 0;
+  for (const [lim, rate] of TAX.ir) { if (daily <= prev) break; tax += (Math.min(daily, lim) - prev) * rate; prev = lim; }
+  return tax;
+}
+export const irRate = (daily) => (daily > 0 ? incomeTax(daily) / daily : 0);
+function capTax(s, gain) {
+  if (!(gain > 0)) return 0;
+  const t = gain * TAX.ganho;
+  s.stats.taxPaid = (s.stats.taxPaid || 0) + t;
+  return t;
+}
+// patrimônio sem chamar incomeBreakdown (evita recursão)
+function netWorthFast(s, mk) { return netWorth(s, mk); }
+
+// ---------- 💀 Falência ----------
+export const BANKRUPT = { graceDays: 30, falidoDays: 365, penalty: 0.3, auction: 0.5, bizAuction: 0.3, compAuction: 0.3 };
+export const isBankrupt = (s) => !!(s.bankrupt && Date.now() < s.bankrupt.until);
+export const bankruptMult = (s) => (isBankrupt(s) ? 1 - BANKRUPT.penalty : 1);
+// Verifica a saúde financeira. Retorna { warn } ao entrar em risco, { bankrupt } quando quebra, { recovered } ao sair do risco, { cleared } ao fim do período de falido
+export function solvencyTick(s, mk) {
+  if (s.bankrupt && Date.now() >= s.bankrupt.until) { delete s.bankrupt; return { cleared: true }; }
+  const nw = netWorth(s, mk);
+  if (nw < 0) {
+    if (!s.insolvent) { s.insolvent = Date.now(); return { warn: true }; }
+    if (Date.now() - s.insolvent >= BANKRUPT.graceDays * DAY_MS) return { bankrupt: declareBankruptcy(s, mk) };
+    return null;
+  }
+  if (s.insolvent) { s.insolvent = null; return { recovered: true }; }
+  return null;
+}
+// O banco leiloa tudo com desconto até cobrir as dívidas
+export function declareBankruptcy(s, mk) {
+  const owed = s.debt + ccOwed(s);
+  let raised = Math.max(0, s.cash) + s.poup + s.cdb.reduce((t, x) => t + x.amt, 0) + s.tes.reduce((t, x) => t + x.amt, 0);
+  s.cash = Math.min(0, s.cash); s.poup = 0; s.cdb = []; s.tes = [];
+  const sold = [], fportIds = [];
+  const enough = () => raised >= owed;
+  // ações e cripto
+  for (const a of ASSETS) { if (enough()) break; const h = s.port[a.sym]; if (!h || !(h.q > 0)) continue; raised += h.q * mk.price(a.sym) * BANKRUPT.auction; sold.push(`${a.name}`); delete s.port[a.sym]; }
+  for (const [id, h] of Object.entries(s.fport || {})) { if (enough()) break; raised += h.q * h.price * BANKRUPT.auction; sold.push(`ações da ${h.name}`); fportIds.push(id); delete s.fport[id]; }
+  // imóveis de aluguel
+  for (const p of PROPERTIES) { if (enough()) break; const n = s.props[p.id] || 0; if (!n) continue; raised += n * p.cost * mk.realEstateIndex() * BANKRUPT.auction; sold.push(`${n}× ${p.name}`); delete s.props[p.id]; }
+  // bens (do mais caro para o mais barato)
+  const goods = allOwned(s).sort((a, b) => b.cost - a.cost);
+  for (const g of goods) { if (enough()) break; raised += g.cost * BANKRUPT.auction; sold.push(g.name); if (s.pgoods && s.pgoods[g.id]) delete s.pgoods[g.id]; else delete s.goods[g.id]; }
+  // empresas (só as que não têm ações com outros jogadores ficam por último)
+  for (const c of [...(s.companies || [])]) { if (enough()) break; raised += c.invested * BANKRUPT.compAuction; sold.push(`empresa ${c.name}`); s.companies = s.companies.filter((x) => x !== c); }
+  // negócios (do mais caro para o mais barato)
+  for (const b of [...BUSINESSES].reverse()) { if (enough()) break; const lv = s.biz[b.id] || 0; if (!lv) continue; raised += bizCost(b, 0, lv) * BANKRUPT.bizAuction; sold.push(`${b.name} (nível ${lv})`); delete s.biz[b.id]; }
+  if (!Object.keys(s.biz).length && s.corp) { sold.push(`holding ${s.corp.name}`); delete s.corp; }
+  const left = raised - owed;
+  s.cash += Math.max(0, left);
+  s.debt = 0; delete s.cc;
+  s.insolvent = null;
+  s.bankrupt = { at: Date.now(), until: Date.now() + BANKRUPT.falidoDays * DAY_MS, owed, raised };
+  s.stats.bankrupt = (s.stats.bankrupt || 0) + 1;
+  return { owed, raised, forgiven: Math.max(0, -left), sold, fportIds };
 }

@@ -1080,6 +1080,7 @@ function vInicio() {
     <div><small>Gasta por dia</small><b class="down" data-live="exp"></b></div>
     <div class="more">›</div>
   </div>
+  ${riskCard()}
   ${invitesCard()}
   ${inboxCard()}
   ${eventCard()}
@@ -1090,6 +1091,12 @@ function vInicio() {
     <div class="nhead"><b>📺 Jornal do Mercado</b><span class="lnk">ver tudo ›</span></div>
     <div class="news" data-live-html="news3"></div>
   </div>`;
+}
+function riskCard() {
+  const s = C.s;
+  if (G.isBankrupt(s)) return `<div class="riskcard falido"><b>💀 Falido(a)</b><p>Renda −30% e cartão bloqueado por mais <b data-live="falido"></b>. Pague com dinheiro e reconstrua com cuidado!</p></div>`;
+  if (s.insolvent) return `<div class="riskcard"><b>🚨 Risco de falência!</b><p>Suas dívidas (<b>${money(s.debt + G.ccOwed(s))}</b>) passaram do valor de tudo que você tem. Se não melhorar em <b data-live="insolv"></b>, o banco leiloa seus bens pela metade do preço.</p><small>💡 Venda bens, demita funcionários de empresas no prejuízo ou pague dívidas em Investir → Cartão.</small></div>`;
+  return '';
 }
 function invitesCard() {
   const list = C.invites || [];
@@ -1139,11 +1146,14 @@ function flowHTML() {
   const rows = [
     ['💼 Salário', ib.sal - ib.salVeh - ib.salLend], ['🚗 Bônus do veículo', ib.salVeh], ['🌟 Bônus da skin lendária', ib.salLend], ['🏭 Negócios', ib.biz], ['🏢 Suas empresas', ib.comp], ['🔑 Aluguéis', ib.rent], ['💸 Dividendos', ib.divs], ['🏦 Juros', ib.juros],
     ['🏠 Aluguel da moradia', -ib.moradia], ['🔧 Manutenção', -ib.manut], ['💳 Juros da dívida', -ib.loan],
+    [`🦁 Imposto de Renda (${(G.irRate(ib.sal + ib.biz + ib.rent + Math.max(0, ib.comp)) * 100).toFixed(1)}%)`, -ib.ir], ['🚗 IPVA/IPTU (2% ao ano)', -ib.tBens], ['💎 Imposto sobre fortuna', -ib.tFort],
   ].filter((r) => Math.abs(r[1]) > 0.0001);
   return rows.map(([n, v]) => `<div class="fr"><span>${n}</span><b class="${v < 0 ? 'down' : 'up'}">${v < 0 ? '-' : '+'}${money(Math.abs(v))}</b></div>`).join('') +
     `<div class="fr total"><span>Sobra por dia</span><b class="${ib.net < 0 ? 'down' : 'up'}">${money(ib.net)}</b></div>` +
     (G.lifeMult(C.s) > 1 ? `<div class="fr"><span>😊 Felicidade e descanso</span><b>+${Math.round((G.lifeMult(C.s) - 1) * 100)}%</b></div>` : '') +
-    `<div class="fr"><span>⭐ Bônus de nível</span><b>+${Math.round(LEVEL_BONUS * 100 * (G.level(C.s) - 1))}%</b></div>`;
+    `<div class="fr"><span>⭐ Bônus de nível</span><b>+${Math.round(LEVEL_BONUS * 100 * (G.level(C.s) - 1))}%</b></div>` +
+    (G.isBankrupt(C.s) ? '<div class="fr"><span>💀 Falido(a)</span><b class="down">−30%</b></div>' : '') +
+    `<p class="muted small">🦁 IR progressivo: 0% até R$ 2 mil/dia, depois 7,5% · 15% · 22,5% · 27,5% (acima de R$ 2 mi/dia). Venda de ações com lucro e IPO pagam 15%. Patrimônio acima de R$ 1 bi paga 1% ao ano. Total já pago: <b>${money(C.s.stats.taxPaid || 0)}</b>.</p>`;
 }
 function newsHTML(n) {
   const list = C.mk.news(n);
@@ -1429,7 +1439,7 @@ function doTrade(sym, side) {
   const r = act(() => G.trade(C.s, C.mk, sym, q, side));
   if (!r) return;
   if (side === 'buy') { A.sfx('cash'); toast(`✅ Comprou ${fmt(q)} ${sym}`, 'ok'); }
-  else if (r.profit >= 0) { toast(`💰 Lucro de ${money(r.profit)}!`, 'gold'); confetti(); }
+  else if (r.profit >= 0) { toast(`💰 Lucro de ${money(r.profit)}!${r.tax ? ` <small>(🦁 IR ${money(r.tax)})</small>` : ''}`, 'gold'); confetti(); }
   else toast(`📉 Prejuízo de ${money(-r.profit)}`, 'err');
   closeModal(); render();
 }
@@ -1722,6 +1732,8 @@ function liveValue(key) {
     case 'yday': return G.calendar().day;
     case 'yearleft': return dur(G.calendar().next - Date.now());
     case 'sgrow': { const g = G.seasonGrow(s, mk); return { t: (g >= 0 ? '+' : '') + money(g), c: g >= 0 ? 'up' : 'down' }; }
+    case 'falido': return s.bankrupt ? dur(s.bankrupt.until - Date.now()) : '';
+    case 'insolv': return s.insolvent ? dur(s.insolvent + G.BANKRUPT.graceDays * DAY_MS - Date.now()) : '';
     case 'giftcd': { const t = ((s.love || {}).cd || {})[arg] || 0; return t > Date.now() ? '⏳ ' + dur(t - Date.now()) : '✅ pronto'; }
     case 'ccavail': return money(G.ccAvail(s));
     case 'ccclose': return s.cc ? dur(s.cc.nextClose - Date.now()) : '30:00';
