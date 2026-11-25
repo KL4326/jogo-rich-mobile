@@ -4,7 +4,7 @@ import { CLOTH, CLOTHES, defaultLook, randomLook, LEGEND, LEGEND_COST } from './
 import {
   DAY_MS, BUSINESSES, BIZ_GROWTH, BIZ_MILESTONES, COURSES, JOBS, PROPERTIES, GOODS, GOOD, ALL_GOODS,
   CARDS, LEVEL_BONUS, TRADE_FEE, LOAN_RATE, RENT_NO_HOME, ASSETS, CRYPTOS, UNLOCKS, SECTORS,
-  SEGMENTS, SEGMENT, STAFF, PRODUCT_TIERS,
+  SEGMENTS, SEGMENT, STAFF, PRODUCT_TIERS, EXCLUSIVES, EXCL,
   OWN_TIERS, TRIPS, REST_BONUS, REST_HOURS, LOVE_STAGES, DATES, GIFTS, REPEAT_PENALTY, RING_COST, WEDDINGS, NAMES_F, NAMES_M,
 } from './data.js';
 
@@ -72,7 +72,7 @@ export const nextMilestone = (lvl) => BIZ_MILESTONES.find((m) => lvl < m);
 export const SECTOR_MULT = { 1: 1.3, 0: 1, '-1': 0.75 };
 
 export function card(s) { return CARDS[s.cardMax]; }
-export const levelMult = (s) => (1 + LEVEL_BONUS * (level(s) - 1)) * lifeMult(s) * legacyMult(s) * bankruptMult(s);
+export const levelMult = (s) => (1 + LEVEL_BONUS * (level(s) - 1)) * lifeMult(s) * legacyMult(s) * bankruptMult(s) * (1 + exclBonus(s, 'all'));
 // Felicidade: relacionamento (se o carinho estiver bom) + descanso pós-viagem
 export function loveBonus(s) { return s.love && s.love.aff >= 30 ? LOVE_STAGES[s.love.stage].bonus : 0; }
 export function restBonus(s) { return s.rested && s.rested > Date.now() ? REST_BONUS : 0; }
@@ -126,7 +126,7 @@ const loveMult = (s) => (statusOf(s).love ? 1.25 : 1);
 // Bens comprados de marcas de outros jogadores (guardam uma cópia dos dados)
 export const pgoods = (s) => Object.values(s.pgoods || {});
 const allOwned = (s) => ALL_GOODS.filter((g) => s.goods[g.id]).concat(pgoods(s));
-export const prestige = (s) => (s.bonusPrestige || 0) + allOwned(s).reduce((p, g) => p + g.prestige, 0) + styleOf(s) + tripPrestige(s) + (s.love && s.love.wedding ? (WEDDINGS.find((w) => w.id === s.love.wedding) || { prestige: 0 }).prestige : 0);
+export const prestige = (s) => (s.bonusPrestige || 0) + exclOwned(s).reduce((t, x) => t + x.prestige, 0) + allOwned(s).reduce((p, g) => p + g.prestige, 0) + styleOf(s) + tripPrestige(s) + (s.love && s.love.wedding ? (WEDDINGS.find((w) => w.id === s.love.wedding) || { prestige: 0 }).prestige : 0);
 // Tempo fora do jogo: os primeiros minutos rendem 100%, o resto rende metade, até o limite de horas
 export const OFFLINE = { fullMins: 5, eff: 0.5, maxHours: 10 };
 export function offlineHours(s) {
@@ -137,7 +137,7 @@ export function offlineHours(s) {
 export function bizProfit(s, b, mk) {
   const lvl = s.biz[b.id] || 0;
   if (!lvl) return 0;
-  return b.profit * lvl * bizMult(lvl) * SECTOR_MULT[mk.sectorNow(b.sector)] * levelMult(s) * buffMult(s, b.id) * (1 + statusOf(s).biz);
+  return b.profit * lvl * bizMult(lvl) * SECTOR_MULT[mk.sectorNow(b.sector)] * levelMult(s) * buffMult(s, b.id) * (1 + statusOf(s).biz) * (1 + exclBonus(s, 'biz'));
 }
 export function buffMult(s, id) {
   const now = Date.now();
@@ -146,7 +146,7 @@ export function buffMult(s, id) {
 
 export function salary(s) {
   const j = JOBS.find((x) => x.id === s.job);
-  return j.salary * (1 + vehicleBonus(s)) * (1 + legendBonus(s)) * levelMult(s);
+  return j.salary * (1 + vehicleBonus(s)) * (1 + legendBonus(s)) * (1 + exclBonus(s, 'sal')) * levelMult(s);
 }
 
 // Renda e gastos por dia de jogo, detalhado
@@ -191,6 +191,7 @@ export function netWorth(s, mk) {
   v += Object.values(s.fport || {}).reduce((t, h) => t + h.q * h.price, 0);
   v += allOwned(s).reduce((t, g) => t + g.cost * sellRate(g), 0);
   v += (s.companies || []).reduce((t, c) => t + c.invested * 0.6 * (1 - c.float), 0);
+  v += exclOwned(s).reduce((t, x) => t + x.cost, 0); // exclusivos valem o preço cheio (são raros)
   return v - s.debt - ccOwed(s);
 }
 export const sellRate = (g) => (g.cat === 'veiculos' || g.cat === 'ceumar' ? 0.6 : g.cat === 'moradia' ? 0.9 : 0.75);
@@ -896,8 +897,9 @@ export const tripsVisited = (s) => TRIPS.filter((t) => (s.trips || {})[t.id]).le
 
 // ---------- Cassino (a casa sempre leva vantagem) ----------
 export const SLOT_SYMS = ['🍒', '🍋', '🍇', '🔔', '⭐', '💎', '7️⃣'];
-const SLOT_W = [30, 25, 20, 12, 8, 4, 1];
-export const SLOT_PAY = [6, 10, 16, 26, 52, 130, 700]; // 3 iguais; 2 cerejas = 2x  (retorno ~90%)
+// Chances por giro: 💎💎💎 ~1 em 4.600 · 7️⃣7️⃣7️⃣ ~1 em 15.600 (retorno médio ~91%: a casa ainda ganha)
+const SLOT_W = [27, 23, 19, 12, 9, 6, 4];
+export const SLOT_PAY = [8, 12, 18, 28, 55, 130, 777]; // 3 iguais; 2 cerejas = 2x
 const RED = new Set([1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36]);
 export const isRed = (n) => RED.has(n);
 function bet(s, amt) {
@@ -920,7 +922,7 @@ export function playSlots(s, amt) {
   let mult = 0;
   if (r[0] === r[1] && r[1] === r[2]) mult = SLOT_PAY[r[0]];
   else if (r.filter((x) => x === 0).length === 2) mult = 2;
-  if (mult === 700) s.casino.jackpot = Date.now();
+  if (mult === SLOT_PAY[6]) s.casino.jackpot = Date.now();
   return { reels: r, mult, win: Math.floor(amt) * mult };
 }
 export const ROULETTE_BETS = [
@@ -1138,7 +1140,7 @@ export function compStats(s, c, mk) {
   const boost = (1 + 0.05 * (st.vendas || 0)) * (1 + 0.04 * (st.mkt || 0));
   const clima = COMP_CLIMA[mk.sectorNow(seg.sector)]; // empresas sentem mais a crise do setor
   const mg = mgmtMult(s);
-  const rev = base * cap * boost * clima * mg * legacyMult(s) * bankruptMult(s);
+  const rev = base * cap * boost * clima * mg * legacyMult(s) * bankruptMult(s) * (1 + exclBonus(s, 'all'));
   const cost = STAFF.reduce((t, r) => t + (st[r.id] || 0) * wageOf(c, r.id), 0);
   return { rev, cost, profit: rev - cost, base, need, cap, boost, clima, mg };
 }
@@ -1398,7 +1400,7 @@ function capTax(s, gain) {
   return t;
 }
 // patrimônio sem chamar incomeBreakdown (evita recursão)
-function netWorthFast(s, mk) { return netWorth(s, mk); }
+function netWorthFast(s, mk) { return netWorth(s, mk) - exclOwned(s).reduce((t, x) => t + x.cost, 0); } // exclusivos não pagam imposto de fortuna
 
 // ---------- 💀 Falência ----------
 export const BANKRUPT = { graceDays: 30, falidoDays: 365, penalty: 0.3, auction: 0.5, bizAuction: 0.3, compAuction: 0.3 };
@@ -1443,4 +1445,22 @@ export function declareBankruptcy(s, mk) {
   s.bankrupt = { at: Date.now(), until: Date.now() + BANKRUPT.falidoDays * DAY_MS, owed, raised };
   s.stats.bankrupt = (s.stats.bankrupt || 0) + 1;
   return { owed, raised, forgiven: Math.max(0, -left), sold, fportIds };
+}
+
+// ---------- 💎 Itens exclusivos (tempo limitado) ----------
+export const exclOwned = (s) => Object.keys(s.excl || {}).map((id) => EXCL[id]).filter(Boolean);
+export function exclBonus(s, kind) { let b = 0; for (const id in s.excl || {}) { const x = EXCL[id]; if (x && x.bonus[kind]) b += x.bonus[kind]; } return b; }
+export const activeExclusives = (now = Date.now()) => EXCLUSIVES.filter((x) => now >= x.start && now < x.end);
+export function buyExclusive(s, id) {
+  const x = EXCL[id]; if (!x) return 'Item não encontrado';
+  const now = Date.now();
+  if (now < x.start) return 'Ainda não está à venda';
+  if (now >= x.end) return 'O tempo acabou! Esse item nunca mais volta.';
+  s.excl = s.excl || {};
+  if (s.excl[id]) return 'Você já tem';
+  const e = spend(s, x.cost); if (e) return e;
+  s.excl[id] = now;
+  addXP(s, x.xp);
+  statusRefresh();
+  return null;
 }

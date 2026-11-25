@@ -2,6 +2,7 @@
 import {
   COURSE_GROUPS, JOB_AREAS, BRANDS, TIERS, OWN_TIERS, TRIP_CATS, TRIPS, LOVE_STAGES, DATES, GIFTS, RING_COST, WEDDINGS,
   SEGMENTS, SEGMENT, STAFF, PRODUCT_TIERS,
+  EXCLUSIVES, EXCL,
   DAY_MS, SECTORS, SECTOR, STOCKS, CRYPTOS, ASSETS, BUSINESSES, COURSES, JOBS, PROPERTIES, GOODS, CARDS, UNLOCKS, TRADE_FEE, LOAN_RATE, LEVEL_BONUS, RENT_NO_HOME,
 } from './data.js';
 import * as G from './game.js';
@@ -322,6 +323,7 @@ const handlers = {
   sellpgood: (d) => { if (act(() => G.sellPlayerGood(C.s, d.id))) { closeModal(); toast('💰 Vendido!', 'ok'); render(); } },
   pgoodold: (d) => confirmBox('Vender este bem? A marca saiu do mercado.', () => { if (act(() => G.sellPlayerGood(C.s, d.id))) { toast('💰 Vendido!', 'ok'); render(); } }),
   season: () => seasonModal(),
+  buyexcl: (d, el) => { const x = EXCL[d.id]; confirmBox(`Comprar <b>${x.icon} ${esc(x.name)}</b> por <b>${money(x.cost)}</b>?<br>${esc(x.desc)} · +${fmt(x.prestige)} de prestígio · +${fmt(x.xp)} XP.<br><small>Pago só com dinheiro. Depois que o tempo acabar, ninguém mais consegue comprar.</small>`, () => { if (act(() => G.buyExclusive(C.s, d.id))) { closeModal(); confetti(); setTimeout(confetti, 500); toast(`${x.icon} <b>${esc(x.name)}</b> é seu! Item exclusivo!`, 'gold'); render(); } }); },
   crcash: (d, el) => {
     if (C.uid !== G.CREATOR) return;
     const v = d.v ? +d.v : parseFloat(($('#crval') || {}).value);
@@ -1061,6 +1063,7 @@ function friendView(uid) {
       <div><small>Empresas controladas</small><b>👑 ${p.ctrl || 0}</b></div><div><small>Vitórias de temporada</small><b>🏆 ${p.titles || 0}</b></div>
       <div><small>Legado</small><b>⭐ ${p.legacy || 0} <small>(+${(p.legacy || 0) * 2}%)</small></b></div><div><small>${p.lastYr ? `No Ano ${p.lastYr} cresceu` : 'Ano anterior'}</small><b class="${(p.lastGrow || 0) >= 0 ? 'up' : 'down'}">${p.lastYr ? `${p.lastGrow >= 0 ? '+' : ''}${money(p.lastGrow)}` : '—'}</b></div>
     </div>
+    ${(p.excl || []).filter((id) => EXCL[id]).length ? `<div class="exclshow"><b>💎 Exclusivos</b>${p.excl.filter((id) => EXCL[id]).map((id) => `<span class="pill gold">${EXCL[id].icon} ${esc(EXCL[id].name)}</span>`).join('')}</div>` : ''}
     <small class="muted">${Date.now() - p.updated < 11 * 60_000 ? '🟢 jogando agora' : '⚪ visto ' + ago(p.updated)}</small>
     <button class="btn full pixbtn" data-act="pix" data-id="${uid}">💸 Enviar Pix para ${esc(p.name)}</button>
     ${G.hasPhone(C.s) && C.uid ? `<button class="btn full ghost" data-act="phonechat" data-id="${uid}">💬 Mandar mensagem</button>` : ''}</div>`);
@@ -1080,6 +1083,7 @@ function vInicio() {
     <div><small>Gasta por dia</small><b class="down" data-live="exp"></b></div>
     <div class="more">›</div>
   </div>
+  ${exclusiveCards()}
   ${riskCard()}
   ${invitesCard()}
   ${inboxCard()}
@@ -1091,6 +1095,19 @@ function vInicio() {
     <div class="nhead"><b>📺 Jornal do Mercado</b><span class="lnk">ver tudo ›</span></div>
     <div class="news" data-live-html="news3"></div>
   </div>`;
+}
+// 💎 Item exclusivo do momento (destaque dourado no Início)
+function exclusiveCards() {
+  const s = C.s;
+  return G.activeExclusives().map((x) => {
+    const own = !!(s.excl || {})[x.id];
+    return `<div class="exclcard ${own ? 'own' : ''}"><div class="exclrib">✨ EXCLUSIVO · NUNCA MAIS VOLTA ✨</div>
+      <div class="exclbody"><div class="exclicon"><span>${x.icon}</span><i>${x.fx || '✨'}</i></div>
+      <div class="grow"><small>${esc(x.tag)}</small><b>${esc(x.name)}</b><em>${esc(x.sub)}</em>
+        <div class="exclperks"><span>💰 ${esc(x.desc)}</span><span>✨ +${fmt(x.prestige)} prestígio</span><span>⭐ +${fmt(x.xp)} XP</span></div></div></div>
+      <div class="exclfoot"><div><small>Acaba em</small><b data-live="exclt:${x.id}"></b></div>
+        ${own ? '<span class="exclown">✅ É SEU! Pouquíssimos terão.</span>' : `<button class="btn gold" data-act="buyexcl" data-id="${x.id}" data-cost="${x.cost}"><em>Comprar</em><span>${money(x.cost)}</span></button>`}</div></div>`;
+  }).join('');
 }
 function riskCard() {
   const s = C.s;
@@ -1569,9 +1586,11 @@ function vBens() {
   const owned = sub === 'marcas' ? G.pgoods(s).length : list.filter((g) => s.goods[g.id]).length;
   const head = title('💎', 'Coleção', 'bens') + subtabs([['veiculos', '🚗', 'Carros'], ['ceumar', '🛥️', 'Céu e Mar'], ['moradia', '🏠', 'Casas'], ['luxo', '💍', 'Luxo'], ['colecao', '🖼️', 'Coleção'], ['marcas', '🏷️', 'Marcas']]) + `
   <div class="wallet" data-act="status"><div><small>✨ Prestígio · ${G.statusOf(s).icon} ${G.statusOf(s).name} ›</small><b>${fmt(G.prestige(s))}</b></div><div class="right"><small>Coleção</small><b>${sub === 'marcas' ? owned : `${owned}/${list.length}`}</b></div></div>`;
-  if (sub === 'marcas') return head + payBar() + `<div data-cardable>${vMarcas()}</div>`;
-  if (sub === 'veiculos') return head + payBar() + `<div data-cardable>${vCarros()}</div>`;
-  return head + payBar() + `
+  const ex = G.exclOwned(s);
+  const exStrip = ex.length ? `<div class="exclshow mine"><b>💎 Seus exclusivos</b>${ex.map((x) => `<span class="pill gold">${x.icon} ${esc(x.name)} · ${esc(x.desc.split(',')[0])}</span>`).join('')}</div>` : '';
+  if (sub === 'marcas') return head + exStrip + payBar() + `<div data-cardable>${vMarcas()}</div>`;
+  if (sub === 'veiculos') return head + exStrip + payBar() + `<div data-cardable>${vCarros()}</div>`;
+  return head + exStrip + payBar() + `
   <div class="goods" data-cardable>${list.map((g, i) => goodCard(g, RAR[i])).join('')}</div>`;
 }
 const TIER_RAR = { Entrada: 'comum', 'Intermediário': 'raro', Luxo: 'epico', Esportivo: 'lendario' };
@@ -1649,7 +1668,7 @@ function vRanking() {
   ${creator && !creator.loading ? creatorCard(creator, yearMode) : ''}
   <div class="podium">${pod.map((p, i) => p && !p.loading ? `<div class="pcol ${cls[i]} ${p.me ? 'me' : ''}"><div class="pav2" ${p.me ? '' : `data-act="friend" data-id="${p.id}"`}>${avatarSVG(p.look, { size: i === 1 ? 110 : 90 })}${p.online || p.me ? '<i class="on"></i>' : ''}</div><b>${esc(p.n)}</b><small>${money(p.w)}</small><div class="pbar"><span>${medal[i]}</span></div></div>` : '<div class="pcol empty"><div class="pbar"></div></div>').join('')}</div>
   <div class="ranklist">${all.map((p, i) => `<div class="rank ${p.me ? 'me' : ''}" ${p.me || p.loading || p.stranger ? '' : `data-act="friend" data-id="${p.id}"`}><span class="pos">${i + 1}º</span><span class="rav">${p.loading ? '' : avatarSVG(p.look, { size: 52 })}</span>
-      <div class="grow"><b>${p.home || ''} ${esc(p.n)}${p.me ? ' (você)' : ''}${(p.me ? s.titles : (C.friends[p.id] || {}).titles) ? ` <span class="club">🏆${p.me ? s.titles : C.friends[p.id].titles}</span>` : ''}</b>${p.loading ? '' : `<small>⭐${p.l} · 💳${CARDS[p.c].name} · 🎖️${p.a} · ${G.STATUS[G.statusIdx(p.p || 0)].icon}${fmt(p.p)}${G.STATUS[G.statusIdx(p.p || 0)].club ? ' · <span class="club">👑 Clube</span>' : ''}</small><small class="${p.online || p.me ? 'up' : ''}">${p.me ? '🟢 você' : p.online ? '🟢 jogando agora' : '⚪ visto ' + ago(p.t)} · ${p.net >= 0 ? '+' : ''}${fmt(p.net || 0)}/dia</small>`}</div>
+      <div class="grow"><b>${p.home || ''} ${esc(p.n)}${p.me ? ' (você)' : ''}${((p.me ? Object.keys(s.excl || {}) : (C.friends[p.id] || {}).excl) || []).map((id) => (EXCL[id] ? ` <span class="exclmini">${EXCL[id].icon}</span>` : '')).join('')}${(p.me ? s.titles : (C.friends[p.id] || {}).titles) ? ` <span class="club">🏆${p.me ? s.titles : C.friends[p.id].titles}</span>` : ''}</b>${p.loading ? '' : `<small>⭐${p.l} · 💳${CARDS[p.c].name} · 🎖️${p.a} · ${G.STATUS[G.statusIdx(p.p || 0)].icon}${fmt(p.p)}${G.STATUS[G.statusIdx(p.p || 0)].club ? ' · <span class="club">👑 Clube</span>' : ''}</small><small class="${p.online || p.me ? 'up' : ''}">${p.me ? '🟢 você' : p.online ? '🟢 jogando agora' : '⚪ visto ' + ago(p.t)} · ${p.net >= 0 ? '+' : ''}${fmt(p.net || 0)}/dia</small>`}</div>
       <div class="right"><b class="${yearMode ? (p.w >= 0 ? 'up' : 'down') : ''}">${p.loading ? '…' : (yearMode && p.w >= 0 ? '+' : '') + money(p.w)}</b>${p.me ? '' : p.stranger ? (p.tag && !(s.sent || {})[p.id] ? `<button class="lnk" data-act="invitetag" data-tag="${esc(p.tag)}">+ convidar</button>` : (s.sent || {})[p.id] ? '<small class="muted">convidado</small>' : '') : global ? '' : `<button class="lnk" data-act="delfriend" data-id="${p.id}">remover</button>`}</div></div>`).join('')}</div>
   ${all.length > 6 ? `<small class="muted center rkcount">${all.length} jogadores · role a lista para ver todos ↕️</small>` : ''}
   ${s.friends.length ? '' : '<p class="muted center">Ainda só você aqui! Adicione a família pela tag 👇</p>'}
@@ -1734,6 +1753,7 @@ function liveValue(key) {
     case 'sgrow': { const g = G.seasonGrow(s, mk); return { t: (g >= 0 ? '+' : '') + money(g), c: g >= 0 ? 'up' : 'down' }; }
     case 'falido': return s.bankrupt ? dur(s.bankrupt.until - Date.now()) : '';
     case 'insolv': return s.insolvent ? dur(s.insolvent + G.BANKRUPT.graceDays * DAY_MS - Date.now()) : '';
+    case 'exclt': { const x = EXCL[arg]; return x ? dur(x.end - Date.now()) : ''; }
     case 'giftcd': { const t = ((s.love || {}).cd || {})[arg] || 0; return t > Date.now() ? '⏳ ' + dur(t - Date.now()) : '✅ pronto'; }
     case 'ccavail': return money(G.ccAvail(s));
     case 'ccclose': return s.cc ? dur(s.cc.nextClose - Date.now()) : '30:00';

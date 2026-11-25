@@ -117,7 +117,7 @@ function profileOf(s) {
     trips: Object.keys(s.trips || {}).length, ctrl: G.controlled(s), jobName: (JOBS.find((j) => j.id === s.job) || {}).name, jobIcon: (JOBS.find((j) => j.id === s.job) || {}).icon,
     yr: (s.season || {}).year || 0, grow: Math.round(G.seasonGrow(s, mk)),
     lastYr: (s.lastSeason || {}).year || 0, lastGrow: Math.round((s.lastSeason || {}).grow || 0),
-    titles: s.titles || 0, legacy: G.legacyPts(s),
+    titles: s.titles || 0, legacy: G.legacyPts(s), excl: Object.keys(s.excl || {}),
     veh: ([...GOODS.veiculos, ...GOODS.ceumar].filter((g) => s.goods[g.id]).concat(G.pgoods(s).filter((g) => g.bonus)).sort((a, b) => a.cost - b.cost).pop() || {}).icon || '',
   };
 }
@@ -455,6 +455,18 @@ function cardModal(c) {
     <button class="btn full" data-act="close">Show! 😎</button></div>`);
 }
 
+// ---------- Item exclusivo: aparece/some sozinho na hora certa ----------
+let exclKey = null;
+function exclCheck() {
+  const act = G.activeExclusives();
+  const key = act.map((x) => x.id).join(',');
+  if (exclKey !== null && key !== exclKey) {
+    for (const x of act) if (!exclKey.split(',').includes(x.id)) { UI.toast(`✨ ITEM EXCLUSIVO: ${x.icon} <b>${esc(x.name)}</b>! Só por tempo limitado.`, 'gold'); notify(x.icon, `Item exclusivo à venda: <b>${esc(x.name)}</b> (${esc(x.desc)}). Corre, ele nunca mais volta!`); }
+    UI.onEvent();
+  }
+  exclKey = key;
+}
+
 // ---------- Falência ----------
 function solvencyCheck() {
   const r = G.solvencyTick(ctx.s, mk);
@@ -529,7 +541,7 @@ function tick() {
   s.last = now;
   if (dt > 0) G.accrue(s, mk, dt);
   if (mk.update(now)) UI.onMarketTick();
-  if (now - lastSeasonCheck > 3000) { lastSeasonCheck = now; seasonCheck(); solvencyCheck(); }
+  if (now - lastSeasonCheck > 3000) { lastSeasonCheck = now; seasonCheck(); solvencyCheck(); exclCheck(); }
   const done = G.checkCourse(s);
   if (done) { notify('🎓', `Você concluiu o curso <b>${done.name}</b>!`); UI.toast(`🎓 Você concluiu: <b>${done.name}</b>!`, 'gold'); afterAction(); UI.render(); }
   const tr = G.checkTrip(s);
