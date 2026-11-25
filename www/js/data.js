@@ -529,7 +529,7 @@ export const PRODUCT_TIERS = [
 // ===== Itens EXCLUSIVOS (tempo limitado, nunca mais voltam) =====
 // start/end em milissegundos (horário do servidor). bonus: all = toda a renda, sal = salário, biz = negócios.
 export const EXCLUSIVES = [
-  { id: 'mjolnir', name: 'Mjölnir', sub: 'O martelo do deus do trovão', icon: '🔨', fx: '⚡', tag: 'Lenda nórdica', cost: 1e15,
-    start: null /* ⏸️ aguardando o preço final (o criador decide depois da virada) */, end: 1795896600000, bonus: { all: 0.2 }, prestige: 25000, xp: 60000, desc: '+20% em toda a sua renda, para sempre' },
+  { id: 'mjolnir', name: 'Mjölnir', sub: 'O martelo do deus do trovão', icon: '🔨', fx: '⚡', tag: 'Lenda nórdica', cost: 5e13, needRebirth: true, // só quem renasceu nesta temporada pode comprar
+    start: 1795639838733, end: 1795896600000, bonus: { all: 0.2 }, prestige: 25000, xp: 60000, desc: '+20% em toda a sua renda, para sempre' },
 ];
 export const EXCL = Object.fromEntries(EXCLUSIVES.map((x) => [x.id, x]));

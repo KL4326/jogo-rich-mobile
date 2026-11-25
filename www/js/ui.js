@@ -1109,7 +1109,8 @@ function exclusiveCards() {
       <div class="grow"><small>${esc(x.tag)}</small><b>${esc(x.name)}</b><em>${esc(x.sub)}</em>
         <div class="exclperks"><span>💰 ${esc(x.desc)}</span><span>✨ +${fmt(x.prestige)} prestígio</span><span>⭐ +${fmt(x.xp)} XP</span></div></div></div>
       <div class="exclfoot"><div><small>Acaba em</small><b data-live="exclt:${x.id}"></b></div>
-        ${own ? '<span class="exclown">✅ É SEU! Pouquíssimos terão.</span>' : `<button class="btn gold" data-act="buyexcl" data-id="${x.id}" data-cost="${x.cost}"><em>Comprar</em><span>${money(x.cost)}</span></button>`}</div></div>`;
+        ${own ? '<span class="exclown">✅ É SEU! Pouquíssimos terão.</span>' : G.exclEligible(s, x) ? `<button class="btn gold" data-act="buyexcl" data-id="${x.id}" data-cost="${x.cost}"><em>Comprar</em><span>${money(x.cost)}</span></button>` : `<button class="btn ghost exlock" data-act="season"><em>🔒 Só para quem renasceu</em><span>${money(x.cost)}</span></button>`}</div>
+      ${x.needRebirth && !own ? `<div class="exclcond">🔁 <b>Condição:</b> ter <b>renascido nesta temporada</b>. ${G.exclEligible(s, x) ? '✅ Você cumpre!' : 'Toque para ver o renascimento.'}</div>` : ''}</div>`;
   }).join('');
 }
 function riskCard() {

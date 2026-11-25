@@ -1499,6 +1499,8 @@ export function declareBankruptcy(s, mk) {
 // ---------- 💎 Itens exclusivos (tempo limitado) ----------
 export const exclOwned = (s) => Object.keys(s.excl || {}).map((id) => EXCL[id]).filter(Boolean);
 export function exclBonus(s, kind) { let b = 0; for (const id in s.excl || {}) { const x = EXCL[id]; if (x && x.bonus[kind]) b += x.bonus[kind]; } return b; }
+// Condição de renascimento: precisa ter renascido na temporada atual (compra com o dinheiro do recomeço)
+export const exclEligible = (s, x) => !x.needRebirth || (s.legacy || {}).year === calendar().year;
 export const activeExclusives = (now = Date.now()) => EXCLUSIVES.filter((x) => x.start && now >= x.start && now < x.end);
 export function buyExclusive(s, id) {
   const x = EXCL[id]; if (!x) return 'Item não encontrado';
@@ -1507,6 +1509,7 @@ export function buyExclusive(s, id) {
   if (now >= x.end) return 'O tempo acabou! Esse item nunca mais volta.';
   s.excl = s.excl || {};
   if (s.excl[id]) return 'Você já tem';
+  if (!exclEligible(s, x)) return 'Só para quem renasceu nesta temporada. Renasça e compre com o dinheiro novo!';
   const e = spend(s, x.cost); if (e) return e;
   s.excl[id] = now;
   addXP(s, x.xp);
