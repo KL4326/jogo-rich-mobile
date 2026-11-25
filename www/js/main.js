@@ -477,12 +477,12 @@ function solvencyCheck() {
   if (r.bankrupt) {
     const b = r.bankrupt;
     for (const id of b.fportIds) Cloud.setHolder(id, ctx.uid, 0).catch(() => {});
-    notify('💀', `<b>Você faliu.</b> O banco leiloou ${b.sold.length} item(ns) com desconto e arrecadou ${money(b.raised)} para pagar ${money(b.owed)} de dívidas.${b.forgiven > 0 ? ` O resto (${money(b.forgiven)}) foi perdoado.` : ''} Falido(a) por 1 ano: −30% de renda e cartão bloqueado.`);
+    notify('💀', `<b>Você faliu.</b> O banco leiloou ${b.sold.length} item(ns) com desconto e arrecadou ${money(b.raised)} para pagar ${money(b.owed)} de dívidas.${b.forgiven > 0 ? ` O resto (${money(b.forgiven)}) foi perdoado.` : ''} Falido(a) por 24 horas: −30% de renda e cartão bloqueado.`);
     UI.modal(`<div class="celebrate bankrupt"><h3>💀 Falência!</h3>
       <p>Suas dívidas ficaram maiores que tudo que você tinha por 30 dias. O banco leiloou seus bens <b>pela metade do preço</b>:</p>
       <div class="soldlist">${b.sold.slice(0, 12).map((x) => `<span class="pill bad">🔨 ${esc(x)}</span>`).join('')}${b.sold.length > 12 ? `<span class="pill">+${b.sold.length - 12}</span>` : ''}</div>
       <div class="fr"><span>Dívidas</span><b class="down">${money(b.owed)}</b></div><div class="fr"><span>Arrecadado no leilão</span><b>${money(b.raised)}</b></div>${b.forgiven > 0 ? `<div class="fr"><span>Perdoado</span><b>${money(b.forgiven)}</b></div>` : ''}
-      <p class="muted small">Por 1 ano do jogo (~6h): renda −30%, cartão e empréstimos bloqueados. Você mantém nível, estudos, profissão, visual, viagens, amor e troféus.</p>
+      <p class="muted small">Por 24 horas: renda −30%, cartão e empréstimos bloqueados. Você mantém nível, estudos, profissão, visual, viagens, amor e troféus.</p>
       <button class="btn full" data-act="close">Recomeçar 😤</button></div>`);
     afterAction(); UI.render(); pushCloud(true).catch(() => {});
   }

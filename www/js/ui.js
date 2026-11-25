@@ -38,6 +38,7 @@ export function fmtOwn(p) {
 export const esc = (t) => String(t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 function dur(ms) {
   ms = Math.max(0, ms);
+  if (ms >= 86_400_000) { const d = Math.floor(ms / 86_400_000), h = Math.floor((ms % 86_400_000) / 3_600_000); return `${d}d ${h}h`; }
   const s = Math.ceil(ms / 1000);
   const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), ss = s % 60;
   return h ? `${h}h${String(m).padStart(2, '0')}` : `${m}:${String(ss).padStart(2, '0')}`;
@@ -524,7 +525,7 @@ function seasonModal() {
   const nw = G.netWorth(s, mk), gain = G.rebirthGain(nw), why = G.canRebirth(s, mk);
   const hist = (s.seasonHist || []).slice(0, 6);
   modal(`<h3>📅 Ano ${cal.year} · dia ${cal.day}/365</h3>
-    <p class="muted">O ano vira em <b data-live="yearleft"></b> (1 minuto = 1 dia). Todos os jogadores viram juntos.</p>
+    <p class="muted">O ano (temporada) vira em <b data-live="yearleft"></b>. Cada temporada dura <b>3 dias</b> e todos os jogadores viram juntos.</p>
     <div class="seasonme"><small>Você cresceu neste ano</small><b data-live="sgrow"></b></div>
     <h4>🏁 Ranking do ano (quem mais cresceu)</h4>
     <div class="ranklist small">${rows.map((r, i) => `<div class="rank ${r.me ? 'me' : ''}"><span class="pos">${['🥇', '🥈', '🥉'][i] || i + 1 + 'º'}</span><span class="rav">${avatarSVG(r.look, { size: 40 })}</span><div class="grow"><b>${esc(r.n)}</b></div><div class="right"><b class="${r.g >= 0 ? 'up' : 'down'}">${r.g >= 0 ? '+' : ''}${money(r.g)}</b></div></div>`).join('')}</div>
@@ -1816,7 +1817,7 @@ function liveWidth(key) {
   const s = C.s;
   if (key === 'xp') { const L = G.level(s); const a = G.xpForLevel(L), b = G.xpForLevel(L + 1); return (s.xp - a) / (b - a); }
   if (key === 'aff') return s.love ? s.love.aff / 100 : 0;
-  if (key === 'year') return (G.calendar().day - 1 + (Date.now() % DAY_MS) / DAY_MS) / 365;
+  if (key === 'year') { const c = G.calendar(); return (Date.now() - c.start) / c.len; }
   if (key.startsWith('cdev:')) { const c = G.findComp(s, key.slice(5)); return c && c.dev ? (Date.now() - c.dev.start) / (c.dev.end - c.dev.start) : 1; }
   if (key === 'trip') { if (!s.trip) return 0; return (Date.now() - s.trip.start) / (s.trip.end - s.trip.start); }
   if (key === 'course') { if (!s.course) return 0; return (Date.now() - s.course.start) / (s.course.end - s.course.start); }

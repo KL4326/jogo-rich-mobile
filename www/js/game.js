@@ -1319,10 +1319,20 @@ export const YEAR_DAYS = 365;
 export const INFLATION = 0.1;
 // O Ano 1 começou em 19/11/2026 (alinhado ao relógio do mercado)
 const CAL_EPOCH = EPOCH + 74 * YEAR_DAYS * DAY_MS;
+// A partir do Ano 25 (25/11/2026 17h10 de Brasília) cada ano = temporada de 3 dias reais.
+// Os "dias" do calendário são só visuais (365 por ano); a economia continua 1 minuto = 1 dia.
+export const SEASON_START = 1795637400000, SEASON_FIRST = 25, SEASON_MS = 3 * 24 * 3600_000;
 export function calendar(now = Date.now()) {
+  if (now >= SEASON_START) {
+    const k = Math.floor((now - SEASON_START) / SEASON_MS);
+    const into = (now - SEASON_START) % SEASON_MS;
+    const start = SEASON_START + k * SEASON_MS;
+    return { year: SEASON_FIRST + k, day: Math.floor((into / SEASON_MS) * YEAR_DAYS) + 1, start, next: start + SEASON_MS, len: SEASON_MS };
+  }
   const d = Math.max(0, Math.floor((now - CAL_EPOCH) / DAY_MS));
   const year = Math.floor(d / YEAR_DAYS) + 1;
-  return { year, day: (d % YEAR_DAYS) + 1, next: CAL_EPOCH + year * YEAR_DAYS * DAY_MS };
+  const next = Math.min(SEASON_START, CAL_EPOCH + year * YEAR_DAYS * DAY_MS);
+  return { year, day: (d % YEAR_DAYS) + 1, start: next - YEAR_DAYS * DAY_MS, next, len: YEAR_DAYS * DAY_MS };
 }
 // ---------- Legado: bônus permanente de renda (renascer e prêmios de temporada) ----------
 // Legado com retorno decrescente: os primeiros pontos valem muito, depois cada vez menos, até o teto de +300%
@@ -1408,7 +1418,7 @@ function capTax(s, gain) {
 function netWorthFast(s, mk) { return netWorth(s, mk) - exclOwned(s).reduce((t, x) => t + x.cost, 0); } // exclusivos não pagam imposto de fortuna
 
 // ---------- 💀 Falência ----------
-export const BANKRUPT = { graceDays: 30, falidoDays: 365, penalty: 0.3, auction: 0.5, bizAuction: 0.3, compAuction: 0.3 };
+export const BANKRUPT = { graceDays: 30, falidoDays: 1440, penalty: 0.3, auction: 0.5, bizAuction: 0.3, compAuction: 0.3 };
 export const isBankrupt = (s) => !!(s.bankrupt && Date.now() < s.bankrupt.until);
 export const bankruptMult = (s) => (isBankrupt(s) ? 1 - BANKRUPT.penalty : 1);
 // Verifica a saúde financeira. Retorna { warn } ao entrar em risco, { bankrupt } quando quebra, { recovered } ao sair do risco, { cleared } ao fim do período de falido
