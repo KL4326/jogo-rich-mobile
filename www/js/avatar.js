@@ -430,8 +430,31 @@ export function avatarSVG(look, opts = {}) {
     ${hideFrontHair ? '' : hairFront(L.hair, hair)}
     ${faceAcc(piece(L.face), L.skin)}
     ${headwear(headIt)}
+    ${L.hand && HAND_ITEMS[L.hand] ? HAND_ITEMS[L.hand](skin, id) : ''}
   </svg>`;
 }
+
+// ===== Itens exclusivos que o personagem segura na mão =====
+// Mão direita do boneco (lado direito de quem olha) fica em (143, 216).
+export const HAND_ITEMS = {
+  // Martelo do deus do trovão: cabo de couro, cabeça de metal com runas e faíscas
+  mjolnir: (skin, id) => `<g class="handitem">
+    <defs><linearGradient id="${id}mj" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e9edf3"/><stop offset=".5" stop-color="#9aa3b2"/><stop offset="1" stop-color="#5d6472"/></linearGradient>
+      <radialGradient id="${id}mz"><stop offset="0" stop-color="#bfe9ff" stop-opacity=".9"/><stop offset="1" stop-color="#4da3ff" stop-opacity="0"/></radialGradient></defs>
+    <circle cx="150" cy="168" r="40" fill="url(#${id}mz)"/>
+    <rect x="145" y="176" width="10" height="66" rx="4" fill="#6b3f1d"/>
+    ${[184, 194, 204, 214, 224, 234].map((y) => `<path d="M145,${y} l10,5" stroke="#3d2210" stroke-width="2.5"/>`).join('')}
+    <circle cx="150" cy="246" r="6" fill="#8a929f" stroke="#4a505c" stroke-width="2"/>
+    <path d="M150,252 v8" stroke="#3d2210" stroke-width="3" stroke-linecap="round"/>
+    <rect x="122" y="150" width="56" height="32" rx="5" fill="url(#${id}mj)" stroke="#4a505c" stroke-width="2.5"/>
+    <rect x="118" y="148" width="8" height="36" rx="3" fill="#7c8492" stroke="#4a505c" stroke-width="2"/>
+    <rect x="174" y="148" width="8" height="36" rx="3" fill="#7c8492" stroke="#4a505c" stroke-width="2"/>
+    <path d="M138,158 l4,8 l-4,8 M150,157 v18 M146,161 l8,0 M162,158 l-4,8 l4,8" stroke="#3a7bd5" stroke-width="2" fill="none" stroke-linecap="round"/>
+    <path d="M130,142 l6,-10 l-2,8 l7,-2 l-8,12" fill="#ffe27a" stroke="#ffb300" stroke-width="1"/>
+    <path d="M174,140 l-3,-11 l4,6 l3,-7 l1,12" fill="#ffe27a" stroke="#ffb300" stroke-width="1"/>
+    <circle cx="143" cy="216" r="10" fill="${skin}"/><path d="M136,212 h14 M136,218 h14" stroke="${shade(skin, 0.8)}" stroke-width="1.5"/>
+  </g>`,
+};
 
 // Visual aleatório (para parceiros)
 export function randomLook(sex) {

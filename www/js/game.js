@@ -1502,6 +1502,13 @@ export function exclBonus(s, kind) { let b = 0; for (const id in s.excl || {}) {
 // Condição de renascimento: precisa ter renascido na temporada atual (compra com o dinheiro do recomeço)
 export const exclEligible = (s, x) => !x.needRebirth || (s.legacy || {}).year === calendar().year;
 export const activeExclusives = (now = Date.now()) => EXCLUSIVES.filter((x) => x.start && now >= x.start && now < x.end);
+// Mostrar/guardar o item exclusivo na mão do personagem
+export function toggleHand(s, id) {
+  if (!(s.excl || {})[id]) return 'Você não tem esse item';
+  s.look = s.look || defaultLook();
+  s.look.hand = s.look.hand === id ? null : id;
+  return null;
+}
 export function buyExclusive(s, id) {
   const x = EXCL[id]; if (!x) return 'Item não encontrado';
   const now = Date.now();

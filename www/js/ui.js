@@ -6,7 +6,7 @@ import {
   DAY_MS, SECTORS, SECTOR, STOCKS, CRYPTOS, ASSETS, BUSINESSES, COURSES, JOBS, PROPERTIES, GOODS, CARDS, UNLOCKS, TRADE_FEE, LOAN_RATE, LEVEL_BONUS, RENT_NO_HOME,
 } from './data.js';
 import * as G from './game.js';
-import { avatarSVG, defaultLook, LEGENDS, LEGEND, LEGEND_COST, SKINS, HAIR_COLORS, EYE_COLORS, HAIRS, BEARDS, CLOTHES, SLOTS, SETS, CLOTH } from './avatar.js';
+import { avatarSVG, HAND_ITEMS, defaultLook, LEGENDS, LEGEND, LEGEND_COST, SKINS, HAIR_COLORS, EYE_COLORS, HAIRS, BEARDS, CLOTHES, SLOTS, SETS, CLOTH } from './avatar.js';
 import { townSVG } from './town.js';
 import * as A from './audio.js';
 import { tickToMs } from './market.js';
@@ -324,6 +324,7 @@ const handlers = {
   sellpgood: (d) => { if (act(() => G.sellPlayerGood(C.s, d.id))) { closeModal(); toast('💰 Vendido!', 'ok'); render(); } },
   pgoodold: (d) => confirmBox('Vender este bem? A marca saiu do mercado.', () => { if (act(() => G.sellPlayerGood(C.s, d.id))) { toast('💰 Vendido!', 'ok'); render(); } }),
   season: () => seasonModal(),
+  hand: (d) => { const on = !(C.s.look && C.s.look.hand === d.id); if (act(() => G.toggleHand(C.s, d.id))) { toast(on ? `${EXCL[d.id].icon} Agora seu personagem está segurando o <b>${esc(EXCL[d.id].name)}</b>!` : '🎒 Item guardado', on ? 'gold' : 'ok'); render(); } },
   buyexcl: (d, el) => { const x = EXCL[d.id]; confirmBox(`Comprar <b>${x.icon} ${esc(x.name)}</b> por <b>${money(x.cost)}</b>?<br>${esc(x.desc)} · +${fmt(x.prestige)} de prestígio · +${fmt(x.xp)} XP.<br><small>Pago só com dinheiro. Depois que o tempo acabar, ninguém mais consegue comprar.</small>`, () => { if (act(() => G.buyExclusive(C.s, d.id))) { closeModal(); confetti(); setTimeout(confetti, 500); toast(`${x.icon} <b>${esc(x.name)}</b> é seu! Item exclusivo!`, 'gold'); render(); } }); },
   crcash: (d, el) => {
     if (C.uid !== G.CREATOR) return;
@@ -1109,7 +1110,7 @@ function exclusiveCards() {
       <div class="grow"><small>${esc(x.tag)}</small><b>${esc(x.name)}</b><em>${esc(x.sub)}</em>
         <div class="exclperks"><span>💰 ${esc(x.desc)}</span><span>✨ +${fmt(x.prestige)} prestígio</span><span>⭐ +${fmt(x.xp)} XP</span></div></div></div>
       <div class="exclfoot"><div><small>Acaba em</small><b data-live="exclt:${x.id}"></b></div>
-        ${own ? '<span class="exclown">✅ É SEU! Pouquíssimos terão.</span>' : G.exclEligible(s, x) ? `<button class="btn gold" data-act="buyexcl" data-id="${x.id}" data-cost="${x.cost}"><em>Comprar</em><span>${money(x.cost)}</span></button>` : `<button class="btn ghost exlock" data-act="season"><em>🔒 Só para quem renasceu</em><span>${money(x.cost)}</span></button>`}</div>
+        ${own ? `<button class="btn ${s.look && s.look.hand === x.id ? 'ghost' : ''}" data-act="hand" data-id="${x.id}">${s.look && s.look.hand === x.id ? '🎒 Guardar' : `${x.icon} Segurar na mão`}</button>` : G.exclEligible(s, x) ? `<button class="btn gold" data-act="buyexcl" data-id="${x.id}" data-cost="${x.cost}"><em>Comprar</em><span>${money(x.cost)}</span></button>` : `<button class="btn ghost exlock" data-act="season"><em>🔒 Só para quem renasceu</em><span>${money(x.cost)}</span></button>`}</div>
       ${x.needRebirth && !own ? `<div class="exclcond">🔁 <b>Condição:</b> ter <b>renascido nesta temporada</b>. ${G.exclEligible(s, x) ? '✅ Você cumpre!' : 'Toque para ver o renascimento.'}</div>` : ''}</div>`;
   }).join('');
 }
@@ -1592,7 +1593,7 @@ function vBens() {
   const head = title('💎', 'Coleção', 'bens') + subtabs([['veiculos', '🚗', 'Carros'], ['ceumar', '🛥️', 'Céu e Mar'], ['moradia', '🏠', 'Casas'], ['luxo', '💍', 'Luxo'], ['colecao', '🖼️', 'Coleção'], ['marcas', '🏷️', 'Marcas']]) + `
   <div class="wallet" data-act="status"><div><small>✨ Prestígio · ${G.statusOf(s).icon} ${G.statusOf(s).name} ›</small><b>${fmt(G.prestige(s))}</b></div><div class="right"><small>Coleção</small><b>${sub === 'marcas' ? owned : `${owned}/${list.length}`}</b></div></div>`;
   const ex = G.exclOwned(s);
-  const exStrip = ex.length ? `<div class="exclshow mine"><b>💎 Seus exclusivos</b>${ex.map((x) => `<span class="pill gold">${x.icon} ${esc(x.name)} · ${esc(x.desc.split(',')[0])}</span>`).join('')}</div>` : '';
+  const exStrip = ex.length ? `<div class="exclshow mine"><b>💎 Seus exclusivos</b>${ex.map((x) => `<span class="pill gold">${x.icon} ${esc(x.name)} · ${esc(x.desc.split(',')[0])}</span>${HAND_ITEMS[x.id] ? `<button class="chipbtn" data-act="hand" data-id="${x.id}">${s.look && s.look.hand === x.id ? '🎒 Guardar' : '✋ Segurar na mão'}</button>` : ''}`).join('')}</div>` : '';
   if (sub === 'marcas') return head + exStrip + payBar() + `<div data-cardable>${vMarcas()}</div>`;
   if (sub === 'veiculos') return head + exStrip + payBar() + `<div data-cardable>${vCarros()}</div>`;
   return head + exStrip + payBar() + `
