@@ -508,12 +508,12 @@ function finishSeason({ ended, grow, inflation }) {
   let pts = 0;
   if (n >= 2 && grow > 0 && place <= 3) pts = G.seasonPrize(s, place, ended);
   const medal = ['🥇', '🥈', '🥉'][place - 1] || '🎖️';
-  notify('🎆', `Fim do <b>Ano ${ended}</b>! Você cresceu <b class="${grow >= 0 ? 'up' : 'down'}">${money(grow)}</b>${n >= 2 ? ` e ficou em <b>${place}º de ${n}</b>` : ''}.${pts ? ` Prêmio: <b>+${pts} de legado</b> (+${pts * 2}% de renda para sempre)!` : ''}`);
+  notify('🎆', `Fim do <b>Ano ${ended}</b>! Você cresceu <b class="${grow >= 0 ? 'up' : 'down'}">${money(grow)}</b>${n >= 2 ? ` e ficou em <b>${place}º de ${n}</b>` : ''}.${pts ? ` Prêmio: <b>+${pts} de legado</b>! Seu bônus de renda agora é <b>+${G.legacyPct(G.legacyPts(s))}%</b>.` : ''}`);
   UI.modal(`<div class="celebrate"><h3>🎆 Feliz Ano ${ended + 1}!</h3>
     <p>O <b>Ano ${ended}</b> acabou. No ano você cresceu</p>
     <div class="offgain ${grow >= 0 ? 'up' : 'down'}">${grow >= 0 ? '+' : ''}${money(grow)}</div>
     ${n >= 2 ? `<p class="bigmedal">${medal}</p><p>Você ficou em <b>${place}º lugar</b> entre ${n} jogadores.</p>` : '<p class="muted">Adicione amigos para disputar a temporada!</p>'}
-    ${pts ? `<p class="up"><b>Prêmio: +${pts} pontos de legado</b> = +${pts * 2}% de renda para sempre${place === 1 ? ' e o título 🏆 Campeão do Ano' : ''}!</p>` : ''}
+    ${pts ? `<p class="up"><b>Prêmio: +${pts} pontos de legado</b> (bônus total de renda: +${G.legacyPct(G.legacyPts(s))}%)${place === 1 ? ' e o título 🏆 Campeão do Ano' : ''}!</p>` : ''}
     ${inflation > 1 ? `<p class="down small">💸 Inflação: o dinheiro parado na conta perdeu ${money(inflation)} (10%). Investimentos não perdem!</p>` : ''}
     <p class="muted small">Um novo ano começou: todo mundo volta a disputar do zero. Vence quem mais crescer até a próxima virada.</p>
     <button class="btn full" data-act="close">Bora! 🚀</button></div>`);

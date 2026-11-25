@@ -336,7 +336,7 @@ const handlers = {
     C.s.bonusPrestige = v ? (C.s.bonusPrestige || 0) + v : 0;
     G.statusRefresh(); toast(v ? `✨ +${fmt(v)} de prestígio de teste` : '✨ Prestígio de teste zerado', 'gold'); C.afterAction(); keepScroll(render);
   },
-  rebirth: () => { const s = C.s, gain = G.rebirthGain(G.netWorth(s, C.mk)); confirmBox(`<b>Renascer agora?</b><br>Você perde dinheiro, negócios, investimentos, bens, empresas e cartões, e recomeça com R$ 1.500.<br>Em troca ganha <b>+${gain} de legado</b> = <b>+${gain * 2}% de renda para sempre</b> (total: +${(G.legacyPts(s) + gain) * 2}%).<br><small>Mantém: nível, estudos, profissão, visual, roupas, skins, viagens, amor, troféus e amigos.</small>`, () => { const r = C.rebirth(); if (typeof r === 'string') return toast('⚠️ ' + r, 'err'); closeModal(); confetti(); toast(`🔁 Você renasceu! +${r.gain} de legado`, 'gold'); ui.tab = 'inicio'; render(true); }); },
+  rebirth: () => { const s = C.s, gain = G.rebirthGain(G.netWorth(s, C.mk)); confirmBox(`<b>Renascer agora?</b><br>Você perde dinheiro, negócios, investimentos, bens, empresas e cartões, e recomeça com R$ 1.500.<br>Em troca ganha <b>+${gain} de legado</b>: seu bônus de renda vai de +${G.legacyPct(G.legacyPts(s))}% para <b>+${G.legacyPct(Math.min(G.LEGACY.maxPts, G.legacyPts(s) + gain))}%</b> para sempre.<br><small>Mantém: nível, estudos, profissão, visual, roupas, skins, viagens, amor, troféus e amigos.</small>`, () => { const r = C.rebirth(); if (typeof r === 'string') return toast('⚠️ ' + r, 'err'); closeModal(); confetti(); toast(`🔁 Você renasceu! +${r.gain} de legado`, 'gold'); ui.tab = 'inicio'; render(true); }); },
   rkmode: (d) => { ui.rk = d.m; if (d.m === 'todos') ui.topList = null; render(); },
   invitetag: async (d, el) => { el.disabled = true; const r = await C.addFriend(d.tag); if (r === 'sent') { toast('📨 Convite enviado!', 'ok'); keepScroll(render); } else if (r) toast('⚠️ ' + r, 'err'); else keepScroll(render); },
   fcorp: (d) => openFriendCorp(d.id),
@@ -528,12 +528,12 @@ function seasonModal() {
     <div class="seasonme"><small>Você cresceu neste ano</small><b data-live="sgrow"></b></div>
     <h4>🏁 Ranking do ano (quem mais cresceu)</h4>
     <div class="ranklist small">${rows.map((r, i) => `<div class="rank ${r.me ? 'me' : ''}"><span class="pos">${['🥇', '🥈', '🥉'][i] || i + 1 + 'º'}</span><span class="rav">${avatarSVG(r.look, { size: 40 })}</span><div class="grow"><b>${esc(r.n)}</b></div><div class="right"><b class="${r.g >= 0 ? 'up' : 'down'}">${r.g >= 0 ? '+' : ''}${money(r.g)}</b></div></div>`).join('')}</div>
-    <p class="hint small">🎁 Na virada: 🥇 +3 de legado e o título 🏆 · 🥈 +2 · 🥉 +1. Cada ponto de legado = <b>+2% de renda para sempre</b>. (Precisa de pelo menos 2 jogadores e crescimento positivo.)</p>
+    <p class="hint small">🎁 Na virada: 🥇 +3 de legado e o título 🏆 · 🥈 +2 · 🥉 +1. O legado dá bônus de renda para sempre: os primeiros pontos valem mais (~3% cada) e o bônus vai crescendo cada vez mais devagar, até o máximo de <b>+300%</b>. (Precisa de pelo menos 2 jogadores e crescimento positivo.)</p>
     <div class="legacybox"><div><small>Seu legado</small><b>⭐ ${G.legacyPts(s)} pts</b></div><div><small>Bônus de renda</small><b class="up">+${Math.round((G.legacyMult(s) - 1) * 100)}%</b></div><div><small>Títulos</small><b>🏆 ${s.titles || 0}</b></div></div>
     ${hist.length ? `<h4>📜 Anos anteriores</h4>${hist.map((h) => `<div class="fr"><span>Ano ${h.year}${h.place ? ' · ' + (['🥇', '🥈', '🥉'][h.place - 1] || h.place + 'º') : ''}</span><b class="${h.grow >= 0 ? 'up' : 'down'}">${h.grow >= 0 ? '+' : ''}${money(h.grow)}</b></div>`).join('')}` : ''}
     <h4>🔁 Renascer</h4>
     <p class="muted small">Recomece a economia do zero e ganhe legado conforme seu patrimônio (mínimo ${money(G.LEGACY.minNW)}, uma vez por ano). Quanto mais rico, mais pontos. Você mantém nível, estudos, profissão, visual, roupas, skins, viagens, amor, troféus e amigos.</p>
-    <div class="fr"><span>Se renascer agora ganha</span><b class="up">+${gain} pts (+${gain * 2}% de renda)</b></div>
+    <div class="fr"><span>Se renascer agora ganha</span><b class="up">+${gain} pts (bônus vai para +${G.legacyPct(Math.min(G.LEGACY.maxPts, G.legacyPts(s) + gain))}%)</b></div>
     <button class="btn ${why ? 'ghost' : 'red'} full" data-act="rebirth" ${why ? 'disabled' : ''}>🔁 Renascer${why ? '' : ` (+${gain} de legado)`}</button>${why ? `<small class="muted">${why}</small>` : ''}`);
 }
 
@@ -1061,7 +1061,7 @@ function friendView(uid) {
       <div><small>Viagens</small><b>🛂 ${p.trips || 0}</b></div><div><small>Status</small><b>${G.STATUS[G.statusIdx(p.prestige || 0)].icon} ${G.STATUS[G.statusIdx(p.prestige || 0)].name}</b></div>
       <div><small>Troféus</small><b>🎖️ ${p.ach}</b></div><div><small>Veículo</small><b>${p.veh || '🚶'}</b></div>
       <div><small>Empresas controladas</small><b>👑 ${p.ctrl || 0}</b></div><div><small>Vitórias de temporada</small><b>🏆 ${p.titles || 0}</b></div>
-      <div><small>Legado</small><b>⭐ ${p.legacy || 0} <small>(+${(p.legacy || 0) * 2}%)</small></b></div><div><small>${p.lastYr ? `No Ano ${p.lastYr} cresceu` : 'Ano anterior'}</small><b class="${(p.lastGrow || 0) >= 0 ? 'up' : 'down'}">${p.lastYr ? `${p.lastGrow >= 0 ? '+' : ''}${money(p.lastGrow)}` : '—'}</b></div>
+      <div><small>Legado</small><b>⭐ ${p.legacy || 0} <small>(+${G.legacyPct(p.legacy || 0)}%)</small></b></div><div><small>${p.lastYr ? `No Ano ${p.lastYr} cresceu` : 'Ano anterior'}</small><b class="${(p.lastGrow || 0) >= 0 ? 'up' : 'down'}">${p.lastYr ? `${p.lastGrow >= 0 ? '+' : ''}${money(p.lastGrow)}` : '—'}</b></div>
     </div>
     ${(p.excl || []).filter((id) => EXCL[id]).length ? `<div class="exclshow"><b>💎 Exclusivos</b>${p.excl.filter((id) => EXCL[id]).map((id) => `<span class="pill gold">${EXCL[id].icon} ${esc(EXCL[id].name)}</span>`).join('')}</div>` : ''}
     <small class="muted">${Date.now() - p.updated < 11 * 60_000 ? '🟢 jogando agora' : '⚪ visto ' + ago(p.updated)}</small>

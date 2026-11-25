@@ -753,6 +753,7 @@ export function ensureLife(s) {
   s.trips = s.trips || {};
   s.companies = s.companies || [];
   s.pgoods = s.pgoods || {};
+  if (s.legacy && s.legacy.pts > LEGACY.maxPts) { s.legacy.oldPts = s.legacy.pts; s.legacy.pts = LEGACY.maxPts; }
   // Ações antigas das holdings dos amigos eram guardadas pelo id do amigo; agora pelo id da empresa
   for (const k of Object.keys(s.fport || {})) if (!k.includes('_')) { s.fport[k + '_h'] = s.fport[k]; delete s.fport[k]; }
   if (s.love === undefined) s.love = null;
@@ -1324,10 +1325,14 @@ export function calendar(now = Date.now()) {
   return { year, day: (d % YEAR_DAYS) + 1, next: CAL_EPOCH + year * YEAR_DAYS * DAY_MS };
 }
 // ---------- Legado: bônus permanente de renda (renascer e prêmios de temporada) ----------
-export const LEGACY = { perPt: 0.02, minNW: 1e8 };
+// Legado com retorno decrescente: os primeiros pontos valem muito, depois cada vez menos, até o teto de +300%
+export const LEGACY = { minNW: 1e8, maxBonus: 3, scale: 100, maxPts: 300 };
+export const legacyBonus = (pts) => LEGACY.maxBonus * (1 - Math.exp(-Math.max(0, pts) / LEGACY.scale));
+export const legacyPct = (pts) => Math.round(legacyBonus(pts) * 100);
 export const legacyPts = (s) => (s.legacy || {}).pts || 0;
-export const legacyMult = (s) => 1 + LEGACY.perPt * legacyPts(s);
-export const rebirthGain = (nw) => (nw >= LEGACY.minNW ? Math.floor(Math.sqrt(nw / 1e8)) : 0);
+export const legacyMult = (s) => 1 + legacyBonus(legacyPts(s));
+// Pontos por renascer crescem com o tamanho (número de zeros) do patrimônio, não com o valor: R$ 100 mi = 4, R$ 1 bi = 8, R$ 1 tri = 20, R$ 1 quatri = 32
+export const rebirthGain = (nw) => (nw >= LEGACY.minNW ? Math.floor(4 * Math.log10(nw / 1e7)) : 0);
 export const SEASON_PRIZE = [3, 2, 1]; // pontos de legado para 1º, 2º e 3º do ano
 // Crescimento no ano atual (o que conta no ranking da temporada)
 export function seasonGrow(s, mk) {
@@ -1352,7 +1357,7 @@ export function seasonTick(s, mk) {
 export function seasonPrize(s, place, year) {
   const pts = SEASON_PRIZE[place - 1] || 0;
   s.legacy = s.legacy || { pts: 0, n: 0 };
-  s.legacy.pts += pts;
+  s.legacy.pts = Math.min(LEGACY.maxPts, s.legacy.pts + pts);
   if (place === 1) s.titles = (s.titles || 0) + 1;
   s.seasonHist = (s.seasonHist || []).map((h) => (h.year === year ? { ...h, place } : h));
   return pts;
@@ -1374,7 +1379,7 @@ export function rebirth(s, mk) {
   s.pgoods = {}; s.companies = []; s.fport = {}; s.ins = {}; s.buffs = [];
   delete s.corp; delete s.cc; delete s.loans;
   s.payMode = 'cash';
-  s.legacy = { pts: legacyPts(s) + gain, n: ((s.legacy || {}).n || 0) + 1, year: calendar().year, best: Math.max(nw, (s.legacy || {}).best || 0) };
+  s.legacy = { pts: Math.min(LEGACY.maxPts, legacyPts(s) + gain), n: ((s.legacy || {}).n || 0) + 1, year: calendar().year, best: Math.max(nw, (s.legacy || {}).best || 0) };
   s.season = { year: calendar().year, start: netWorth(s, mk) };
   return { gain, nw, sold };
 }
