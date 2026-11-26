@@ -1371,6 +1371,16 @@ export function seasonPct(s, mk) {
   if (!s.season) return 0;
   return (seasonGrow(s, mk) / seasonBase(s.season)) * 100;
 }
+// Categorias da temporada: 🔁 Renascidos (vence o maior patrimônio) e 🏛️ Veteranos (vence quem mais cresce em %)
+export const rebornIn = (s, year) => (s.legacy || {}).year === year;
+export const seasonCat = (s) => (s.season && rebornIn(s, s.season.year) ? 'rb' : 'vet');
+// Pontuação de um perfil de amigo numa temporada: { cat, score } ou null
+export function profileSeason(p, year) {
+  if (!p) return null;
+  if (p.yr === year) return p.rb ? { cat: 'rb', score: p.nw } : { cat: 'vet', score: p.pct || 0 };
+  if (p.lastYr === year) return p.lastRb ? { cat: 'rb', score: p.lastNw || 0 } : { cat: 'vet', score: p.lastPct || 0 };
+  return null;
+}
 // ⏳ Desgaste do império: −10% de renda por temporada sem renascer (máx. −40%), zera ao renascer
 export const WEAR = { step: 0.1, max: 4 };
 export const wearMult = (s) => 1 - WEAR.step * Math.min(WEAR.max, s.wear || 0);
@@ -1382,8 +1392,9 @@ export function seasonTick(s, mk) {
   if (cal.year <= s.season.year) return null;
   const ended = s.season.year, grow = nw - s.season.start;
   const pct = (grow / seasonBase(s.season)) * 100;
-  s.seasonHist = [{ year: ended, grow, pct }, ...(s.seasonHist || [])].slice(0, 20);
-  s.lastSeason = { year: ended, grow, pct };
+  const rb = rebornIn(s, ended);
+  s.seasonHist = [{ year: ended, grow, pct, rb, nw }, ...(s.seasonHist || [])].slice(0, 20);
+  s.lastSeason = { year: ended, grow, pct, rb, nw };
   // Quem podia renascer (tinha patrimônio para isso) e não renasceu nessa temporada acumula desgaste
   let wore = false;
   // conta a partir das temporadas de 3 dias
@@ -1393,7 +1404,7 @@ export function seasonTick(s, mk) {
   s.cash -= inflation;
   const nw2 = netWorth(s, mk);
   s.season = { year: cal.year, start: nw2, base: nw2 };
-  return { ended, grow, pct, inflation, wore, wear: s.wear || 0 };
+  return { ended, grow, pct, rb, nw, inflation, wore, wear: s.wear || 0 };
 }
 export function seasonPrize(s, place, year) {
   const pts = SEASON_PRIZE[place - 1] || 0;

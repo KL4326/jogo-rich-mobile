@@ -118,7 +118,7 @@ function profileOf(s) {
     trips: Object.keys(s.trips || {}).length, ctrl: G.controlled(s), jobName: (JOBS.find((j) => j.id === s.job) || {}).name, jobIcon: (JOBS.find((j) => j.id === s.job) || {}).icon,
     yr: (s.season || {}).year || 0, grow: Math.round(G.seasonGrow(s, mk)), pct: Math.round(G.seasonPct(s, mk) * 10) / 10,
     lastYr: (s.lastSeason || {}).year || 0, lastGrow: Math.round((s.lastSeason || {}).grow || 0), lastPct: Math.round(((s.lastSeason || {}).pct || 0) * 10) / 10,
-    wear: s.wear || 0,
+    wear: s.wear || 0, rb: G.seasonCat(s) === 'rb', lastRb: !!(s.lastSeason || {}).rb, lastNw: Math.round((s.lastSeason || {}).nw || 0),
     titles: s.titles || 0, legacy: G.legacyPts(s), excl: Object.keys(s.excl || {}),
     veh: ([...GOODS.veiculos, ...GOODS.ceumar].filter((g) => s.goods[g.id]).concat(G.pgoods(s).filter((g) => g.bonus)).sort((a, b) => a.cost - b.cost).pop() || {}).icon || '',
   };
@@ -499,27 +499,30 @@ function seasonCheck() {
   // espera os perfis dos amigos carregarem para saber a colocação
   if (pendingSeason && (!ctx.uid || Date.now() - startedAt > 8000)) { const ps = pendingSeason; pendingSeason = null; finishSeason(ps); }
 }
-function finishSeason({ ended, grow, pct, inflation, wore, wear }) {
+function finishSeason({ ended, grow, pct, rb, nw, inflation, wore, wear }) {
   const s = ctx.s;
   if (wore) notify('⏳', `Desgaste do império: você não renasceu no Ano ${ended}. Sua renda agora tem <b class="down">−${wear * 10}%</b>${wear >= G.WEAR.max ? ' (máximo)' : ''}. Renascer zera o desgaste.`);
   if (inflation > 1) notify('💸', `Inflação da virada: seu dinheiro parado perdeu <b class="down">${money(inflation)}</b> (10%). Dinheiro investido não perde.`);
   if (ctx.uid === G.CREATOR) return; // o criador não disputa a temporada
-  const rivals = s.friends.filter((uid) => uid !== G.CREATOR).map((uid) => ctx.friends[uid]).filter(Boolean)
-    .map((p) => (p.yr === ended ? p.pct : p.lastYr === ended ? p.lastPct : null)).filter((g) => g !== null && g !== undefined);
-  const place = 1 + rivals.filter((g) => g > pct).length;
+  // Cada um disputa na sua categoria: 🔁 Renascidos (maior patrimônio) ou 🏛️ Veteranos (maior % de crescimento)
+  const cat = rb ? 'rb' : 'vet';
+  const mine = rb ? nw : pct;
+  const rivals = s.friends.filter((uid) => uid !== G.CREATOR).map((uid) => G.profileSeason(ctx.friends[uid], ended)).filter((x) => x && x.cat === cat).map((x) => x.score);
+  const place = 1 + rivals.filter((g) => g > mine).length;
   const n = rivals.length + 1;
   let pts = 0;
-  if (n >= 2 && pct > 0 && place <= 3) pts = G.seasonPrize(s, place, ended);
+  if (n >= 2 && (rb || pct > 0) && place <= 3) pts = G.seasonPrize(s, place, ended);
+  const catName = rb ? '🔁 Renascidos' : '🏛️ Veteranos';
   const medal = ['🥇', '🥈', '🥉'][place - 1] || '🎖️';
-  notify('🎆', `Fim do <b>Ano ${ended}</b>! Você cresceu <b class="${grow >= 0 ? 'up' : 'down'}">${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%</b> (${money(grow)})${n >= 2 ? ` e ficou em <b>${place}º de ${n}</b>` : ''}.${pts ? ` Prêmio: <b>+${pts} de legado</b>! Seu bônus de renda agora é <b>+${G.legacyPct(G.legacyPts(s))}%</b>.` : ''}`);
+  notify('🎆', `Fim do <b>Ano ${ended}</b>! Você cresceu <b class="${grow >= 0 ? 'up' : 'down'}">${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%</b> (${money(grow)})${n >= 2 ? ` e ficou em <b>${place}º de ${n}</b> nos ${catName}` : ''}.${pts ? ` Prêmio: <b>+${pts} de legado</b>! Seu bônus de renda agora é <b>+${G.legacyPct(G.legacyPts(s))}%</b>.` : ''}`);
   UI.modal(`<div class="celebrate"><h3>🎆 Feliz Ano ${ended + 1}!</h3>
-    <p>O <b>Ano ${ended}</b> acabou. No ano você cresceu</p>
-    <div class="offgain ${pct >= 0 ? 'up' : 'down'}">${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%</div><p class="muted small">${grow >= 0 ? '+' : ''}${money(grow)} no patrimônio</p>
-    ${n >= 2 ? `<p class="bigmedal">${medal}</p><p>Você ficou em <b>${place}º lugar</b> entre ${n} jogadores.</p>` : '<p class="muted">Adicione amigos para disputar a temporada!</p>'}
+    <p>O <b>Ano ${ended}</b> acabou. Seu resultado:</p>
+    ${rb ? `<div class="offgain up">${money(nw)}</div><p class="muted small">de patrimônio depois de renascer (categoria 🔁 Renascidos)</p>` : `<div class="offgain ${pct >= 0 ? 'up' : 'down'}">${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%</div><p class="muted small">${grow >= 0 ? '+' : ''}${money(grow)} no patrimônio (categoria 🏛️ Veteranos)</p>`}
+    ${n >= 2 ? `<p class="bigmedal">${medal}</p><p>Você ficou em <b>${place}º lugar</b> entre ${n} jogadores dos <b>${catName}</b>.</p>` : '<p class="muted">Adicione amigos para disputar a temporada!</p>'}
     ${pts ? `<p class="up"><b>Prêmio: +${pts} pontos de legado</b> (bônus total de renda: +${G.legacyPct(G.legacyPts(s))}%)${place === 1 ? ' e o título 🏆 Campeão do Ano' : ''}!</p>` : ''}
     ${wore ? `<p class="down small">⏳ Desgaste do império: você não renasceu nessa temporada, então sua renda agora tem −${wear * 10}%. Renascer zera o desgaste.</p>` : ''}
     ${inflation > 1 ? `<p class="down small">💸 Inflação: o dinheiro parado na conta perdeu ${money(inflation)} (10%). Investimentos não perdem!</p>` : ''}
-    <p class="muted small">Um novo ano começou: todo mundo volta a disputar do zero. Vence quem mais crescer <b>em %</b> até a próxima virada.</p>
+    <p class="muted small">Um novo ano começou: todo mundo volta a disputar do zero. 🔁 Quem renascer disputa por maior patrimônio; 🏛️ quem não renascer, por maior crescimento em %.</p>
     <button class="btn full" data-act="close">Bora! 🚀</button></div>`);
   UI.confetti();
   afterAction(); UI.render(); pushCloud(true).catch(() => {});
