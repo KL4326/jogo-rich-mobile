@@ -1377,7 +1377,11 @@ export const seasonCat = (s) => (s.season && rebornIn(s, s.season.year) ? 'rb' :
 // Pontuação de um perfil de amigo numa temporada: { cat, score } ou null
 export function profileSeason(p, year) {
   if (!p) return null;
-  if (p.yr === year) return p.rb ? { cat: 'rb', score: p.nw } : { cat: 'vet', score: p.pct || 0 };
+  if (p.yr === year) {
+    // Perfil de versão antiga (sem o campo rb): deduz o renascimento pelo item que exige renascer ou pela queda de ~100% no patrimônio
+    const rb = p.rb !== undefined ? p.rb : (p.excl || []).some((id) => EXCL[id] && EXCL[id].needRebirth) || (p.pct || 0) <= -90;
+    return rb ? { cat: 'rb', score: p.nw } : { cat: 'vet', score: p.pct || 0 };
+  }
   if (p.lastYr === year) return p.lastRb ? { cat: 'rb', score: p.lastNw || 0 } : { cat: 'vet', score: p.lastPct || 0 };
   return null;
 }
