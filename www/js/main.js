@@ -499,8 +499,9 @@ function seasonCheck() {
   // espera os perfis dos amigos carregarem para saber a colocação
   if (pendingSeason && (!ctx.uid || Date.now() - startedAt > 8000)) { const ps = pendingSeason; pendingSeason = null; finishSeason(ps); }
 }
-function finishSeason({ ended, grow, pct, rb, nw, inflation, wore, wear }) {
+function finishSeason({ ended, grow, pct, rb, nw, inflation, wore, wear, adj }) {
   const s = ctx.s;
+  notify('📈', `Reajustes anuais: salários das empresas <b>+6%</b>, seguros <b>+8%</b> e manutenção dos bens <b>+5%</b>. Acumulado: salários +${Math.round((adj.wage - 1) * 100)}%, seguros +${Math.round((adj.ins - 1) * 100)}%, manutenção +${Math.round((adj.manut - 1) * 100)}%. Renascer zera os reajustes.`);
   if (wore) notify('⏳', `Desgaste do império: você não renasceu no Ano ${ended}. Sua renda agora tem <b class="down">−${wear * 10}%</b>${wear >= G.WEAR.max ? ' (máximo)' : ''}. Renascer zera o desgaste.`);
   if (inflation > 1) notify('💸', `Inflação da virada: seu dinheiro parado perdeu <b class="down">${money(inflation)}</b> (10%). Dinheiro investido não perde.`);
   if (ctx.uid === G.CREATOR) return; // o criador não disputa a temporada
@@ -520,6 +521,7 @@ function finishSeason({ ended, grow, pct, rb, nw, inflation, wore, wear }) {
     ${rb ? `<div class="offgain up">${money(nw)}</div><p class="muted small">de patrimônio depois de renascer (categoria 🔁 Renascidos)</p>` : `<div class="offgain ${pct >= 0 ? 'up' : 'down'}">${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%</div><p class="muted small">${grow >= 0 ? '+' : ''}${money(grow)} no patrimônio (categoria 🏛️ Veteranos)</p>`}
     ${n >= 2 ? `<p class="bigmedal">${medal}</p><p>Você ficou em <b>${place}º lugar</b> entre ${n} jogadores dos <b>${catName}</b>.</p>` : '<p class="muted">Adicione amigos para disputar a temporada!</p>'}
     ${pts ? `<p class="up"><b>Prêmio: +${pts} pontos de legado</b> (bônus total de renda: +${G.legacyPct(G.legacyPts(s))}%)${place === 1 ? ' e o título 🏆 Campeão do Ano' : ''}!</p>` : ''}
+    <p class="down small">📈 Reajustes anuais: salários das empresas +6%, seguros +8%, manutenção +5% (renascer zera).</p>
     ${wore ? `<p class="down small">⏳ Desgaste do império: você não renasceu nessa temporada, então sua renda agora tem −${wear * 10}%. Renascer zera o desgaste.</p>` : ''}
     ${inflation > 1 ? `<p class="down small">💸 Inflação: o dinheiro parado na conta perdeu ${money(inflation)} (10%). Investimentos não perdem!</p>` : ''}
     <p class="muted small">Um novo ano começou: todo mundo volta a disputar do zero. 🔁 Quem renascer disputa por maior patrimônio; 🏛️ quem não renascer, por maior crescimento em %.</p>

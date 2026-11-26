@@ -165,7 +165,7 @@ export function incomeBreakdown(s, mk) {
   const cdi = mk.cdi();
   const juros = s.poup * cdi * 0.7 + s.cdb.reduce((t, x) => t + x.amt * fixedRate('cdb', x), 0) * cdi + s.tes.reduce((t, x) => t + x.amt * fixedRate('tes', x), 0) * cdi;
   const moradia = homeOf(s) ? 0 : RENT_NO_HOME;
-  const manut = allOwned(s).reduce((t, g) => t + g.cost * 0.0002, 0);
+  const manut = allOwned(s).reduce((t, g) => t + g.cost * 0.0002, 0) * adj(s, 'manut');
   const comp = compIncome(s, mk); // lucro (ou prejuízo) das suas empresas, já sem a parte dos acionistas
   const loan = s.debt * LOAN_RATE;
   // 🦁 Impostos: IR progressivo sobre a renda do trabalho/negócios, IPVA/IPTU sobre bens e imóveis, fortuna acima de R$ 1 bi
@@ -572,6 +572,7 @@ const myMoto = (s) => bestOwned(s, GOODS.veiculos.filter((g) => g.brand === 'tro
 const myBoat = (s) => bestOwned(s, GOODS.ceumar.filter((g) => ['jetski', 'lancha', 'veleiro', 'iate', 'megaiate', 'submarino'].includes(g.id)));
 const myAircraft = (s) => bestOwned(s, GOODS.ceumar.filter((g) => ['heli', 'jato', 'aviao'].includes(g.id)));
 const R = (x) => Math.max(1, Math.round(x));
+const money0 = (n) => 'R$ ' + Number(n).toLocaleString('pt-BR', { notation: 'compact', maximumFractionDigits: 1 });
 
 function eventPool(s, mk) {
   const ib = incomeBreakdown(s, mk);
@@ -585,6 +586,14 @@ function eventPool(s, mk) {
   const job = JOBS.find((j) => j.id === s.job);
   const E = [];
   const add = (w, ev) => E.push({ w, ev });
+
+  // Greve nas suas empresas (Minhas Empresas)
+  const staffed = (s.companies || []).filter((c) => c.products.length && STAFF.reduce((t, r) => t + (c.staff[r.id] || 0), 0) >= 5 && !((c.strikeUntil || 0) > Date.now()));
+  if (staffed.length) {
+    const c = staffed[Math.floor(Math.random() * staffed.length)];
+    const st = compStats(s, c, mk);
+    add(2, { k: 'greve_emp', icon: '🪧', title: `Greve na ${c.name}`, text: `Os funcionários da ${c.name} querem 10% de aumento (+${money0(st.cost * 0.1)}/dia em salários, para sempre). Se negar, a produção para por 1 hora.`, yes: 'Dar 10% de aumento', no: 'Negar', fx: { compRaise: { id: c.id, v: 0.1 }, xp: 5, msg: '🤝 Acordo fechado! Salários +10%.' }, nofx: { compStrike: { id: c.id, mins: 60 }, msg: `🪧 Greve! A ${c.name} parou por 1 hora.` } });
+  }
 
   // ===== Boas notícias (só receber) =====
   add(3, { k: 'heranca', icon: '🎁', title: 'Herança inesperada', text: 'Um tio-avô distante deixou uma herança para você!', gain: R(day * 25), yes: 'Receber', fx: { cash: R(day * 25) } });
@@ -636,6 +645,7 @@ function eventPool(s, mk) {
     add(3, { k: 'influ', icon: '🤳', title: 'Influenciador famoso', text: `Um influenciador quer divulgar sua ${b.name}. O lucro dela dobra por 30 min.`, cost: R(bp * 15), yes: 'Fechar parceria', no: 'Dispensar', fx: { buff: { id: b.id, mult: 2, mins: 30 }, xp: 10 } });
     add(3, { k: 'reparo', icon: '🔧', title: 'Equipamento quebrado', text: `A ${b.name} quebrou um equipamento! Sem conserto, o lucro dela cai pela metade por 1 hora.`, cost: R(bp * 8), yes: 'Consertar', no: 'Deixar quebrado', fx: { msg: '🔧 Consertado!' }, nofx: { buff: { id: b.id, mult: 0.5, mins: 60 }, msg: '😬 Lucro do negócio pela metade por 1h.' } });
     add(2, { k: 'fiscal', icon: '🕵️‍♂️', title: 'Fiscalização surpresa', text: `A vigilância apareceu na ${b.name}. Pagar a taxa de regularização agora ou arriscar a interdição (50% de chance de fechar por 40 min)?`, cost: R(bp * 6), yes: 'Regularizar', no: 'Arriscar', fx: {}, nofx: { chance: { p: 0.5, win: { msg: '😅 Ufa, passou na fiscalização!' }, lose: { buff: { id: b.id, mult: 0, mins: 40 }, msg: '🚫 Negócio interditado por 40 min!' } } } });
+    add(1, { k: 'greve_geral', icon: '✊', title: 'Greve geral!', text: 'Uma greve geral parou a cidade. Pagando um bônus de emergência aos funcionários, seus negócios seguem abertos; senão, todos rendem a metade por 30 min.', cost: R(owned.reduce((t, x) => t + bizProfit(s, x, mk), 0) * 4), yes: 'Pagar bônus', no: 'Fechar as portas', fx: { msg: '🤝 Negócios abertos durante a greve!' }, nofx: { buff: { id: '*', mult: 0.5, mins: 30 }, msg: '✊ Greve geral: negócios a 50% por 30 min.' } });
     add(2, { k: 'greve', icon: '🪧', title: 'Funcionários insatisfeitos', text: `Os funcionários da ${b.name} pedem aumento. Sem acordo, a produção cai 40% por 1h.`, cost: R(bp * 10), yes: 'Dar aumento', no: 'Negar', fx: { buff: { id: b.id, mult: 1.15, mins: 60 }, msg: '🤝 Equipe motivada: +15% por 1h!' }, nofx: { buff: { id: b.id, mult: 0.6, mins: 60 }, msg: '🪧 Greve! Produção -40% por 1h.' } });
     add(2, { k: 'apagao', icon: '🔌', title: 'Apagão na cidade', text: 'Um apagão vai derrubar o movimento dos seus negócios por 30 min. Alugar um gerador?', cost: R(ib.biz * 5), yes: 'Alugar gerador', no: 'Esperar a luz voltar', fx: { msg: '🔌 Gerador ligado, tudo funcionando!' }, nofx: { buff: { id: '*', mult: 0.6, mins: 30 }, msg: '🕯️ Negócios a 60% por 30 min.' } });
     if (owned.length >= 2) add(2, { k: 'feira', icon: '🎪', title: 'Feira de negócios', text: 'Montar um estande na feira da cidade aumenta o lucro de TODOS os seus negócios em 25% por 40 min.', cost: R(ib.biz * 12), yes: 'Montar estande', no: 'Não ir', fx: { buff: { id: '*', mult: 1.25, mins: 40 } } });
@@ -695,6 +705,8 @@ function applyFx(s, fx, stake = 0) {
   if (fx.buff) { s.buffs = (s.buffs || []).filter((x) => x.until > now); s.buffs.push({ id: fx.buff.id, mult: fx.buff.mult, until: now + fx.buff.mins * MIN }); }
   if (fx.pending) { s.pending = s.pending || []; s.pending.push({ amt: stake * fx.pending.mult, at: now + fx.pending.mins * MIN, p: fx.pending.p, label: fx.pending.label }); if (!out.msg) out.msg = `⏳ Resultado em ${fx.pending.mins} min…`; }
   if (fx.aff && s.love) s.love.aff = Math.max(0, Math.min(100, s.love.aff + fx.aff));
+  if (fx.compRaise) { const c = findComp(s, fx.compRaise.id); if (c) c.raise = (c.raise || 0) + fx.compRaise.v; }
+  if (fx.compStrike) { const c = findComp(s, fx.compStrike.id); if (c) c.strikeUntil = now + fx.compStrike.mins * MIN; }
   if (fx.xp) addXP(s, fx.xp);
   if (fx.rest) s.rested = Math.max(s.rested || 0, now) + fx.rest * MIN;
   if (fx.tip) out.tip = true;
@@ -1076,7 +1088,7 @@ export function insPremium(s, mk, id, plan) {
   if (id === 'vida') v = day * (full ? 2.5 : 1);
   if (id === 'cel') v = full ? 60 : 25;
   if (id === 'biz') v = grossBizProfit(s, mk) * (full ? 2.5 : 1);
-  return Math.max(20, Math.round(v));
+  return Math.max(20, Math.round(v * adj(s, 'ins')));
 }
 export const insPlan = (s, id) => ((s.ins || {})[id] && insAvailable(s, id) ? s.ins[id] : null);
 export function setInsurance(s, mk, id, plan) {
@@ -1144,6 +1156,8 @@ export function freshness(p, now = Date.now()) {
 }
 const topTier = (c) => c.products.reduce((m, p) => Math.max(m, p.tier), 0);
 export const wageOf = (c, role) => STAFF_MAP[role].pct * PRODUCT_TIERS[topTier(c)].rev * SEGMENT[c.seg].k;
+// Salário real: base × aumento dado na greve × reajuste anual
+export const wageFull = (s, c, role) => wageOf(c, role) * (1 + (c.raise || 0)) * adj(s, 'wage');
 export function staffCap(c, role) {
   const n = c.products.length;
   return role === 'prod' ? 300 : role === 'pd' ? 10 : role === 'vendas' ? Math.max(2, 4 * n) : Math.max(1, 3 * n);
@@ -1153,13 +1167,14 @@ export function compStats(s, c, mk) {
   const now = Date.now();
   const base = c.products.reduce((t, p) => t + PRODUCT_TIERS[p.tier].rev * seg.k * freshness(p, now), 0);
   const need = c.products.reduce((t, p) => t + PRODUCT_TIERS[p.tier].need, 0);
-  const cap = need ? Math.min(1, (st.prod || 0) / need) : 0;
+  const strike = (c.strikeUntil || 0) > now; // greve: produção parada (salários continuam)
+  const cap = need && !strike ? Math.min(1, (st.prod || 0) / need) : 0;
   const boost = (1 + 0.05 * (st.vendas || 0)) * (1 + 0.04 * (st.mkt || 0));
   const clima = COMP_CLIMA[mk.sectorNow(seg.sector)]; // empresas sentem mais a crise do setor
   const mg = mgmtMult(s);
   const rev = base * cap * boost * clima * mg * legacyMult(s) * bankruptMult(s) * (1 + exclBonus(s, 'all')) * wearMult(s);
-  const cost = STAFF.reduce((t, r) => t + (st[r.id] || 0) * wageOf(c, r.id), 0);
-  return { rev, cost, profit: rev - cost, base, need, cap, boost, clima, mg };
+  const cost = STAFF.reduce((t, r) => t + (st[r.id] || 0) * wageFull(s, c, r.id), 0);
+  return { rev, cost, profit: rev - cost, base, need, cap, boost, clima, mg, strike };
 }
 // O que vai para o dono: lucro × parte que ele controla (prejuízo fica todo com o dono)
 export const compOwnerIncome = (s, c, mk) => { const p = compStats(s, c, mk).profit; return p > 0 ? p * (1 - c.float) : p; };
@@ -1385,6 +1400,10 @@ export function profileSeason(p, year) {
   if (p.lastYr === year) return p.lastRb ? { cat: 'rb', score: p.lastNw || 0 } : { cat: 'vet', score: p.lastPct || 0 };
   return null;
 }
+// 📈 Reajustes anuais: salários das empresas, seguros e manutenção dos bens
+export const ADJ_STEP = { wage: 0.06, ins: 0.08, manut: 0.05 };
+export const ADJ_MAX = 3;
+export const adj = (s, k) => (s.adj && s.adj[k]) || 1;
 // ⏳ Desgaste do império: −10% de renda por temporada sem renascer (máx. −40%), zera ao renascer
 export const WEAR = { step: 0.1, max: 4 };
 export const wearMult = (s) => 1 - WEAR.step * Math.min(WEAR.max, s.wear || 0);
@@ -1406,9 +1425,12 @@ export function seasonTick(s, mk) {
   // 💸 Inflação: dinheiro parado na conta perde 10% a cada virada (investido não perde)
   const inflation = s.cash > 0 ? s.cash * INFLATION : 0;
   s.cash -= inflation;
+  // 📈 Reajustes anuais (sobem a cada temporada, zeram ao renascer)
+  s.adj = s.adj || { wage: 1, ins: 1, manut: 1 };
+  for (const [k, v] of Object.entries(ADJ_STEP)) s.adj[k] = Math.min(ADJ_MAX, (s.adj[k] || 1) * (1 + v));
   const nw2 = netWorth(s, mk);
   s.season = { year: cal.year, start: nw2, base: nw2 };
-  return { ended, grow, pct, rb, nw, inflation, wore, wear: s.wear || 0 };
+  return { ended, grow, pct, rb, nw, inflation, wore, wear: s.wear || 0, adj: { ...s.adj } };
 }
 export function seasonPrize(s, place, year) {
   const pts = SEASON_PRIZE[place - 1] || 0;
@@ -1438,6 +1460,7 @@ export function rebirth(s, mk) {
   s.legacy = { pts: Math.min(LEGACY.maxPts, legacyPts(s) + gain), n: ((s.legacy || {}).n || 0) + 1, year: calendar().year, best: Math.max(nw, (s.legacy || {}).best || 0) };
   s.season = { year: calendar().year, start: netWorth(s, mk), base: Math.max((s.season || {}).base || 0, nw) };
   s.wear = 0;
+  s.adj = { wage: 1, ins: 1, manut: 1 };
   return { gain, nw, sold };
 }
 

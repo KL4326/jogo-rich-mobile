@@ -850,7 +850,7 @@ function vCompanies() {
   ${list.map((c) => {
     const seg = SEGMENT[c.seg], st = G.compStats(s, c, mk);
     return `<div class="compcard" data-act="comp" data-id="${c.id}">${segLogo(seg)}<div class="grow"><b>${esc(c.name)}</b><small>${esc(c.ticker)} · ${seg.name} · ${c.products.length}/5 produtos${c.float > 0 ? ` · ${Math.round(c.float * 100)}% na bolsa` : ''}</small>
-      ${c.dev ? `<div class="bar thin"><i data-live-w="cdev:${c.id}"></i></div><small>🧪 ${esc(c.dev.model)}${c.dev.version ? ' (nova versão)' : ''} · <span data-live="cdevt:${c.id}"></span></small>` : !c.products.length ? '<small class="warn">👉 Toque para contratar e criar seu 1º produto</small>' : st.cap < 1 ? '<small class="warn">⚠️ Falta gente na produção</small>' : ''}</div>
+      ${c.dev ? `<div class="bar thin"><i data-live-w="cdev:${c.id}"></i></div><small>🧪 ${esc(c.dev.model)}${c.dev.version ? ' (nova versão)' : ''} · <span data-live="cdevt:${c.id}"></span></small>` : !c.products.length ? '<small class="warn">👉 Toque para contratar e criar seu 1º produto</small>' : st.strike ? '<small class="warn">🪧 Em greve!</small>' : st.cap < 1 ? '<small class="warn">⚠️ Falta gente na produção</small>' : ''}</div>
       <div class="right"><small>Lucro/dia</small><b class="${st.profit < 0 ? 'down' : 'up'}">${money(st.profit)}</b></div></div>`;
   }).join('')}
   ${lvl < G.COMP.minLevel ? lockBox(G.COMP.minLevel, 'Criar empresas') : list.length < max ? '<button class="btn gold full newcompbtn" data-act="newcomp">＋ Criar nova empresa</button>' : '<p class="muted center small">Você chegou ao limite de empresas do seu cargo.</p>'}
@@ -888,7 +888,7 @@ function vCompany(id) {
   const free = c.float - others / G.COMP.shares;
   const staffRows = STAFF.map((r) => {
     const n = c.staff[r.id] || 0, cap = G.staffCap(c, r.id);
-    return `<div class="staffrow"><span class="bi">${r.icon}</span><div class="grow"><b>${r.name} <span class="cnt">${n}/${cap}</span></b><small>${r.desc}</small><small>💵 ${money(G.wageOf(c, r.id))}/dia cada</small></div>
+    return `<div class="staffrow"><span class="bi">${r.icon}</span><div class="grow"><b>${r.name} <span class="cnt">${n}/${cap}</span></b><small>${r.desc}</small><small>💵 ${money(G.wageFull(C.s, c, r.id))}/dia cada${c.raise ? ` <span class="muted">(inclui +${Math.round(c.raise * 100)}% de greve)</span>` : ''}</small></div>
       <div class="hirebtns"><button class="chipbtn" data-act="hire" data-id="${c.id}" data-r="${r.id}" data-n="-1" ${n ? '' : 'disabled'}>−</button><button class="chipbtn" data-act="hire" data-id="${c.id}" data-r="${r.id}" data-n="1" ${n < cap ? '' : 'disabled'}>＋</button><button class="chipbtn" data-act="hire" data-id="${c.id}" data-r="${r.id}" data-n="5" ${n < cap ? '' : 'disabled'}>+5</button></div></div>`;
   }).join('');
   const prodRows = seg.products.map((k, i) => {
@@ -913,7 +913,8 @@ function vCompany(id) {
     <div class="crow">${segLogo(seg)}<div class="grow"><b>${esc(c.name)}</b><small>${esc(c.ticker)} · ${seg.name} · fundada ${ago(c.founded)}</small></div><span class="wxpill ${wxCls(reg)}">${SECTOR[seg.sector].icon} ${WX[reg]} ${WXN[reg]}</span></div>
     <div class="cstats3"><div><small>Receita/dia</small><b class="up">${money(st.rev)}</b></div><div><small>Salários/dia</small><b class="down">${money(st.cost)}</b></div><div><small>Lucro/dia</small><b class="${st.profit < 0 ? 'down' : 'up'}">${money(st.profit)}</b></div></div>
     <div class="cstats3"><div><small>Ação ${esc(c.ticker)}</small><b>${price2(price)}</b></div><div><small>Valor de mercado</small><b>${money(val)}</b></div><div><small>Você controla</small><b>${Math.round((1 - c.float) * 100)}%</b></div></div>
-    ${c.products.length && st.cap < 1 ? `<p class="warnbox">⚠️ Falta gente na produção: só dá para fabricar <b>${Math.round(st.cap * 100)}%</b> do que você vende. Contrate mais <b>${st.need - (c.staff.prod || 0)}</b> em 🏭 Produção.</p>` : ''}
+    ${st.strike ? `<p class="warnbox">🪧 <b>Greve!</b> A produção está parada (os salários continuam). Volta em ${dur(c.strikeUntil - Date.now())}.</p>` : ''}
+    ${c.products.length && st.cap < 1 && !st.strike ? `<p class="warnbox">⚠️ Falta gente na produção: só dá para fabricar <b>${Math.round(st.cap * 100)}%</b> do que você vende. Contrate mais <b>${st.need - (c.staff.prod || 0)}</b> em 🏭 Produção.</p>` : ''}
     ${!c.products.length ? '<p class="hint small">👉 Comece pelo 1º produto lá embaixo. Depois contrate 🏭 Produção para fabricar e 🤝 Vendas / 📣 Marketing para vender mais.</p>' : ''}
     <small class="muted">Clima do setor ${WXN[reg].toLowerCase()} (${st.clima > 1 ? '+30%' : st.clima < 1 ? '−25%' : 'normal'}) · Gestão ${st.mg > 1 ? '+' + Math.round((st.mg - 1) * 100) + '%' : 'sem bônus'} · Vendas e marketing +${Math.round((st.boost - 1) * 100)}%</small>
   </div>
@@ -1207,6 +1208,7 @@ function flowHTML() {
     (G.lifeMult(C.s) > 1 ? `<div class="fr"><span>😊 Felicidade e descanso</span><b>+${Math.round((G.lifeMult(C.s) - 1) * 100)}%</b></div>` : '') +
     `<div class="fr"><span>⭐ Bônus de nível</span><b>+${Math.round(LEVEL_BONUS * 100 * (G.level(C.s) - 1))}%</b></div>` +
     (G.isBankrupt(C.s) ? '<div class="fr"><span>💀 Falido(a)</span><b class="down">−30%</b></div>' : '') +
+    (C.s.adj && C.s.adj.wage > 1.001 ? `<div class="fr"><span>📈 Reajustes acumulados (renascer zera)</span><b class="down">salários +${Math.round((C.s.adj.wage - 1) * 100)}% · seguros +${Math.round((C.s.adj.ins - 1) * 100)}% · manutenção +${Math.round((C.s.adj.manut - 1) * 100)}%</b></div>` : '') +
     (C.s.wear ? `<div class="fr"><span>⏳ Desgaste do império (${C.s.wear} temporada${C.s.wear > 1 ? 's' : ''} sem renascer)</span><b class="down">−${C.s.wear * 10}%</b></div>` : '') +
     `<p class="muted small">🦁 IR progressivo: 0% até R$ 2 mil/dia, depois 7,5% · 15% · 22,5% · 27,5% (acima de R$ 2 mi/dia). Venda de ações com lucro e IPO pagam 15%. Patrimônio acima de R$ 1 bi paga 1% por temporada e bens 2% por temporada, mas esses dois juntos nunca passam de 25% da sua renda. Total já pago: <b>${money(C.s.stats.taxPaid || 0)}</b>.</p>`;
 }
