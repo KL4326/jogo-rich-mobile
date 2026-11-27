@@ -607,7 +607,7 @@ function tick() {
     else if (ev.fail) { notify('😢', `${ev.label === 'Seu amigo' ? 'Seu amigo não pagou o empréstimo' : ev.fail + ' não deu certo'}… o dinheiro foi perdido.`); UI.toast(`😢 ${ev.fail} não pagou…`, 'err'); }
   }
   const L = G.level(s);
-  if (lastLevel && L > lastLevel) { UI.toast(`⭐ Subiu para o nível <b>${L}</b>! Renda +3%`, 'gold'); UI.confetti(); UI.render(); }
+  if (lastLevel && L > lastLevel) { UI.toast(`⭐ Subiu para o nível <b>${L}</b>! Renda +3%`, 'gold'); UI.confetti(); UI.render(); UI.levelFx(); }
   lastLevel = L;
   UI.refresh();
 }

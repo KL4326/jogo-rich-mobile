@@ -578,14 +578,27 @@ export function render(anim = false) {
   refresh(true);
 }
 
+// estrela de nível: giro e faíscas ao subir de nível
+export function levelFx() {
+  const w = document.querySelector('.lvwrap');
+  if (!w) return;
+  w.classList.remove('lvup'); void w.offsetWidth; w.classList.add('lvup');
+  for (let i = 0; i < 12; i++) {
+    const p = document.createElement('i'); p.className = 'lvspark';
+    const a = (i / 12) * Math.PI * 2;
+    p.style.setProperty('--dx', Math.cos(a) * 46 + 'px'); p.style.setProperty('--dy', Math.sin(a) * 46 + 'px');
+    w.appendChild(p); setTimeout(() => p.remove(), 1000);
+  }
+  setTimeout(() => w.classList.remove('lvup'), 1200);
+}
 function renderTop() {
   const s = C.s;
   const c = G.card(s);
   $('#top').innerHTML = `
     <div class="hud">
-      <div class="lvbadge"><span data-live="lvl"></span></div>
+      <div class="lvwrap" data-act="status"><i class="lvrays"></i><div class="lvbadge"><span data-live="lvl"></span></div></div>
       <div class="hudmid">
-        <b class="pname">${esc(s.name)}</b>
+        <b class="pname"><span class="pst">${G.statusOf(s).icon}</span><span class="pnm">${esc(s.name)}</span></b>
         <div class="xpbar"><i data-live-w="xp"></i><span data-live="xptxt"></span></div>
       </div>
       <button class="sndbtn phonebtn ${G.hasPhone(s) ? '' : 'nophone'}" data-act="phone" aria-label="Celular">📱<i class="pdot" style="display:none"></i></button>

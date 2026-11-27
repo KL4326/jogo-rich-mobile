@@ -1278,8 +1278,8 @@ s.old { opacity: .6; font-size: 12px; margin-left: 4px; }
 .btn.ghost .rip, .chipbtn .rip { background: #8f6bff33; }
 @keyframes ripple { to { transform: scale(var(--rs, 30)); opacity: 0; } }
 /* botão de compra dourado: reflexo que passa de vez em quando */
-.btn.gold:not(.cant)::after { content: ''; position: absolute; top: -20%; bottom: -20%; width: 34%; left: -50%; background: linear-gradient(100deg, transparent, #ffffffa8, transparent); transform: skewX(-18deg); animation: shine 4.5s ease-in-out infinite; pointer-events: none; }
-@keyframes shine { 0%, 70% { left: -50%; } 100% { left: 130%; } }
+.btn.gold:not(.cant)::after { content: ''; position: absolute; top: -20%; bottom: -20%; width: 34%; left: -50%; background: linear-gradient(100deg, transparent, #ffffffa8, transparent); transform: skewX(-18deg); animation: btnshine 4.5s ease-in-out infinite; pointer-events: none; }
+@keyframes btnshine { 0%, 70% { left: -50%; } 100% { left: 130%; } }
 /* sem dinheiro: cadeado leve e tremidinha ao tocar */
 .btn.cant, .btn.gold.cant { background: repeating-linear-gradient(135deg, #e4dcf0 0 8px, #dcd2ec 8px 16px); }
 .btn.nope { animation: nope .35s ease; }
@@ -1379,3 +1379,41 @@ s.old { opacity: .6; font-size: 12px; margin-left: 4px; }
 .townsvg .tplane { animation: tplane 9s linear infinite; }
 @keyframes tplane { 0% { transform: translate(-60px, 30px); opacity: 0; } 10% { opacity: 1; } 90% { opacity: 1; } 100% { transform: translate(90px, -10px); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .townsvg * { animation: none !important; } }
+
+/* ===== Melhoria gráfica 7: topo da tela ===== */
+#top { position: relative; }
+.lvwrap { position: relative; width: 50px; height: 50px; flex: none; display: grid; place-items: center; }
+.lvwrap .lvrays { position: absolute; inset: -8px; border-radius: 50%; background: repeating-conic-gradient(from 0deg, #ffe06655 0 10deg, transparent 10deg 30deg); -webkit-mask: radial-gradient(circle, #000 30%, transparent 70%); mask: radial-gradient(circle, #000 30%, transparent 70%); animation: lvspin 14s linear infinite; }
+@keyframes lvspin { to { transform: rotate(360deg); } }
+.lvwrap .lvbadge { width: 50px; height: 50px; background: linear-gradient(160deg, #fff6b0 0%, #ffd23c 40%, #f0a818 75%, #c97a06 100%); filter: drop-shadow(0 3px 0 #0004) drop-shadow(0 0 6px #ffd23c88); animation: lvbob 3.6s ease-in-out infinite; }
+.lvwrap .lvbadge::after { content: ''; position: absolute; inset: 0; background: linear-gradient(115deg, transparent 35%, #ffffffcc 48%, transparent 60%); animation: lvshine 5s ease-in-out infinite; }
+.lvwrap .lvbadge span { position: relative; z-index: 1; font-size: 17px; text-shadow: 0 1px 0 #fff8; }
+@keyframes lvbob { 50% { transform: rotate(-6deg) scale(1.04); } }
+@keyframes lvshine { 0%, 75% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+.lvwrap.lvup .lvbadge { animation: lvup 1.1s cubic-bezier(.34, 1.5, .55, 1); }
+.lvwrap.lvup .lvrays { animation: lvspin 1.1s linear, lvflash 1.1s ease-out; }
+@keyframes lvup { 0% { transform: scale(1) rotate(0); } 30% { transform: scale(1.5) rotate(200deg); } 60% { transform: scale(.9) rotate(360deg); } 100% { transform: scale(1) rotate(360deg); } }
+@keyframes lvflash { 0% { inset: -8px; opacity: 1; } 40% { inset: -26px; opacity: 1; } 100% { inset: -8px; opacity: 1; } }
+.lvwrap .lvspark { position: absolute; width: 6px; height: 6px; border-radius: 50%; background: #fff6b0; box-shadow: 0 0 6px #ffd23c; animation: lvspark .9s ease-out forwards; }
+@keyframes lvspark { to { transform: translate(var(--dx), var(--dy)) scale(.2); opacity: 0; } }
+.pname { display: flex; align-items: center; gap: 5px; }
+.pname .pst { font-size: 13px; filter: drop-shadow(0 1px 0 #0004); }
+.xpbar { height: 17px; background: linear-gradient(180deg, #0007, #0004); border: 2px solid #ffffff2e; box-shadow: inset 0 2px 3px #0005; }
+.xpbar i { position: relative; overflow: hidden; background: linear-gradient(180deg, #a6e2ff 0%, #4da3ff 55%, #2a74d1 100%); box-shadow: 0 0 10px #4da3ffaa; }
+.xpbar i::before { content: ''; position: absolute; left: 3px; right: 3px; top: 2px; height: 32%; border-radius: 6px; background: #ffffff66; }
+.xpbar i::after { content: ''; position: absolute; inset: 0; background: linear-gradient(100deg, transparent 30%, #ffffff90 50%, transparent 70%); background-size: 240% 100%; animation: barshine 2.4s linear infinite; }
+.xpbar span { z-index: 1; letter-spacing: .3px; }
+.sndbtn { background: radial-gradient(circle at 35% 25%, #ffffff40, #ffffff10 60%, #0002); border: 2px solid #ffffff40; box-shadow: inset 0 -3px 0 #0003, 0 3px 6px #0003; transition: transform .18s cubic-bezier(.34, 1.8, .55, 1); }
+.sndbtn:active { transform: scale(.88); }
+.minicard { position: relative; overflow: hidden; border-radius: 8px; transform: perspective(200px) rotateY(-10deg) rotateX(4deg); animation: mctilt 5s ease-in-out infinite; box-shadow: 0 4px 0 #0005, 0 6px 14px #0004; text-shadow: 0 1px 1px #0005; }
+.minicard::before { content: ''; position: absolute; left: 5px; top: 6px; width: 13px; height: 10px; border-radius: 2.5px; background: linear-gradient(135deg, #f8e08e, #c9a227 60%, #f3d36b); box-shadow: inset 0 0 0 1px #0003; }
+.minicard::after { content: ''; position: absolute; inset: -20% -60%; background: linear-gradient(110deg, transparent 40%, #ffffffb0 50%, transparent 60%); animation: mcshine 3.8s ease-in-out infinite; pointer-events: none; }
+.minicard span { position: relative; z-index: 1; }
+@keyframes mctilt { 50% { transform: perspective(200px) rotateY(10deg) rotateX(-3deg); } }
+@keyframes mcshine { 0%, 55% { transform: translateX(-60%); } 100% { transform: translateX(60%); } }
+.minicard:active { transform: scale(.92); }
+.cashpill { background: linear-gradient(180deg, #0005, #0003); border: 2px solid #ffffff2a; box-shadow: inset 0 2px 4px #0004, 0 1px 0 #ffffff1a; }
+.cicon { box-shadow: 0 0 0 2px #ffe9a0, 0 0 12px #ffd23c88, inset 0 -3px 0 #c97a06; }
+.rate { box-shadow: 0 2px 0 #0003; }
+@media (prefers-reduced-motion: reduce) { .lvwrap *, .minicard, .minicard::after, .xpbar i::after { animation: none !important; } }
+.pname .pnm { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
