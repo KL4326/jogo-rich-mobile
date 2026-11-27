@@ -788,7 +788,7 @@ function scene() {
     ${trip ? `<div class="tripbanner">✈️ ${trip.name} · volta em <b data-live="triptime"></b></div>` : ''}
     <div class="plaque"><small>Patrimônio</small><b data-live="nw"></b></div>
   </div>
-  ${allBiz.length ? `<div class="street" data-act="tab" data-tab="empresas"><div class="streetin">${townSVG(allBiz)}</div></div>` : ''}
+  ${allBiz.length ? `<div class="street p-${per}" data-act="tab" data-tab="empresas"><div class="streetin">${townSVG(allBiz)}</div></div>` : ''}
   <div class="lifechips">
     <span class="lchip" data-act="tab" data-tab="vida" data-sub="carreira">${JOBS.find((j) => j.id === s.job).icon} ${JOBS.find((j) => j.id === s.job).name}</span>
     <span class="lchip" data-act="tab" data-tab="vida" data-sub="amor">${L ? `${LOVE_STAGES[L.stage].icon} ${esc(L.partner.name)}` : '💔 Solteiro(a)'}</span>

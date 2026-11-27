@@ -1337,3 +1337,45 @@ s.old { opacity: .6; font-size: 12px; margin-left: 4px; }
 .homeart .dust.d1 { left: 0; } .homeart .dust.d2 { left: 60px; animation-delay: .1s; } .homeart .dust.d3 { left: 118px; animation-delay: .2s; }
 @keyframes dust { 0% { opacity: .95; transform: scale(.4); } 100% { opacity: 0; transform: scale(2) translateY(-14px); } }
 @media (prefers-reduced-motion: reduce) { .homesvg *, .homeart.build svg { animation: none !important; } }
+
+/* ===== Melhoria gráfica 6: rua das empresas ===== */
+.street { height: 150px; border-width: 0; box-shadow: 0 6px 0 #0003, 0 12px 26px #0004, inset 0 0 0 3px #ffffffcc; position: relative; }
+.street.p-day { background: linear-gradient(180deg, #4fb4f7 0%, #a8e0ff 60%, #d8f3ff 100%); }
+.street.p-dawn { background: linear-gradient(180deg, #8d7fd0 0%, #f0a6b8 60%, #ffd9a8 100%); }
+.street.p-dusk { background: linear-gradient(180deg, #5a3f9e 0%, #d0679a 55%, #ffab6b 100%); }
+.street.p-night { background: linear-gradient(180deg, #0d0b33 0%, #241d66 70%, #3a2f8a 100%); }
+.streetin { padding: 0; align-items: flex-end; justify-content: flex-start; }
+.street .townsvg { height: 144px; width: auto; display: block; }
+.townsvg .w { fill: #bfe6ff; transition: fill .5s; }
+.p-night .townsvg .w { fill: #ffd86b; }
+.p-dusk .townsvg .w { fill: #ffe7a3; }
+.p-night .townsvg .sg rect { filter: drop-shadow(0 0 3px #fff) drop-shadow(0 0 6px #ffd86b); }
+.townsvg .tbeam { opacity: 0; }
+.p-night .townsvg .tbeam, .p-dusk .townsvg .tbeam { opacity: .55; fill: #fff1b0; mix-blend-mode: screen; }
+.townsvg .tlampl { opacity: .4; }
+.p-night .townsvg .tlampl, .p-dusk .townsvg .tlampl { opacity: 1; filter: drop-shadow(0 0 3px #ffe9a0); }
+.townsvg .tlamp { animation: tlamp 1.8s ease-in-out infinite; }
+@keyframes tlamp { 50% { opacity: .5; } }
+.townsvg * { transform-box: fill-box; }
+.townsvg .tsmoke circle { fill: #ffffffb0; transform-origin: center; animation: smoke 3.2s ease-out infinite; }
+.townsvg .tsmoke circle:nth-child(2) { animation-delay: -1.1s; } .townsvg .tsmoke circle:nth-child(3) { animation-delay: -2.2s; }
+.townsvg .tblink { animation: blink 1.2s steps(1) infinite; }
+.townsvg .tpole { animation: tpole 1s linear infinite; }
+@keyframes tpole { to { transform: translateY(-6px); } }
+.townsvg .tbub circle { transform-origin: center; animation: tbub 2s ease-in-out infinite; }
+.townsvg .tbub circle:nth-child(2) { animation-delay: -.7s; } .townsvg .tbub circle:nth-child(3) { animation-delay: -1.3s; }
+@keyframes tbub { 0% { transform: translateY(6px) scale(.4); opacity: 0; } 50% { opacity: 1; } 100% { transform: translateY(-8px) scale(1.2); opacity: 0; } }
+.townsvg .tspin { transform-box: view-box; animation: tspin 3s linear infinite; }
+@keyframes tspin { to { transform: rotate(360deg); } }
+.townsvg .thook { transform-origin: 50% 0; animation: thook 3s ease-in-out infinite; }
+@keyframes thook { 50% { transform: rotate(8deg); } }
+.townsvg .tpump { transform-origin: 70% 50%; animation: tpump 2.2s ease-in-out infinite; }
+@keyframes tpump { 50% { transform: rotate(-14deg); } }
+.townsvg .tflame { transform-origin: 50% 0; animation: tflame .25s ease-in-out infinite alternate; }
+@keyframes tflame { to { transform: scaleY(1.35) scaleX(.9); } }
+.townsvg .tscreen { animation: tscreen 4s steps(1) infinite; }
+@keyframes tscreen { 33% { filter: hue-rotate(90deg); } 66% { filter: hue-rotate(200deg) brightness(1.2); } }
+.townsvg .tsig { animation: blink 1.4s steps(1) infinite; }
+.townsvg .tplane { animation: tplane 9s linear infinite; }
+@keyframes tplane { 0% { transform: translate(-60px, 30px); opacity: 0; } 10% { opacity: 1; } 90% { opacity: 1; } 100% { transform: translate(90px, -10px); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .townsvg * { animation: none !important; } }
