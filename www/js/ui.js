@@ -615,6 +615,26 @@ export function bigCard(name, c, idx, locked = false) {
   </div>`;
 }
 // ---------- VIDA ----------
+// arte do céu: estrelas cintilantes, estrela cadente e pássaros (desenhados, sem imagens)
+const STARPTS = [[18, 20, 1.4], [52, 44, 1], [80, 14, 1.2], [112, 58, 0.9], [140, 26, 1.5], [176, 48, 1], [204, 12, 1.1], [236, 36, 0.9], [262, 66, 1.3], [292, 22, 1], [36, 82, 0.8], [158, 90, 0.9], [220, 96, 0.8], [96, 104, 1], [312, 92, 0.8], [124, 6, 0.8]];
+function skyArt(per) {
+  if (per === 'night' || per === 'dawn') {
+    const op = per === 'dawn' ? 0.45 : 1;
+    return `<svg class="skyart" viewBox="0 0 340 130" preserveAspectRatio="xMinYMin slice" style="opacity:${op}">${STARPTS.map(([x, y, r], i) => `<circle class="tw" cx="${x}" cy="${y}" r="${r}" style="animation-delay:${-(i * 0.37).toFixed(2)}s"/>`).join('')}${per === 'night' ? '<line class="shoot" x1="0" y1="0" x2="26" y2="9"/>' : ''}</svg>`;
+  }
+  return `<svg class="skyart birds" viewBox="0 0 340 130" preserveAspectRatio="xMinYMin slice"><g class="flock"><path d="M0 0q5-5 10 0q5-5 10 0"/><path d="M18 10q4-4 8 0q4-4 8 0"/><path d="M-12 12q4-4 8 0q4-4 8 0"/></g></svg>`;
+}
+// colinas em camadas atrás da casa (cores mudam com o horário)
+const HILLC = { dawn: ['#c9a6d8', '#9fc98a', '#7dbb6c'], day: ['#a6dcf2', '#8fd17f', '#6cc06a'], dusk: ['#b97aa8', '#8f9c5e', '#6f8a4c'], night: ['#3a2f78', '#244f3f', '#1d4733'] };
+function hillsArt(per) {
+  const [far, mid, near] = HILLC[per];
+  return `<svg class="hills" viewBox="0 0 400 110" preserveAspectRatio="none">
+    <path fill="${far}" d="M0 62 Q40 30 90 50 T190 38 T300 46 T400 30 V110 H0Z"/>
+    <path fill="${mid}" d="M0 82 Q60 52 130 72 T260 64 T400 70 V110 H0Z"/>
+    <g fill="${near}"><circle cx="300" cy="70" r="9"/><circle cx="312" cy="66" r="11"/><circle cx="326" cy="71" r="8"/><circle cx="356" cy="72" r="10"/><circle cx="370" cy="68" r="12"/><circle cx="34" cy="80" r="8"/><circle cx="46" cy="76" r="10"/></g>
+    <path fill="${near}" d="M0 96 Q90 78 200 92 T400 88 V110 H0Z"/>
+  </svg>`;
+}
 function scene() {
   const s = C.s;
   const h = new Date().getHours();
@@ -625,11 +645,15 @@ function scene() {
   const trip = s.trip ? TRIPS.find((x) => x.id === s.trip.id) : null;
   const L = s.love;
   const showPartner = L && (!trip || s.trip.partner);
-  return `<div class="scene big ${night ? 'night' : 'day'} ${trip ? 'travel' : ''}">
+  const per = h >= 5 && h < 7 ? 'dawn' : h >= 7 && h < 17 ? 'day' : h >= 17 && h < 19 ? 'dusk' : 'night';
+  return `<div class="scene big ${night ? 'night' : 'day'} p-${per} ${trip ? 'travel' : ''}">
+    ${skyArt(per)}
     <i class="${night ? 'moon' : 'sunc'}"></i>
-    ${night ? '<span class="stars">✦ · ✧ · ✦ · ✧</span>' : '<i class="cld k1"></i><i class="cld k2"></i>'}
+    ${night ? '' : '<i class="cld k1"></i><i class="cld k2"></i><i class="cld k3"></i>'}
+    ${hillsArt(per)}
+    <i class="homeshadow"></i>
     <div class="homebig">${trip ? trip.icon : home ? home.icon : '🏚️'}</div>
-    <div class="ground"></div>
+    <div class="ground"><i class="gpath"></i><i class="gflow f1"></i><i class="gflow f2"></i><i class="gflow f3"></i></div>
     <div class="cast ${showPartner ? 'duo' : ''}">
       ${veh && !trip ? `<span class="vehbig" style="filter:hue-rotate(${veh.hue || 0}deg) drop-shadow(0 4px 0 #0002)">${veh.icon}</span>` : ''}
       <div class="me" data-act="tab" data-tab="vida" data-sub="visual">${avatarSVG(s.look, { size: showPartner ? 175 : 190 })}</div>
