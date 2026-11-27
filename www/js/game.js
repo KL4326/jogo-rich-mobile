@@ -1247,7 +1247,7 @@ export function canDev(c, tier) {
 export function startDev(s, id, tier, model, build) {
   const c = findComp(s, id); if (!c) return 'Empresa não encontrada';
   const why = canDev(c, tier); if (why) return why;
-  if (BUILDERS[c.seg]) { const e = checkBuild(c.seg, build); if (e) return e; }
+  if (BUILDERS[c.seg]) { const e = checkBuild(c.seg, build, tier); if (e) return e; }
   model = (model || '').trim().slice(0, 18);
   if (model.length < 2) return 'Dê um nome ao produto';
   const cost = devCost(SEGMENT[c.seg], tier);
@@ -1261,7 +1261,7 @@ export function newVersion(s, id, tier, build) {
   const c = findComp(s, id); if (!c) return 'Empresa não encontrada';
   if (c.dev) return 'Já tem um projeto em desenvolvimento';
   const p = c.products.find((x) => x.tier === tier); if (!p) return 'Produto não encontrado';
-  if (build) { const e = checkBuild(c.seg, build); if (e) return e; }
+  if (build) { const e = checkBuild(c.seg, build, tier); if (e) return e; }
   const cost = devCost(SEGMENT[c.seg], tier, true);
   const e = spend(s, cost); if (e) return e;
   c.invested += cost * 0.5;
@@ -1612,37 +1612,46 @@ export const segCourseNames = (segId) => (SEG_COURSES[segId] || []).map((id) => 
 // ---------- 🔧 Montagem de produtos e 🕵️ avaliadores (regras escondidas) ----------
 const COST_LV = [0.12, 0.25, 0.4, 0.6, 0.9, 1.35]; // custo relativo de cada nível de peça
 export const refPrice = (segId, tier) => { const seg = SEGMENT[segId]; const k = seg.products[tier]; return k.price || PRODUCT_TIERS[tier].rev * seg.k * 6; };
+const bType = (segId, tier) => BUILDERS[segId].types[tier];
+const bSlots = (segId, tier) => Object.keys(bType(segId, tier).imp).map((id) => ({ id, ...BUILDERS[segId].lib[id] }));
+const lvOf = (cfg, id, E) => (cfg[id] >= 1 && cfg[id] <= 6 ? cfg[id] : E); // peça que não existia na montagem antiga conta como "esperado"
 // Custo de fabricar 1 unidade com essa configuração
 export function unitCost(segId, tier, cfg) {
-  const B = BUILDERS[segId]; const E = B.E[tier];
-  return refPrice(segId, tier) * 0.55 * B.slots.reduce((t, sl) => t + sl.share * COST_LV[(cfg[sl.id] || 1) - 1] / COST_LV[E - 1], 0);
+  const E = bType(segId, tier).E, sl = bSlots(segId, tier);
+  const tot = sl.reduce((t, x) => t + x.share, 0);
+  return refPrice(segId, tier) * 0.55 * sl.reduce((t, x) => t + (x.share / tot) * COST_LV[lvOf(cfg, x.id, E) - 1] / COST_LV[E - 1], 0);
 }
-export const slotCost = (segId, tier, slotId, lv) => { const B = BUILDERS[segId]; const sl = B.slots.find((x) => x.id === slotId); return refPrice(segId, tier) * 0.55 * sl.share * COST_LV[lv - 1] / COST_LV[B.E[tier] - 1]; };
-export function checkBuild(segId, build) {
-  const B = BUILDERS[segId];
+export function slotCost(segId, tier, slotId, lv) {
+  const E = bType(segId, tier).E, sl = bSlots(segId, tier);
+  const tot = sl.reduce((t, x) => t + x.share, 0);
+  return refPrice(segId, tier) * 0.55 * (BUILDERS[segId].lib[slotId].share / tot) * COST_LV[lv - 1] / COST_LV[E - 1];
+}
+export function checkBuild(segId, build, tier) {
   if (!build || !build.cfg) return 'Monte o produto escolhendo as peças';
-  for (const sl of B.slots) { const v = build.cfg[sl.id]; if (!(v >= 1 && v <= 6)) return `Escolha: ${sl.name}`; }
+  if (tier !== undefined) for (const sl of bSlots(segId, tier)) { const v = build.cfg[sl.id]; if (!(v >= 1 && v <= 6)) return `Escolha: ${sl.name}`; }
   if (!(build.price > 0)) return 'Defina o preço de venda';
   return null;
 }
 // Os avaliadores: nota de 0 a 100 + frases de crítica
 export function reviewProduct(segId, tier, build) {
-  const B = BUILDERS[segId], E = B.E[tier], imp = B.imp[tier], q = build.cfg;
+  const T = bType(segId, tier), E = T.E, imp = T.imp, slots = bSlots(segId, tier);
+  const q = Object.fromEntries(slots.map((x) => [x.id, lvOf(build.cfg, x.id, E)]));
   const kind = SEGMENT[segId].products[tier].name.toLowerCase();
   let wsum = 0, acc = 0;
   const notes = [];
-  for (const sl of B.slots) {
-    const w = imp[sl.id] || 0.5, d = q[sl.id] - E;
-    const sc = d < 0 ? Math.max(0, 70 + 25 * d) : Math.min(100, 70 + 17 * d - 2 * d * d);
+  for (const sl of slots) {
+    const w = imp[sl.id], d = q[sl.id] - E;
+    // peça pouco importante para esse produto: caprichar nela não melhora a nota (só encarece)
+    const sc = d < 0 ? Math.max(0, 70 + 25 * d) : w <= 1 ? 70 : Math.min(100, 70 + 17 * d - 2 * d * d);
     acc += sc * w; wsum += w;
-    if (d <= -2 && w >= 2) notes.push({ n: -2, m: `${sl.name} fraco demais para um ${kind}` });
+    if (d <= -2 && w >= 2) notes.push({ n: -2, m: `${sl.name}: fraco demais para um ${kind}` });
     else if (d <= -1 && w >= 2.5) notes.push({ n: -1, m: `${sl.name} abaixo do esperado` });
     else if (d >= 2 && w <= 1) notes.push({ n: -1, m: `${sl.name} exagerado: encarece sem agregar` });
     else if (d >= 1 && w >= 3) notes.push({ n: 1, m: `${sl.name} de destaque` });
   }
   let score = acc / wsum;
-  const avg = B.slots.reduce((t, sl) => t + q[sl.id], 0) / B.slots.length;
-  for (const r of B.rules) if (r.t(q, avg)) { score -= r.pen; notes.push({ n: -2, m: r.msg }); }
+  const avg = slots.reduce((t, x) => t + q[x.id], 0) / slots.length;
+  for (const r of BUILDERS[segId].rules) if (r.s.every((id) => id in q) && r.t(q, avg)) { score -= r.pen; notes.push({ n: -2, m: r.msg }); }
   score = Math.max(0, Math.min(100, score));
   const cost = unitCost(segId, tier, q);
   const value = refPrice(segId, tier) * (0.3 + score / 100); // quanto o público acha que vale

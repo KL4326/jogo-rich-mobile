@@ -567,63 +567,92 @@ export const SEG_COURSES = {
 };
 
 // ===== Montagem de produtos peça por peça (Tecnologia e Montadora) =====
-// Cada peça tem 6 níveis (1 a 6). share = quanto a peça pesa no custo. imp[tipo] = importância para cada produto.
-// E[tipo] = nível que o mercado espera daquele produto. Os "avaliadores" usam isso (regras escondidas).
+// lib = todas as peças do ramo (6 níveis cada). types[produto] = quais peças aquele produto tem, a importância de cada
+// uma para a crítica (imp) e o nível que o mercado espera (E). share = quanto a peça pesa no custo.
+// Os "avaliadores" usam isso + as regras de combinação (rules). Tudo escondido do jogador.
 export const BUILDERS = {
   tech: {
-    slots: [
-      { id: 'cpu', name: 'Processador', icon: '🧠', share: 0.22, opts: ['Básico 2 núcleos', 'Intermediário 4 núcleos', 'Bom 6 núcleos', 'Forte 8 núcleos', 'Topo 16 núcleos', 'Extremo 32 núcleos'] },
-      { id: 'ram', name: 'Memória RAM', icon: '🧩', share: 0.12, opts: ['2 GB', '4 GB', '8 GB', '16 GB', '32 GB', '64 GB'] },
-      { id: 'ssd', name: 'Armazenamento', icon: '💾', share: 0.12, opts: ['32 GB eMMC', '128 GB', '256 GB SSD', '512 GB SSD', '1 TB NVMe', '4 TB NVMe'] },
-      { id: 'gpu', name: 'Gráficos', icon: '🎮', share: 0.24, opts: ['Integrado básico', 'Integrado bom', 'Placa de entrada', 'Placa intermediária', 'Placa avançada', 'Placa topo de linha'] },
-      { id: 'bat', name: 'Bateria / Energia', icon: '🔋', share: 0.12, opts: ['Fraca', 'Simples', 'Média', 'Boa', 'Ótima', 'Extrema'] },
-      { id: 'body', name: 'Tela e acabamento', icon: '✨', share: 0.18, opts: ['Plástico simples', 'Plástico bom', 'Alumínio', 'Alumínio premium', 'Vidro e titânio', 'Design exclusivo'] },
-    ],
-    E: [2, 3, 4, 4, 4, 5, 5, 6],
-    imp: [
-      { bat: 3, body: 3, cpu: 1, ram: 0.5, ssd: 0.5, gpu: 0.3 },
-      { cpu: 2, ram: 2, ssd: 1.5, gpu: 1, bat: 2.5, body: 2.5 },
-      { cpu: 3, ram: 2.5, ssd: 1.5, gpu: 3.5, bat: 1, body: 1 },
-      { gpu: 3.5, cpu: 2, body: 2.5, ram: 1.5, bat: 1.5, ssd: 0.5 },
-      { cpu: 3, bat: 3, body: 2, ram: 1.5, ssd: 1, gpu: 0.5 },
-      { cpu: 3.5, ram: 3, ssd: 2, gpu: 2.5, bat: 1, body: 0.5 },
-      { bat: 3.5, cpu: 2.5, body: 3, ssd: 1.5, ram: 1, gpu: 0.5 },
-      { cpu: 3.5, gpu: 3.5, ram: 3, ssd: 2, bat: 1.5, body: 1 },
+    lib: {
+      cpu: { name: 'Processador', icon: '🧠', share: 0.22, opts: ['Básico 2 núcleos', 'Intermediário 4 núcleos', 'Bom 6 núcleos', 'Forte 8 núcleos', 'Topo 16 núcleos', 'Extremo 32 núcleos'] },
+      ram: { name: 'Memória RAM', icon: '🧩', share: 0.12, opts: ['2 GB', '4 GB', '8 GB', '16 GB', '32 GB', '64 GB'] },
+      ssd: { name: 'Armazenamento', icon: '💾', share: 0.12, opts: ['32 GB eMMC', '128 GB', '256 GB SSD', '512 GB SSD', '1 TB NVMe', '4 TB NVMe'] },
+      gpu: { name: 'Placa de vídeo', icon: '🎮', share: 0.24, opts: ['Integrada básica', 'Integrada boa', 'Placa de entrada', 'Placa intermediária', 'Placa avançada', 'Placa topo de linha'] },
+      bat: { name: 'Bateria / Energia', icon: '🔋', share: 0.12, opts: ['Fraca', 'Simples', 'Média', 'Boa', 'Ótima', 'Extrema'] },
+      body: { name: 'Acabamento', icon: '✨', share: 0.14, opts: ['Plástico simples', 'Plástico bom', 'Alumínio', 'Alumínio premium', 'Vidro e titânio', 'Design exclusivo'] },
+      audio: { name: 'Driver de áudio', icon: '🔊', share: 0.22, opts: ['Driver 6 mm', 'Driver 8 mm', 'Driver 10 mm', 'Driver duplo', 'Driver planar', 'Hi-Res de estúdio'] },
+      anc: { name: 'Cancelamento de ruído', icon: '🔇', share: 0.16, opts: ['Nenhum', 'Passivo', 'ANC básico', 'ANC bom', 'ANC adaptativo', 'ANC de estúdio'] },
+      conn: { name: 'Conectividade', icon: '📶', share: 0.1, opts: ['Bluetooth 4.0', 'Bluetooth 5.0', 'Bluetooth 5.3', 'BT 5.3 + Wi-Fi 6', '5G', 'Satelital'] },
+      cam: { name: 'Câmera', icon: '📷', share: 0.16, opts: ['VGA', '8 MP', '12 MP', '48 MP', '108 MP', '200 MP + zoom 10x'] },
+      screen: { name: 'Tela', icon: '🖥️', share: 0.16, opts: ['LCD HD', 'LCD Full HD', 'OLED', 'OLED 120 Hz', 'Micro-OLED 4K', 'Micro-OLED 8K'] },
+      sens: { name: 'Sensores', icon: '📡', share: 0.16, opts: ['Básicos', 'Giroscópio', 'Câmeras de rastreio', 'LiDAR', 'Visão 360°', 'Sensores militares'] },
+      move: { name: 'Motores e braços', icon: '🦾', share: 0.22, opts: ['Rodinhas simples', 'Rodas e garra', 'Braço articulado', 'Braços duplos', 'Corpo humanoide', 'Humanoide avançado'] },
+      cool: { name: 'Refrigeração', icon: '❄️', share: 0.12, opts: ['Ventoinha simples', 'Dupla ventoinha', 'Líquida', 'Líquida avançada', 'Imersão', 'Criogênica'] },
+      antena: { name: 'Antena e comunicação', icon: '📡', share: 0.22, opts: ['Rádio UHF', 'Banda S', 'Banda X', 'Banda Ka', 'Laser óptico', 'Laser quântico'] },
+      shield: { name: 'Blindagem', icon: '🛡️', share: 0.16, opts: ['Nenhuma', 'Leve', 'Média', 'Reforçada', 'Militar', 'Espacial total'] },
+      qubit: { name: 'Qubits', icon: '⚛️', share: 0.3, opts: ['8 qubits', '32 qubits', '128 qubits', '512 qubits', '2.048 qubits', '10.000 qubits'] },
+    },
+    types: [
+      { E: 2, imp: { audio: 3, anc: 2.5, bat: 3, conn: 1.5, body: 2 } }, // Fone sem fio
+      { E: 3, imp: { cpu: 2.5, ram: 2, ssd: 1.5, cam: 2.5, screen: 2, bat: 2.5, body: 1.5 } }, // Smartphone
+      { E: 4, imp: { cpu: 3, ram: 2.5, ssd: 1.5, gpu: 3.5, screen: 1.5, cool: 2, bat: 0.8, body: 0.8 } }, // Notebook Gamer
+      { E: 4, imp: { gpu: 3.5, cpu: 2, screen: 3, sens: 2.5, audio: 1, bat: 1.5, body: 1.5 } }, // Óculos VR
+      { E: 4, imp: { cpu: 2.5, sens: 3, move: 3, bat: 3, conn: 1, body: 1.5 } }, // Robô Doméstico
+      { E: 5, imp: { cpu: 3.5, ram: 3, ssd: 2, gpu: 2.5, cool: 3, body: 0.5 } }, // Supercomputador
+      { E: 5, imp: { antena: 3.5, bat: 3.5, shield: 3, cpu: 2, cam: 1.5, ssd: 1 } }, // Satélite Pessoal
+      { E: 5, imp: { qubit: 4, cool: 3.5, cpu: 2.5, ram: 2.5, gpu: 2, ssd: 1.5 } }, // IA Quântica
     ],
     rules: [
-      { t: (q) => q.cpu - q.ram >= 3, pen: 12, msg: 'Processador potente travado por pouca memória RAM' },
-      { t: (q) => q.gpu - q.cpu >= 3, pen: 12, msg: 'Placa de vídeo forte com processador fraco: gargalo' },
-      { t: (q) => q.gpu >= 5 && q.bat <= 2, pen: 15, msg: 'Gráficos potentes com energia fraca: superaquece e desliga' },
-      { t: (q) => q.ssd <= 1 && q.cpu >= 4, pen: 8, msg: 'Armazenamento lento estraga a experiência' },
-      { t: (q, avg) => q.body <= 2 && avg >= 4.5, pen: 10, msg: 'Acabamento barato para um aparelho desse nível' },
+      { s: ['cpu', 'ram'], t: (q) => q.cpu - q.ram >= 3, pen: 12, msg: 'Processador potente travado por pouca memória RAM' },
+      { s: ['gpu', 'cpu'], t: (q) => q.gpu - q.cpu >= 3, pen: 12, msg: 'Placa de vídeo forte com processador fraco: gargalo' },
+      { s: ['gpu', 'cool'], t: (q) => q.gpu >= 5 && q.cool <= 2, pen: 15, msg: 'Placa de vídeo forte sem refrigeração: superaquece e desliga' },
+      { s: ['gpu', 'bat'], t: (q) => q.gpu >= 5 && q.bat <= 2, pen: 12, msg: 'Gráficos potentes com energia fraca: a bateria não dura nada' },
+      { s: ['ssd', 'cpu'], t: (q) => q.ssd <= 1 && q.cpu >= 4, pen: 8, msg: 'Armazenamento lento estraga a experiência' },
+      { s: ['anc', 'bat'], t: (q) => q.anc >= 4 && q.bat <= 2, pen: 12, msg: 'O cancelamento de ruído drena a bateria fraca' },
+      { s: ['audio', 'conn'], t: (q) => q.audio >= 5 && q.conn <= 2, pen: 10, msg: 'Áudio de estúdio desperdiçado em Bluetooth antigo' },
+      { s: ['cam', 'ssd'], t: (q) => q.cam >= 5 && q.ssd <= 2, pen: 10, msg: 'Câmera incrível sem espaço para guardar as fotos' },
+      { s: ['screen', 'gpu'], t: (q) => q.screen >= 5 && q.gpu <= 2, pen: 12, msg: 'Tela 4K/8K sem placa de vídeo para alimentar' },
+      { s: ['move', 'bat'], t: (q) => q.move >= 5 && q.bat <= 2, pen: 12, msg: 'Robô forte com bateria fraca: para no meio da faxina' },
+      { s: ['antena', 'bat'], t: (q) => q.antena >= 5 && q.bat <= 2, pen: 12, msg: 'Antena potente sem energia suficiente' },
+      { s: ['qubit', 'cool'], t: (q) => q.qubit - q.cool >= 2, pen: 18, msg: 'Qubits sem refrigeração: o computador quântico fica instável' },
+      { s: ['body'], t: (q, avg) => q.body <= 2 && avg >= 4.5, pen: 10, msg: 'Acabamento barato para um aparelho desse nível' },
     ],
   },
   auto: {
-    slots: [
-      { id: 'motor', name: 'Motor', icon: '⚙️', share: 0.28, opts: ['1.0 básico', '1.4', '1.8 turbo', '2.0 turbo', 'V6', 'V8 biturbo'] },
-      { id: 'cambio', name: 'Câmbio', icon: '🕹️', share: 0.14, opts: ['Manual 5 marchas', 'Manual 6 marchas', 'Automático', 'Automático 8 marchas', 'Dupla embreagem', 'Sequencial de corrida'] },
-      { id: 'susp', name: 'Suspensão', icon: '🛞', share: 0.14, opts: ['Simples', 'Reforçada', 'Independente', 'Esportiva', 'Adaptativa', 'Ativa de competição'] },
-      { id: 'freio', name: 'Freios', icon: '🛑', share: 0.12, opts: ['Tambor', 'Disco simples', 'Disco ventilado', 'ABS + disco', 'Cerâmica', 'Carbono-cerâmica'] },
-      { id: 'seg', name: 'Segurança', icon: '🛡️', share: 0.16, opts: ['2 airbags', '4 airbags', '6 airbags + controle', 'Assistentes ADAS', 'Nota 5 estrelas', 'Blindagem total'] },
-      { id: 'inter', name: 'Interior', icon: '💺', share: 0.16, opts: ['Tecido simples', 'Tecido bom', 'Couro sintético', 'Couro', 'Couro premium', 'Artesanal de luxo'] },
-    ],
-    E: [2, 2, 3, 4, 5, 5, 6, 6],
-    imp: [
-      { motor: 2, freio: 3, seg: 2, cambio: 1, susp: 1.5, inter: 0.3 },
-      { motor: 1.5, seg: 2.5, inter: 2, cambio: 1, susp: 1.5, freio: 1.5 },
-      { susp: 3, seg: 3, motor: 2, inter: 2, cambio: 1.5, freio: 1.5 },
-      { motor: 3.5, cambio: 3, freio: 3, susp: 2.5, seg: 1, inter: 1 },
-      { motor: 3.5, cambio: 3, freio: 3.5, susp: 3, seg: 1.5, inter: 1.5 },
-      { seg: 4, inter: 3.5, susp: 2, motor: 1.5, freio: 1.5, cambio: 1 },
-      { motor: 3.5, freio: 3, susp: 2.5, cambio: 1, seg: 2, inter: 2 },
-      { motor: 3.5, seg: 3.5, freio: 2, susp: 2, inter: 1.5, cambio: 1 },
+    lib: {
+      motor: { name: 'Motor', icon: '⚙️', share: 0.28, opts: ['1.0 básico', '1.4', '1.8 turbo', '2.0 turbo', 'V6', 'V8 biturbo'] },
+      emotor: { name: 'Motor elétrico', icon: '⚡', share: 0.28, opts: ['150 cv', '300 cv', '500 cv', '800 cv', '1.200 cv', '2.000 cv'] },
+      cambio: { name: 'Câmbio', icon: '🕹️', share: 0.14, opts: ['Manual 5 marchas', 'Manual 6 marchas', 'Automático', 'Automático 8 marchas', 'Dupla embreagem', 'Sequencial de corrida'] },
+      susp: { name: 'Suspensão', icon: '🛞', share: 0.14, opts: ['Simples', 'Reforçada', 'Independente', 'Esportiva', 'Adaptativa', 'Ativa de competição'] },
+      freio: { name: 'Freios', icon: '🛑', share: 0.12, opts: ['Tambor', 'Disco simples', 'Disco ventilado', 'ABS + disco', 'Cerâmica', 'Carbono-cerâmica'] },
+      seg: { name: 'Segurança', icon: '🛡️', share: 0.16, opts: ['Básica', 'ABS + 2 airbags', '6 airbags + controle', 'Assistentes ADAS', 'Nota 5 estrelas', 'Blindagem total'] },
+      inter: { name: 'Interior', icon: '💺', share: 0.16, opts: ['Tecido simples', 'Tecido bom', 'Couro sintético', 'Couro', 'Couro premium', 'Artesanal de luxo'] },
+      banco: { name: 'Banco e acabamento', icon: '🏍️', share: 0.1, opts: ['Banco simples', 'Banco confortável', 'Banco em gel', 'Acabamento esportivo', 'Acabamento premium', 'Edição de colecionador'] },
+      batt: { name: 'Bateria', icon: '🔋', share: 0.22, opts: ['40 kWh', '60 kWh', '80 kWh', '100 kWh', '120 kWh', '200 kWh'] },
+      rotor: { name: 'Propulsão', icon: '🚁', share: 0.28, opts: ['4 rotores', '6 rotores', '8 rotores', 'Turbinas elétricas', 'Turbinas híbridas', 'Propulsão a jato'] },
+      nav: { name: 'Piloto automático', icon: '🧭', share: 0.16, opts: ['Assistido', 'GPS', 'Semiautônomo', 'Autônomo nível 3', 'Autônomo nível 4', 'Totalmente autônomo'] },
+    },
+    types: [
+      { E: 2, imp: { motor: 2, cambio: 1, susp: 1.5, freio: 3, seg: 2, banco: 0.8 } }, // Moto Urbana
+      { E: 2, imp: { motor: 1.5, cambio: 1, susp: 1.5, freio: 1.5, seg: 2.5, inter: 2 } }, // Carro Compacto
+      { E: 3, imp: { motor: 2, cambio: 1.5, susp: 3, freio: 1.5, seg: 3, inter: 2 } }, // SUV
+      { E: 4, imp: { motor: 3.5, cambio: 3, susp: 2.5, freio: 3, seg: 1, inter: 1 } }, // Esportivo
+      { E: 5, imp: { motor: 3.5, cambio: 3, susp: 3, freio: 3.5, seg: 1.5, inter: 1.5 } }, // Hipercarro
+      { E: 5, imp: { seg: 4, inter: 3.5, susp: 2, motor: 1.5, freio: 1.5, cambio: 1 } }, // Limusine Blindada
+      { E: 5, imp: { emotor: 3.5, batt: 3, freio: 3, susp: 2.5, seg: 2, inter: 1.5 } }, // Hipercarro Elétrico
+      { E: 5, imp: { rotor: 3.5, batt: 3, nav: 3, seg: 3.5, inter: 1.5 } }, // Carro Voador
     ],
     rules: [
-      { t: (q) => q.motor - q.freio >= 2, pen: 15, msg: 'Motor forte demais para freios fracos: reprovado em segurança' },
-      { t: (q) => q.motor >= 5 && q.susp <= 2, pen: 12, msg: 'Potência demais para a suspensão: instável nas curvas' },
-      { t: (q) => q.motor - q.cambio >= 3, pen: 10, msg: 'O câmbio não aguenta o motor' },
-      { t: (q) => q.seg <= 2 && q.motor >= 4, pen: 12, msg: 'Rápido e inseguro: a crítica detonou' },
-      { t: (q, avg) => q.inter <= 2 && avg >= 4.5, pen: 10, msg: 'Interior pobre para um carro desse preço' },
+      { s: ['motor', 'freio'], t: (q) => q.motor - q.freio >= 2, pen: 15, msg: 'Motor forte demais para freios fracos: reprovado em segurança' },
+      { s: ['emotor', 'freio'], t: (q) => q.emotor - q.freio >= 2, pen: 15, msg: 'Muito torque para freios fracos: reprovado em segurança' },
+      { s: ['motor', 'susp'], t: (q) => q.motor >= 5 && q.susp <= 2, pen: 12, msg: 'Potência demais para a suspensão: instável nas curvas' },
+      { s: ['motor', 'cambio'], t: (q) => q.motor - q.cambio >= 3, pen: 10, msg: 'O câmbio não aguenta o motor' },
+      { s: ['seg', 'motor'], t: (q) => q.seg <= 2 && q.motor >= 4, pen: 12, msg: 'Rápido e inseguro: a crítica detonou' },
+      { s: ['emotor', 'batt'], t: (q) => q.emotor >= 5 && q.batt <= 2, pen: 14, msg: 'Motor potente com bateria pequena: autonomia ridícula' },
+      { s: ['rotor', 'batt'], t: (q) => q.rotor >= 5 && q.batt <= 2, pen: 15, msg: 'Rotores potentes com bateria fraca: cai do céu' },
+      { s: ['nav', 'rotor'], t: (q) => q.nav <= 2 && q.rotor >= 4, pen: 12, msg: 'Voar rápido sem piloto automático decente? Reprovado' },
+      { s: ['inter'], t: (q, avg) => q.inter <= 2 && avg >= 4.5, pen: 10, msg: 'Interior pobre para um veículo desse preço' },
     ],
   },
 };
+// Peças de cada produto (na ordem da tela)
+export const builderSlots = (segId, tier) => { const B = BUILDERS[segId]; return Object.keys(B.types[tier].imp).map((id) => ({ id, ...B.lib[id] })); };
