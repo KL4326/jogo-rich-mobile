@@ -36,6 +36,7 @@ export function fmtOwn(p) {
   return t.replace('.', ',') + '%';
 }
 export const esc = (t) => String(t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const durL = (ms) => (ms < 3_600_000 ? `${Math.ceil(ms / 60_000)} min` : dur(ms));
 function dur(ms) {
   ms = Math.max(0, ms);
   if (ms >= 86_400_000) { const d = Math.floor(ms / 86_400_000), h = Math.floor((ms % 86_400_000) / 3_600_000); return `${d}d ${h}h`; }
@@ -927,7 +928,7 @@ function vCompany(id) {
     if (c.dev && c.dev.tier === i) return `<div class="prodrow dev"><span class="bi">${k.icon}</span><div class="grow"><b>🧪 ${esc(c.dev.model)} <small class="muted">${k.name}</small></b><div class="bar"><i data-live-w="cdev:${c.id}"></i></div><small>Fica pronto em <span data-live="cdevt:${c.id}"></span></small></div></div>`;
     if (i === next) {
       const why = G.canDev(c, i);
-      return `<div class="prodrow next"><span class="bi">${k.icon}</span><div class="grow"><b>${k.name}</b><small>Vende ${money(tierInfo.rev * seg.k)}/dia base · precisa de ${tierInfo.need} na produção${tierInfo.pd ? ` · ${tierInfo.pd} em P&D` : ''} · ⏱️ ${Math.ceil(G.devMins(c, i))} min</small>${sale}${why && !c.dev ? `<small class="warn">${why}</small>` : ''}</div>
+      return `<div class="prodrow next"><span class="bi">${k.icon}</span><div class="grow"><b>${k.name}</b><small>Vende ${money(tierInfo.rev * seg.k)}/dia base · precisa de ${tierInfo.need} na produção${tierInfo.pd ? ` · ${tierInfo.pd} em P&D` : ''} · ⏱️ ${durL(G.devMins(c, i) * 60_000)}</small>${sale}${why && !c.dev ? `<small class="warn">${why}</small>` : ''}</div>
         ${c.dev ? '' : `<button class="btn gold sm" data-act="devprod" data-id="${c.id}" data-t="${i}" data-cost="${G.devCost(seg, i)}" ${why ? 'disabled' : ''}>Desenvolver<span>${money(G.devCost(seg, i))}</span></button>`}</div>`;
     }
     return `<div class="prodrow plock ${k.premium ? 'premium' : ''}"><span class="bi">${k.premium ? '💎' : '🔒'}</span><div class="grow"><b>${k.premium ? '✨ ' : ''}${k.name}</b><small>${k.premium ? `Linha premium · precisa de ${tierInfo.branches} filiais e do produto anterior` : 'Lance o produto anterior primeiro'}</small></div></div>`;
@@ -987,7 +988,7 @@ function builderModal() {
       <label class="lrow"><span>🏷️ Seu preço de venda</span><input id="bprice" type="number" inputmode="numeric" value="${Math.round(b.price || ref)}"></label>
       <small class="muted">Margem por unidade: <b id="bmargin"></b></small></div>
     <button class="btn gold full" data-act="bgo" data-cost="${dev}"><em>${b.version ? 'Desenvolver nova versão' : 'Começar desenvolvimento'}</em><span>${money(dev)}</span></button>
-    <small class="muted center">⏱️ ${Math.ceil(G.devMins(c, b.tier, b.version))} min de desenvolvimento · a nota da crítica sai no lançamento</small></div>`);
+    <small class="muted center">⏱️ ${durL(G.devMins(c, b.tier, b.version) * 60_000)} de desenvolvimento · a nota da crítica sai no lançamento</small></div>`);
   updMargin();
 }
 function updMargin() {
@@ -1004,7 +1005,7 @@ function devModal(id, tier) {
   modal(`<h3>${k.icon} Novo produto: ${k.name}</h3><p class="muted">Dê um nome ao seu ${k.name.toLowerCase()}. ${seg.cat ? `Ele vai aparecer em 💎 Bens como <b>${esc(c.name)} + nome</b>.` : ''}</p>
     <input id="pmodel" maxlength="18" placeholder="Nome do produto" value="${sugs[0]}">
     <div class="quick">${sugs.map((x) => `<button class="chipbtn" data-act="devsug" data-v="${x}">${x}</button>`).join('')}</div>
-    <p class="muted small">⏱️ Fica pronto em ${Math.ceil(G.devMins(c, tier))} min · ${c.staff.pd ? `${c.staff.pd} pesquisador(es) acelerando` : 'contrate 🧪 P&D para acelerar'}</p>
+    <p class="muted small">⏱️ Fica pronto em ${durL(G.devMins(c, tier) * 60_000)} · ${c.staff.pd ? `${c.staff.pd} pesquisador(es) acelerando` : 'contrate 🧪 P&D para acelerar'}</p>
     <button class="btn gold full" data-act="devgo" data-id="${id}" data-t="${tier}" data-cost="${G.devCost(seg, tier)}"><em>Começar desenvolvimento</em><span>${money(G.devCost(seg, tier))}</span></button>`);
 }
 // ----- Empresas de todos os jogadores na Bolsa -----

@@ -1147,7 +1147,8 @@ export const maxCompanies = (s) => 1 + (EXTRA_COMP[s.job] || 0) + (statusOf(s).i
 export const mgmtMult = (s) => 1 + (MGMT[s.job] || 0) + (s.edu.includes('mba') ? 0.05 : 0);
 export const foundCost = (seg) => COMP.foundK * seg.k;
 export const devCost = (seg, tier, version) => PRODUCT_TIERS[tier].rev * seg.k * COMP.devMult * (version ? COMP.versionCost : 1);
-export const devMins = (c, tier, version) => (PRODUCT_TIERS[tier].mins * (version ? COMP.versionTime : 1)) / (1 + 0.15 * (c.staff.pd || 0));
+// P&D acelera até ~33% (com 10 pesquisadores). Tempos em minutos reais: 30 min, 1h, 2h, 4h, 8h e a linha premium 36h, 42h, 48h (base)
+export const devMins = (c, tier, version) => Math.max(version ? 15 : 30, (PRODUCT_TIERS[tier].mins * (version ? COMP.versionTime : 1)) / (1 + 0.05 * (c.staff.pd || 0)));
 // Novidade do produto: lançamento dá +50% (some em 60 dias); depois de 240 dias vai envelhecendo até a metade
 export function freshness(p, now = Date.now()) {
   const d = (now - p.launched) / DAY_MS;

@@ -517,15 +517,15 @@ export const STAFF = [
   { id: 'prod', name: 'Produção', icon: '🏭', pct: 0.015, desc: 'Fabricam os produtos. Sem gente suficiente, a empresa vende menos.' },
   { id: 'vendas', name: 'Vendas', icon: '🤝', pct: 0.015, desc: '+5% de receita cada (até 4 por produto lançado).' },
   { id: 'mkt', name: 'Marketing', icon: '📣', pct: 0.02, desc: '+4% de receita cada (até 3 por produto lançado).' },
-  { id: 'pd', name: 'Pesquisa (P&D)', icon: '🧪', pct: 0.03, desc: 'Desenvolvem produtos mais rápido. Produtos avançados exigem pesquisadores.' },
+  { id: 'pd', name: 'Pesquisa (P&D)', icon: '🧪', pct: 0.03, desc: 'Desenvolvem produtos até 33% mais rápido (5% cada). Produtos avançados exigem pesquisadores.' },
 ];
 // Escada de produtos (igual em todo segmento, multiplicada por k)
 export const PRODUCT_TIERS = [
-  { rev: 600, mins: 5, need: 2, pd: 0 },
-  { rev: 3000, mins: 10, need: 4, pd: 1 },
-  { rev: 15000, mins: 20, need: 6, pd: 2 },
-  { rev: 75000, mins: 40, need: 10, pd: 4 },
-  { rev: 400000, mins: 60, need: 15, pd: 6 },
+  { rev: 600, mins: 30, need: 2, pd: 0 },
+  { rev: 3000, mins: 60, need: 4, pd: 1 },
+  { rev: 15000, mins: 120, need: 6, pd: 2 },
+  { rev: 75000, mins: 240, need: 10, pd: 4 },
+  { rev: 400000, mins: 480, need: 15, pd: 6 },
 ];
 
 // ===== Itens EXCLUSIVOS (tempo limitado, nunca mais voltam) =====
@@ -538,9 +538,9 @@ export const EXCL = Object.fromEntries(EXCLUSIVES.map((x) => [x.id, x]));
 
 // ===== Linha premium: 3 produtos extras por segmento, liberados com filiais =====
 PRODUCT_TIERS.push(
-  { rev: 2e6, mins: 80, need: 22, pd: 8, branches: 2 },
-  { rev: 1e7, mins: 100, need: 30, pd: 9, branches: 4 },
-  { rev: 5e7, mins: 120, need: 40, pd: 10, branches: 6 },
+  { rev: 2e6, mins: 2160, need: 22, pd: 8, branches: 2 },
+  { rev: 1e7, mins: 2520, need: 30, pd: 9, branches: 4 },
+  { rev: 5e7, mins: 2880, need: 40, pd: 10, branches: 6 },
 );
 const PREMIUM = {
   alimentos: [{ name: 'Rede Mundial de Restaurantes', icon: '🍽️' }, { name: 'Fazendas Inteligentes', icon: '🌾' }, { name: 'Comida do Futuro', icon: '🧬' }],
