@@ -1646,6 +1646,13 @@ export function checkBuild(segId, build, tier) {
   if (!(build.price > 0)) return 'Defina o preço de venda';
   return null;
 }
+// Pesquisa de mercado: quanto produtos PARECIDOS (com peças de nível semelhante) costumam custar.
+// Usa só a média das peças, sem a importância de cada uma nem as combinações ruins (isso continua segredo da crítica).
+export function marketRef(segId, tier, cfg) {
+  const E = bType(segId, tier).E, slots = bSlots(segId, tier);
+  const avg = slots.reduce((t, x) => { const d = lvOf(cfg, x.id, E) - E; return t + (d < 0 ? Math.max(0, 70 + 25 * d) : Math.min(100, 70 + 17 * d - 2 * d * d)); }, 0) / slots.length;
+  return refPrice(segId, tier) * (0.3 + avg / 100);
+}
 // Os avaliadores: nota de 0 a 100 + frases de crítica
 export function reviewProduct(segId, tier, build) {
   const T = bType(segId, tier), E = T.E, imp = T.imp, slots = bSlots(segId, tier);
