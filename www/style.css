@@ -1449,3 +1449,56 @@ s.old { opacity: .6; font-size: 12px; margin-left: 4px; }
 @keyframes fadeout { to { opacity: 0; } }
 @media (min-width: 820px) and (min-height: 560px) { @keyframes sheetout { to { transform: translateY(30px) scale(.95); opacity: 0; } } }
 @media (prefers-reduced-motion: reduce) { .sheet, .sheet > *, .backdrop { animation: none !important; } }
+
+/* ===== Melhoria gráfica 9: ranking com palco ===== */
+.stage { position: relative; margin: 6px -4px 16px; padding: 26px 8px 0; border-radius: 24px; overflow: hidden; background: radial-gradient(ellipse at 50% 0%, #6a52e055, transparent 60%), linear-gradient(180deg, #1a1050 0%, #2b1d70 70%, #3b2a8f 100%); box-shadow: inset 0 0 0 2px #ffffff1a, 0 8px 22px #0004; }
+.stage .spot { position: absolute; top: -20px; width: 120px; height: 330px; background: linear-gradient(180deg, #fff6c8aa, #fff6c800 85%); clip-path: polygon(44% 0, 56% 0, 100% 100%, 0 100%); transform-origin: 50% 0; mix-blend-mode: screen; pointer-events: none; opacity: .55; }
+.stage .spot.s1 { left: 8%; animation: spotl 6s ease-in-out infinite; }
+.stage .spot.s2 { left: calc(50% - 60px); opacity: .7; animation: spotc 4s ease-in-out infinite; }
+.stage .spot.s3 { right: 8%; animation: spotr 6s ease-in-out infinite; }
+@keyframes spotl { 0%, 100% { transform: rotate(-22deg); } 50% { transform: rotate(8deg); } }
+@keyframes spotr { 0%, 100% { transform: rotate(22deg); } 50% { transform: rotate(-8deg); } }
+@keyframes spotc { 50% { opacity: .45; } }
+.stage .podium { position: relative; z-index: 1; margin: 0; gap: 6px; }
+.stagefloor { height: 14px; margin: 0 -8px; background: linear-gradient(180deg, #120a36, #0b0626); box-shadow: 0 -2px 0 #ffffff22; }
+.stage .pcol b { text-shadow: 0 2px 0 #0006; }
+/* degraus 3D */
+.stage .pbar { position: relative; border-radius: 6px 6px 0 0; box-shadow: inset 0 -10px 18px #0002, inset 0 2px 0 #ffffff88; overflow: visible; padding-top: 8px; }
+.stage .pbar::before { content: ''; position: absolute; left: -4px; right: -4px; top: -8px; height: 10px; border-radius: 8px 8px 2px 2px; background: inherit; filter: brightness(1.12); box-shadow: 0 2px 0 #0002; }
+.stage .pbar span { position: relative; font-size: 28px; filter: drop-shadow(0 3px 0 #0003); }
+.stage .pbar em { position: absolute; left: 0; right: 0; bottom: 6px; font-style: normal; font-family: var(--display); font-size: 30px; color: #0000002a; text-shadow: 0 1px 0 #ffffff66; }
+.stage .p1 .pbar { height: 112px; background: linear-gradient(180deg, #fff1a8, #ffd23c 45%, #e8a514); }
+.stage .p2 .pbar { height: 82px; background: linear-gradient(180deg, #ffffff, #d6dde9 45%, #a8b3c7); }
+.stage .p3 .pbar { height: 62px; background: linear-gradient(180deg, #ffd9bb, #e8a06a 45%, #c47436); }
+.stage .pcol.empty .pbar { background: #ffffff14; box-shadow: inset 0 0 0 2px #ffffff22; }
+.stage .pcol.empty .pbar::before { background: #ffffff1f; filter: none; }
+.stage .pcol.empty .pbar em { color: #ffffff22; text-shadow: none; }
+.page.anim .stage .pbar { animation: stepup .7s cubic-bezier(.22, 1.3, .4, 1) both; transform-origin: 50% 100%; }
+.page.anim .stage .p2 .pbar { animation-delay: .12s; } .page.anim .stage .p3 .pbar { animation-delay: .22s; }
+@keyframes stepup { from { transform: scaleY(0); } }
+.page.anim .stage .pav2 { animation: avdrop .7s cubic-bezier(.22, 1.4, .4, 1) .25s both; }
+@keyframes avdrop { from { opacity: 0; transform: translateY(-30px) scale(.8); } }
+/* 1º lugar: coroa, auréola e brilhos */
+.pcol.p1 .pav2 { filter: drop-shadow(0 0 14px #ffd23c88); }
+.pav2 .halo { position: absolute; left: 50%; top: 46%; width: 130px; height: 130px; margin: -65px 0 0 -65px; border-radius: 50%; background: repeating-conic-gradient(#ffe06640 0 12deg, transparent 12deg 30deg); -webkit-mask: radial-gradient(circle, #000 35%, transparent 70%); mask: radial-gradient(circle, #000 35%, transparent 70%); animation: lvspin 16s linear infinite; z-index: -1; }
+.pav2 .crown { position: absolute; left: 50%; top: -18px; font-size: 30px; transform: translateX(-50%) rotate(-8deg); animation: crown 2.4s ease-in-out infinite; filter: drop-shadow(0 3px 0 #0004) drop-shadow(0 0 8px #ffd23c); z-index: 2; }
+@keyframes crown { 50% { transform: translateX(-50%) translateY(-5px) rotate(8deg); } }
+.pav2 .spark { position: absolute; color: #fff6b0; font-style: normal; text-shadow: 0 0 6px #ffd23c; animation: twinkle 1.8s ease-in-out infinite; z-index: 2; }
+.pav2 .spark.k1 { left: 2px; top: 20px; font-size: 14px; } .pav2 .spark.k2 { right: 4px; top: 8px; font-size: 18px; animation-delay: -.6s; } .pav2 .spark.k3 { right: 12px; top: 60px; font-size: 12px; animation-delay: -1.2s; }
+/* lista: medalhas nos 3 primeiros, você em destaque */
+.ranklist .rank:nth-child(1) { background: linear-gradient(90deg, #fff4c4, transparent 80%); }
+.ranklist .rank:nth-child(2) { background: linear-gradient(90deg, #eef1f7, transparent 80%); }
+.ranklist .rank:nth-child(3) { background: linear-gradient(90deg, #ffe6d2, transparent 80%); }
+.ranklist .rank:nth-child(-n+3) .pos { font-size: 0; }
+.ranklist .rank:nth-child(1) .pos::before { content: '🥇'; font-size: 24px; } .ranklist .rank:nth-child(2) .pos::before { content: '🥈'; font-size: 24px; } .ranklist .rank:nth-child(3) .pos::before { content: '🥉'; font-size: 24px; }
+.ranklist .rank.me { background: linear-gradient(90deg, #fff1a8, #fff8d8); box-shadow: inset 0 0 0 2px #ffd23c; animation: meglow 2.4s ease-in-out infinite; }
+@keyframes meglow { 50% { box-shadow: inset 0 0 0 2px #ffd23c, 0 0 12px #ffd23c88; } }
+.ranklist .rank { transition: transform .15s; }
+.ranklist .rank[data-act]:active { transform: scale(.98); }
+.page.anim .ranklist .rank { animation: rankin .4s ease-out both; }
+.page.anim .ranklist .rank:nth-child(2) { animation-delay: .05s; } .page.anim .ranklist .rank:nth-child(3) { animation-delay: .1s; } .page.anim .ranklist .rank:nth-child(4) { animation-delay: .15s; } .page.anim .ranklist .rank:nth-child(n+5) { animation-delay: .2s; }
+@keyframes rankin { from { opacity: 0; transform: translateX(-16px); } }
+.page.anim .ranklist .rank.me { animation: rankin .4s ease-out both, meglow 2.4s ease-in-out .5s infinite; }
+@media (prefers-reduced-motion: reduce) { .stage *, .ranklist .rank { animation: none !important; } }
+.stage .pcol small { margin-bottom: 14px; text-shadow: 0 2px 0 #0006; }
+.stage .pcol:not(.empty) .pbar em { display: none; }
