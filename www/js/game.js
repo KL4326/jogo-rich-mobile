@@ -768,6 +768,7 @@ export function ensureLife(s) {
   for (const c of CLOTHES) if (c.cost === 0) s.wardrobe[c.id] = 1;
   s.trips = s.trips || {};
   s.companies = s.companies || [];
+  for (const c of s.companies) if (c.float > 0 && c.float < 1e-6) c.float = 0; // restinho de arredondamento
   s.pgoods = s.pgoods || {};
   // Legado da fórmula antiga (quebrada): quem passou do teto fica com 50 pontos (+118%)
   // Anistia (uma vez): o imposto sobre fortuna antigo (1% a cada 6h) gerou dívidas impagáveis. Perdoa dívida e saldo negativo até o total de impostos já pagos.
@@ -1268,12 +1269,23 @@ export function compBuyback(s, mk, id, pct, heldByOthers = 0) {
   pct = Math.min(pct, free);
   const cost = pct * COMP.shares * compPrice(s, c, mk) * (1 + COMP.fee * 4);
   const e = spend(s, cost); if (e) return e;
-  c.float -= pct; if (c.float < 1e-9) c.float = 0;
+  c.float -= pct; if (c.float < 1e-6) c.float = 0;
   return { cost, pct };
+}
+// 📣 OPA (oferta pública de aquisição): recompra TODAS as ações da bolsa, inclusive as dos outros jogadores (pagando 5% a mais para eles)
+export const OPA_PREMIUM = 0.05;
+export function opaCost(s, mk, c) { return c.float * COMP.shares * compPrice(s, c, mk) * (1 + OPA_PREMIUM); }
+export function compOpa(s, mk, id) {
+  const c = findComp(s, id); if (!c || c.float <= 0) return 'Não há ações na bolsa';
+  const price = compPrice(s, c, mk) * (1 + OPA_PREMIUM);
+  const cost = c.float * COMP.shares * price;
+  const e = spend(s, cost); if (e) return e;
+  c.float = 0;
+  return { cost, price };
 }
 export function closeCompany(s, id) {
   const c = findComp(s, id); if (!c) return 'Empresa não encontrada';
-  if (c.float > 0) return 'Recompre todas as ações da bolsa antes de fechar';
+  if (c.float > 1e-6) return 'Ainda há ações na bolsa. Recompre tudo (use a OPA se outros jogadores tiverem ações) antes de fechar.';
   s.cash += c.invested * 0.5;
   s.companies = s.companies.filter((x) => x !== c);
   return { got: c.invested * 0.5 };

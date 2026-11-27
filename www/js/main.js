@@ -201,7 +201,7 @@ function applyCompanies(list) {
       G.syncHolding(ctx.s, d);
       // ações antigas (de antes da bolsa compartilhada): registra que são suas
       const h = (ctx.s.fport || {})[d.id];
-      if (h && h.q > 0 && (d.holders || {})[ctx.uid] !== h.q) Cloud.setHolder(d.id, ctx.uid, h.q).catch(() => {});
+      if (h && h.q > 0 && d.float > 0 && (d.holders || {})[ctx.uid] !== h.q) Cloud.setHolder(d.id, ctx.uid, h.q).catch(() => {});
     }
     UI.onCompanies();
   }
@@ -242,6 +242,21 @@ ctx.buyPlayerGood = (id, tier) => {
   afterAction();
   pushCloud().catch(() => {});
   return r;
+};
+// OPA: paga cada jogador que tem ações (preço + 5%) e retoma 100% da empresa
+ctx.compOpa = async (c) => {
+  const id = compDocId(c);
+  let doc = ctx.companies[id];
+  try { const fresh = await Cloud.withTimeout(Cloud.getCompany(id), 8000); if (fresh) { doc = fresh; ctx.companies[id] = fresh; } } catch (e) { return 'Sem conexão com o servidor agora. Tente de novo em instantes.'; }
+  const r = G.compOpa(ctx.s, mk, c.id);
+  if (typeof r === 'string') return r;
+  const holders = Object.entries((doc && doc.holders) || {}).filter(([u, q]) => u !== ctx.uid && q > 0);
+  for (const [u, q] of holders) Cloud.sendPix(ctx.uid, ctx.s.name, u, Math.floor(q * r.price), `OPA: ${c.name}`.slice(0, 50), { kind: 'opa', comp: id, q }).catch(() => {});
+  Cloud.clearHolders(id).catch(() => {});
+  if (doc) { doc.holders = {}; doc.float = 0; }
+  compSent[id] = null;
+  afterAction(); pushCloud(true).catch(() => {});
+  return { ...r, n: holders.length };
 };
 ctx.compBuyback = (c, pct) => G.compBuyback(ctx.s, mk, c.id, pct, heldByOthers(ctx.companies[compDocId(c)]));
 let topCache = { t: 0, list: null };
@@ -384,6 +399,15 @@ async function claimOne(id) {
         UI.confetti(); afterAction(); UI.render(); pushCloud().catch(() => {});
         pendingPix.delete(id);
       return;
+      }
+      if (t.kind === 'opa') {
+        // O dono recomprou todas as ações (OPA): suas ações viram dinheiro
+        if (ctx.s.fport) delete ctx.s.fport[t.comp];
+        UI.toast(`📣 OPA: <b>${esc(t.fromName)}</b> recomprou suas ações! +${money(t.amount)}`, 'gold');
+        notify('📣', `<b>${esc(t.fromName)}</b> fez uma OPA e recomprou suas ações (${esc(t.desc || '')}): <b class="up">+${money(t.amount)}</b>.`);
+        afterAction(); UI.render(); pushCloud().catch(() => {});
+        pendingPix.delete(id);
+        return;
       }
       if (t.kind === 'sale') {
         ctx.s.stats.pSales = (ctx.s.stats.pSales || 0) + 1;

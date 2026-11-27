@@ -183,3 +183,7 @@ export async function getCompanies() {
   const snap = await F.getDocs(F.collection(db, 'companies'));
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 }
+
+// OPA: o dono zera a lista de acionistas da empresa
+export const clearHolders = (id) => F.updateDoc(F.doc(db, 'companies', id), { holders: {}, float: 0, updated: Date.now() });
+export async function getCompany(id) { const sn = await F.getDoc(F.doc(db, 'companies', id)); return sn.exists() ? { id, ...sn.data() } : null; }
