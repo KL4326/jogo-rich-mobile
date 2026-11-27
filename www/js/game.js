@@ -1343,13 +1343,23 @@ export function closeCompany(s, id) {
   s.companies = s.companies.filter((x) => x !== c);
   return { got: c.invested * 0.5 };
 }
+// Ficha técnica + avaliação pública de um produto montado (vai para a vitrine de Bens)
+export function productSheet(segId, p) {
+  if (!p.build || !BUILDERS[segId]) return {};
+  const E = bType(segId, p.tier).E;
+  const rv = p.review || reviewProduct(segId, p.tier, p.build);
+  return {
+    spec: bSlots(segId, p.tier).map((x) => { const lv = lvOf(p.build.cfg, x.id, E); return [x.icon, x.name, x.opts[lv - 1], lv]; }),
+    rv: { stars: rv.stars, score: rv.score, notes: (rv.notes || []).filter((n) => !/custo|[Mm]argem/.test(n)) },
+  };
+}
 // Dados públicos que vão para a bolsa (todos os jogadores veem)
 export function compPublic(s, c, mk) {
   const seg = SEGMENT[c.seg];
   const st = compStats(s, c, mk);
   return {
     name: c.name, ticker: c.ticker, seg: c.seg, float: c.float, shares: COMP.shares, price: compPrice(s, c, mk), profit: st.profit, founded: c.founded,
-    products: seg.cat ? c.products.map((p) => { const k = seg.products[p.tier]; return { tier: p.tier, model: p.model, kind: k.name, icon: k.icon, cat: seg.cat, price: k.price, prestige: k.prestige, bonus: k.bonus || 0, hours: k.hours || 0 }; }) : [],
+    products: seg.cat ? c.products.map((p) => { const k = seg.products[p.tier]; return { tier: p.tier, model: p.model, kind: k.name, icon: k.icon, cat: seg.cat, price: k.price, prestige: k.prestige, bonus: k.bonus || 0, hours: k.hours || 0, v: p.v || 1, ...productSheet(c.seg, p) }; }) : [],
     nprod: c.products.length,
     plist: c.products.map((p) => ({ icon: seg.products[p.tier].icon, kind: seg.products[p.tier].name, model: p.model, v: p.v || 1 })),
   };

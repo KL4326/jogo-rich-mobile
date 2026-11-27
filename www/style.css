@@ -1518,3 +1518,15 @@ s.old { opacity: .6; font-size: 12px; margin-left: 4px; }
 .exclart { animation: exbob 2.2s ease-in-out infinite; }
 .exclart .xzap { animation: blink 1s steps(1) infinite; } .exclart .xzap.z2 { animation-delay: -.5s; }
 .exclicon .exclart { width: 64px; height: 64px; }
+
+/* ficha técnica e avaliação na compra de produto de jogador */
+.pgreview { text-align: left; background: #fff8e1; border-radius: 14px; padding: 8px 12px; margin: 8px 0; box-shadow: inset 0 0 0 2px #ffe08a; display: flex; flex-direction: column; gap: 2px; }
+.pgreview .review { display: flex; align-items: baseline; gap: 6px; }
+.pgreview .review b { font-family: var(--display); font-weight: 400; font-size: 20px; }
+.pgspec { text-align: left; background: var(--card2); border-radius: 14px; padding: 8px 12px; margin: 8px 0; display: flex; flex-direction: column; gap: 4px; }
+.pgspec > b { margin-bottom: 2px; }
+.specrow { display: grid; grid-template-columns: 1.1fr 1.2fr auto; gap: 6px; align-items: center; font-size: 13px; }
+.specrow span { color: var(--ink2); font-weight: 600; }
+.specrow .lvdots { font-style: normal; font-size: 8px; letter-spacing: 1px; color: var(--purple); }
+.gcard .gst { font-size: 12px; }
+.goodmodal > .rar { background: var(--purple); color: #fff; }
