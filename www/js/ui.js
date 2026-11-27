@@ -136,9 +136,11 @@ export function confetti(big = true) {
   }
 }
 // ---------- moedas voando até o saldo + contador animado ----------
-let tapX = innerWidth / 2, tapY = innerHeight / 2, tapT = 0;
+// só anima moedas quando o dinheiro entra por uma ação do jogador (botão tocado), saindo desse botão
+const lastAct = { t: 0, x: 0, y: 0 };
+const NAV_ACTS = new Set(['tab', 'sub', 'close', 'comp', 'compback', 'status', 'csub', 'rkmode']);
+export function clearCashFx() { document.querySelectorAll('.flycoin, .cashfloat').forEach((e) => e.remove()); }
 document.addEventListener('pointerdown', (e) => {
-  tapX = e.clientX; tapY = e.clientY; tapT = Date.now();
   // ondinha no botão tocado; tremidinha se não tiver dinheiro
   const b = e.target.closest && e.target.closest('.btn, .chipbtn');
   if (!b || b.disabled) return;
@@ -168,7 +170,9 @@ function cashWatch() {
   if (!d) return;
   const small = Math.abs(d) <= Math.max(1, f.avg * 25);
   if (small) { f.avg = f.avg ? f.avg * 0.9 + Math.abs(d) * 0.1 : Math.abs(d); return; }
-  if (document.hidden) return;
+  // mudanças grandes sem ação do jogador (lucros, Pix, eventos): só atualiza o número, sem efeito
+  if (document.hidden || Date.now() - lastAct.t > 1500) return;
+  lastAct.t = 0;
   f.from = cashShown() - d; f.t0 = performance.now(); f.dur = 700;
   if (!f.raf) f.raf = requestAnimationFrame(cashLoop);
   const pill = document.querySelector('.cashpill');
@@ -189,8 +193,7 @@ function floatAmount(pill, d) {
 function flyCoins(pill, n) {
   const icon = pill.querySelector('.cicon') || pill;
   const t = icon.getBoundingClientRect(), tx = t.left + t.width / 2, ty = t.top + t.height / 2;
-  const recent = Date.now() - tapT < 1500;
-  const sx = recent ? tapX : innerWidth / 2, sy = recent ? tapY : innerHeight * 0.55;
+  const sx = lastAct.x, sy = lastAct.y;
   for (let i = 0; i < n; i++) {
     const c = document.createElement('i');
     c.className = 'flycoin';
@@ -465,6 +468,8 @@ const G_NAME = (id) => Object.values(GOODS).flat().find((g) => g.id === id).name
 function onClick(e) {
   const el = e.target.closest('[data-act]');
   if (!el) return;
+  if (NAV_ACTS.has(el.dataset.act)) { clearCashFx(); lastAct.t = 0; }
+  else { const r = el.getBoundingClientRect(); Object.assign(lastAct, { t: Date.now(), x: r.left + r.width / 2, y: r.top + r.height / 2 }); }
   const h = handlers[el.dataset.act];
   A.unlock();
   if (!QUIET.has(el.dataset.act)) A.sfx('click');
