@@ -495,6 +495,26 @@ export const HAND_ITEMS = {
   </g>`,
 };
 
+// ===== Arte dos itens exclusivos (para vitrines e cartões) =====
+export const EXCL_ART = {
+  mjolnir: () => `<svg class="exclart" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    <defs><linearGradient id="xmj" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f2f5f9"/><stop offset=".5" stop-color="#9aa3b2"/><stop offset="1" stop-color="#5d6472"/></linearGradient>
+      <radialGradient id="xmz"><stop offset="0" stop-color="#bfe9ff" stop-opacity=".9"/><stop offset="1" stop-color="#4da3ff" stop-opacity="0"/></radialGradient></defs>
+    <circle cx="50" cy="44" r="44" fill="url(#xmz)"/>
+    <g transform="translate(50 54) rotate(-30) scale(.78) translate(-50 -52)">
+      <rect x="45" y="40" width="10" height="50" rx="3" fill="#6b3f1d"/>
+      ${[52, 60, 68, 76, 84].map((y) => `<path d="M45,${y} l10,5" stroke="#3d2210" stroke-width="2.4"/>`).join('')}
+      <circle cx="50" cy="92" r="4.5" fill="#8a929f" stroke="#4a505c" stroke-width="1.6"/>
+      <rect x="22" y="14" width="56" height="30" rx="5" fill="url(#xmj)" stroke="#4a505c" stroke-width="2.2"/>
+      <rect x="18" y="12" width="8" height="34" rx="3" fill="#7c8492" stroke="#4a505c" stroke-width="1.8"/><rect x="74" y="12" width="8" height="34" rx="3" fill="#7c8492" stroke="#4a505c" stroke-width="1.8"/>
+      <path d="M36,21 l4,8 l-4,8 M50,20 v18 M45,25 h10 M64,21 l-4,8 l4,8" stroke="#3a7bd5" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+      <path d="M28,18 h44" stroke="#ffffff99" stroke-width="2.5" stroke-linecap="round"/>
+    </g>
+    <path class="xzap" d="M16,30 l8,-12 l-2,9 l9,-3 l-11,15 Z" fill="#ffe27a" stroke="#ffb300" stroke-width="1"/>
+    <path class="xzap z2" d="M84,58 l-4,-13 l5,7 l4,-9 l2,15 Z" fill="#ffe27a" stroke="#ffb300" stroke-width="1"/>
+  </svg>`,
+};
+
 // Visual aleatório (para parceiros)
 export function randomLook(sex) {
   const r = (a) => a[Math.floor(Math.random() * a.length)];

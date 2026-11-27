@@ -1502,3 +1502,19 @@ s.old { opacity: .6; font-size: 12px; margin-left: 4px; }
 @media (prefers-reduced-motion: reduce) { .stage *, .ranklist .rank { animation: none !important; } }
 .stage .pcol small { margin-bottom: 14px; text-shadow: 0 2px 0 #0006; }
 .stage .pcol:not(.empty) .pbar em { display: none; }
+
+/* exclusivos na aba Bens, com a arte do item */
+.myexcl { margin: 4px 0 12px; padding: 10px; border-radius: 20px; background: linear-gradient(135deg, #3a2a00, #8a6100 40%, #ffd75e 55%, #8a6100 75%, #3a2a00); box-shadow: 0 5px 0 #5a3d00, 0 10px 22px #0005; }
+.myexhead { font-family: var(--display); color: #fff6c9; font-size: 16px; margin: 0 4px 8px; text-shadow: 0 2px 0 #0005; }
+.myexitem { display: flex; align-items: center; gap: 12px; background: linear-gradient(180deg, #fffdf5, #fff3c9); border-radius: 16px; padding: 8px 10px; box-shadow: inset 0 1.5px 0 #fff, 0 3px 0 #c9951c; }
+.myexitem + .myexitem { margin-top: 8px; }
+.myexitem.holding { box-shadow: inset 0 0 0 2px #ffd23c, 0 3px 0 #c9951c, 0 0 14px #ffd23c88; }
+.myexart { flex: none; width: 70px; height: 70px; border-radius: 16px; display: grid; place-items: center; background: radial-gradient(circle at 50% 40%, #2a3d6e, #0f1730); box-shadow: inset 0 -3px 0 #0005, 0 0 0 2px #ffd23c; overflow: hidden; }
+.myexart span { font-size: 40px; }
+.myexitem .grow b { font-family: var(--display); font-weight: 400; font-size: 17px; }
+.myexitem .grow small { color: var(--ink2); font-weight: 600; }
+.myexitem .grow em { font-style: normal; font-size: 12px; font-weight: 700; color: #b37a00; }
+.exclart { width: 100%; height: 100%; display: block; overflow: visible; }
+.exclart { animation: exbob 2.2s ease-in-out infinite; }
+.exclart .xzap { animation: blink 1s steps(1) infinite; } .exclart .xzap.z2 { animation-delay: -.5s; }
+.exclicon .exclart { width: 64px; height: 64px; }

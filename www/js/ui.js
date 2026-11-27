@@ -6,7 +6,7 @@ import {
   DAY_MS, SECTORS, SECTOR, STOCKS, CRYPTOS, ASSETS, BUSINESSES, COURSES, JOBS, PROPERTIES, GOODS, CARDS, UNLOCKS, TRADE_FEE, LOAN_RATE, LEVEL_BONUS, RENT_NO_HOME,
 } from './data.js';
 import * as G from './game.js';
-import { avatarSVG, HAND_ITEMS, defaultLook, LEGENDS, LEGEND, LEGEND_COST, SKINS, HAIR_COLORS, EYE_COLORS, HAIRS, BEARDS, CLOTHES, SLOTS, SETS, CLOTH } from './avatar.js';
+import { avatarSVG, HAND_ITEMS, EXCL_ART, defaultLook, LEGENDS, LEGEND, LEGEND_COST, SKINS, HAIR_COLORS, EYE_COLORS, HAIRS, BEARDS, CLOTHES, SLOTS, SETS, CLOTH } from './avatar.js';
 import { townSVG } from './town.js';
 import { homeSVG, homeKey } from './homes.js';
 import * as A from './audio.js';
@@ -1395,7 +1395,7 @@ function exclusiveCards() {
   return G.activeExclusives().map((x) => {
     const own = !!(s.excl || {})[x.id];
     return `<div class="exclcard ${own ? 'own' : ''}"><div class="exclrib">✨ EXCLUSIVO · NUNCA MAIS VOLTA ✨</div>
-      <div class="exclbody"><div class="exclicon"><span>${x.icon}</span><i>${x.fx || '✨'}</i></div>
+      <div class="exclbody"><div class="exclicon">${EXCL_ART[x.id] ? EXCL_ART[x.id]() : `<span>${x.icon}</span><i>${x.fx || '✨'}</i>`}</div>
       <div class="grow"><small>${esc(x.tag)}</small><b>${esc(x.name)}</b><em>${esc(x.sub)}</em>
         <div class="exclperks"><span>💰 ${esc(x.desc)}</span><span>✨ +${fmt(x.prestige)} prestígio</span><span>⭐ +${fmt(x.xp)} XP</span></div></div></div>
       <div class="exclfoot"><div><small>Acaba em</small><b data-live="exclt:${x.id}"></b></div>
@@ -1883,7 +1883,7 @@ function vBens() {
   const head = title('💎', 'Coleção', 'bens') + subtabs([['veiculos', '🚗', 'Carros'], ['ceumar', '🛥️', 'Céu e Mar'], ['moradia', '🏠', 'Casas'], ['luxo', '💍', 'Luxo'], ['colecao', '🖼️', 'Coleção'], ['marcas', '🏷️', 'Marcas']]) + `
   <div class="wallet" data-act="status"><div><small>✨ Prestígio · ${G.statusOf(s).icon} ${G.statusOf(s).name} ›</small><b>${fmt(G.prestige(s))}</b></div><div class="right"><small>Coleção</small><b>${sub === 'marcas' ? owned : `${owned}/${list.length}`}</b></div></div>`;
   const ex = G.exclOwned(s);
-  const exStrip = ex.length ? `<div class="exclshow mine"><b>💎 Seus exclusivos</b>${ex.map((x) => `<span class="pill gold">${x.icon} ${esc(x.name)} · ${esc(x.desc.split(',')[0])}</span>${HAND_ITEMS[x.id] ? `<button class="chipbtn" data-act="hand" data-id="${x.id}">${s.look && s.look.hand === x.id ? '🎒 Guardar' : '✋ Segurar na mão'}</button>` : ''}`).join('')}</div>` : '';
+  const exStrip = ex.length ? `<div class="myexcl"><div class="myexhead">💎 Seus exclusivos</div>${ex.map((x) => { const holding = s.look && s.look.hand === x.id; return `<div class="myexitem${holding ? ' holding' : ''}"><div class="myexart">${EXCL_ART[x.id] ? EXCL_ART[x.id]() : `<span>${x.icon}</span>`}</div><div class="grow"><b>${esc(x.name)}</b><small>${esc(x.desc)}</small><em>${holding ? '✋ Na mão do personagem' : '🎒 Guardado'}</em></div>${HAND_ITEMS[x.id] ? `<button class="btn sm ${holding ? 'ghost' : 'gold'}" data-act="hand" data-id="${x.id}">${holding ? '🎒 Guardar' : '✋ Segurar'}</button>` : ''}</div>`; }).join('')}</div>` : '';
   if (sub === 'marcas') return head + exStrip + payBar() + `<div data-cardable>${vMarcas()}</div>`;
   if (sub === 'veiculos') return head + exStrip + payBar() + `<div data-cardable>${vCarros()}</div>`;
   return head + exStrip + payBar() + `
