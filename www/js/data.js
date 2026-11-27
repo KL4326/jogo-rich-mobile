@@ -120,6 +120,8 @@ export const COURSES = [
   { id: 'computacao', grp: 'faculdade', name: 'Ciência da Computação', icon: '💻', cost: 45000, mins: 35, req: ['medio'] },
   { id: 'engenharia', grp: 'faculdade', name: 'Engenharia', icon: '⚙️', cost: 60000, mins: 45, req: ['medio'] },
   { id: 'arquitetura', grp: 'faculdade', name: 'Arquitetura', icon: '📐', cost: 50000, mins: 40, req: ['medio'] },
+  { id: 'design_moda', grp: 'faculdade', name: 'Design de Moda', icon: '👗', cost: 30000, mins: 30, req: ['medio'] },
+  { id: 'gemologia', grp: 'tecnico', name: 'Gemologia e Joalheria', icon: '💎', cost: 25000, mins: 25, req: ['medio'] },
   { id: 'biologia', grp: 'faculdade', name: 'Biologia', icon: '🧬', cost: 30000, mins: 30, req: ['medio'] },
   { id: 'pedagogia', grp: 'faculdade', name: 'Pedagogia / Licenciatura', icon: '📚', cost: 20000, mins: 25, req: ['medio'] },
   { id: 'jornalismo', grp: 'faculdade', name: 'Jornalismo', icon: '🎙️', cost: 30000, mins: 30, req: ['medio'] },
@@ -555,3 +557,73 @@ const PREMIUM = {
 for (const seg of SEGMENTS) seg.products.push(...PREMIUM[seg.id].map((p) => ({ ...p, premium: true })));
 // Filiais: cada uma aumenta o mercado da empresa em 50%, mas exige mais equipe, tem aluguel fixo e sente mais o clima do setor
 export const BRANCH = { max: 10, market: 0.5, costMult: 250, costGrowth: 1.5, upkeep: 0.15, hot: 1.6, cold: 0.35 };
+
+
+// ===== Curso exigido para abrir empresa em cada ramo (qualquer um da lista) =====
+export const SEG_COURSES = {
+  tech: ['computacao'], auto: ['engenharia'], energia: ['engenharia'], construtora: ['engenharia', 'arquitetura'],
+  farma: ['medicina', 'biologia'], fintech: ['economia', 'contabeis'], alimentos: ['gastronomia'],
+  nautica: ['piloto', 'engenharia'], moda: ['design_moda'], joias: ['gemologia'],
+};
+
+// ===== Montagem de produtos peça por peça (Tecnologia e Montadora) =====
+// Cada peça tem 6 níveis (1 a 6). share = quanto a peça pesa no custo. imp[tipo] = importância para cada produto.
+// E[tipo] = nível que o mercado espera daquele produto. Os "avaliadores" usam isso (regras escondidas).
+export const BUILDERS = {
+  tech: {
+    slots: [
+      { id: 'cpu', name: 'Processador', icon: '🧠', share: 0.22, opts: ['Básico 2 núcleos', 'Intermediário 4 núcleos', 'Bom 6 núcleos', 'Forte 8 núcleos', 'Topo 16 núcleos', 'Extremo 32 núcleos'] },
+      { id: 'ram', name: 'Memória RAM', icon: '🧩', share: 0.12, opts: ['2 GB', '4 GB', '8 GB', '16 GB', '32 GB', '64 GB'] },
+      { id: 'ssd', name: 'Armazenamento', icon: '💾', share: 0.12, opts: ['32 GB eMMC', '128 GB', '256 GB SSD', '512 GB SSD', '1 TB NVMe', '4 TB NVMe'] },
+      { id: 'gpu', name: 'Gráficos', icon: '🎮', share: 0.24, opts: ['Integrado básico', 'Integrado bom', 'Placa de entrada', 'Placa intermediária', 'Placa avançada', 'Placa topo de linha'] },
+      { id: 'bat', name: 'Bateria / Energia', icon: '🔋', share: 0.12, opts: ['Fraca', 'Simples', 'Média', 'Boa', 'Ótima', 'Extrema'] },
+      { id: 'body', name: 'Tela e acabamento', icon: '✨', share: 0.18, opts: ['Plástico simples', 'Plástico bom', 'Alumínio', 'Alumínio premium', 'Vidro e titânio', 'Design exclusivo'] },
+    ],
+    E: [2, 3, 4, 4, 4, 5, 5, 6],
+    imp: [
+      { bat: 3, body: 3, cpu: 1, ram: 0.5, ssd: 0.5, gpu: 0.3 },
+      { cpu: 2, ram: 2, ssd: 1.5, gpu: 1, bat: 2.5, body: 2.5 },
+      { cpu: 3, ram: 2.5, ssd: 1.5, gpu: 3.5, bat: 1, body: 1 },
+      { gpu: 3.5, cpu: 2, body: 2.5, ram: 1.5, bat: 1.5, ssd: 0.5 },
+      { cpu: 3, bat: 3, body: 2, ram: 1.5, ssd: 1, gpu: 0.5 },
+      { cpu: 3.5, ram: 3, ssd: 2, gpu: 2.5, bat: 1, body: 0.5 },
+      { bat: 3.5, cpu: 2.5, body: 3, ssd: 1.5, ram: 1, gpu: 0.5 },
+      { cpu: 3.5, gpu: 3.5, ram: 3, ssd: 2, bat: 1.5, body: 1 },
+    ],
+    rules: [
+      { t: (q) => q.cpu - q.ram >= 3, pen: 12, msg: 'Processador potente travado por pouca memória RAM' },
+      { t: (q) => q.gpu - q.cpu >= 3, pen: 12, msg: 'Placa de vídeo forte com processador fraco: gargalo' },
+      { t: (q) => q.gpu >= 5 && q.bat <= 2, pen: 15, msg: 'Gráficos potentes com energia fraca: superaquece e desliga' },
+      { t: (q) => q.ssd <= 1 && q.cpu >= 4, pen: 8, msg: 'Armazenamento lento estraga a experiência' },
+      { t: (q, avg) => q.body <= 2 && avg >= 4.5, pen: 10, msg: 'Acabamento barato para um aparelho desse nível' },
+    ],
+  },
+  auto: {
+    slots: [
+      { id: 'motor', name: 'Motor', icon: '⚙️', share: 0.28, opts: ['1.0 básico', '1.4', '1.8 turbo', '2.0 turbo', 'V6', 'V8 biturbo'] },
+      { id: 'cambio', name: 'Câmbio', icon: '🕹️', share: 0.14, opts: ['Manual 5 marchas', 'Manual 6 marchas', 'Automático', 'Automático 8 marchas', 'Dupla embreagem', 'Sequencial de corrida'] },
+      { id: 'susp', name: 'Suspensão', icon: '🛞', share: 0.14, opts: ['Simples', 'Reforçada', 'Independente', 'Esportiva', 'Adaptativa', 'Ativa de competição'] },
+      { id: 'freio', name: 'Freios', icon: '🛑', share: 0.12, opts: ['Tambor', 'Disco simples', 'Disco ventilado', 'ABS + disco', 'Cerâmica', 'Carbono-cerâmica'] },
+      { id: 'seg', name: 'Segurança', icon: '🛡️', share: 0.16, opts: ['2 airbags', '4 airbags', '6 airbags + controle', 'Assistentes ADAS', 'Nota 5 estrelas', 'Blindagem total'] },
+      { id: 'inter', name: 'Interior', icon: '💺', share: 0.16, opts: ['Tecido simples', 'Tecido bom', 'Couro sintético', 'Couro', 'Couro premium', 'Artesanal de luxo'] },
+    ],
+    E: [2, 2, 3, 4, 5, 5, 6, 6],
+    imp: [
+      { motor: 2, freio: 3, seg: 2, cambio: 1, susp: 1.5, inter: 0.3 },
+      { motor: 1.5, seg: 2.5, inter: 2, cambio: 1, susp: 1.5, freio: 1.5 },
+      { susp: 3, seg: 3, motor: 2, inter: 2, cambio: 1.5, freio: 1.5 },
+      { motor: 3.5, cambio: 3, freio: 3, susp: 2.5, seg: 1, inter: 1 },
+      { motor: 3.5, cambio: 3, freio: 3.5, susp: 3, seg: 1.5, inter: 1.5 },
+      { seg: 4, inter: 3.5, susp: 2, motor: 1.5, freio: 1.5, cambio: 1 },
+      { motor: 3.5, freio: 3, susp: 2.5, cambio: 1, seg: 2, inter: 2 },
+      { motor: 3.5, seg: 3.5, freio: 2, susp: 2, inter: 1.5, cambio: 1 },
+    ],
+    rules: [
+      { t: (q) => q.motor - q.freio >= 2, pen: 15, msg: 'Motor forte demais para freios fracos: reprovado em segurança' },
+      { t: (q) => q.motor >= 5 && q.susp <= 2, pen: 12, msg: 'Potência demais para a suspensão: instável nas curvas' },
+      { t: (q) => q.motor - q.cambio >= 3, pen: 10, msg: 'O câmbio não aguenta o motor' },
+      { t: (q) => q.seg <= 2 && q.motor >= 4, pen: 12, msg: 'Rápido e inseguro: a crítica detonou' },
+      { t: (q, avg) => q.inter <= 2 && avg >= 4.5, pen: 10, msg: 'Interior pobre para um carro desse preço' },
+    ],
+  },
+};

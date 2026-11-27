@@ -4,7 +4,7 @@ import { CLOTH, CLOTHES, defaultLook, randomLook, LEGEND, LEGEND_COST } from './
 import {
   DAY_MS, BUSINESSES, BIZ_GROWTH, BIZ_MILESTONES, COURSES, JOBS, PROPERTIES, GOODS, GOOD, ALL_GOODS,
   CARDS, LEVEL_BONUS, TRADE_FEE, LOAN_RATE, RENT_NO_HOME, ASSETS, CRYPTOS, UNLOCKS, SECTORS,
-  SEGMENTS, SEGMENT, STAFF, PRODUCT_TIERS, BRANCH, EXCLUSIVES, EXCL,
+  SEGMENTS, SEGMENT, STAFF, PRODUCT_TIERS, BRANCH, BUILDERS, SEG_COURSES, EXCLUSIVES, EXCL,
   OWN_TIERS, TRIPS, REST_BONUS, REST_HOURS, LOVE_STAGES, DATES, GIFTS, REPEAT_PENALTY, RING_COST, WEDDINGS, NAMES_F, NAMES_M,
 } from './data.js';
 
@@ -1188,7 +1188,7 @@ export function compStats(s, c, mk) {
   const seg = SEGMENT[c.seg], st = c.staff;
   const now = Date.now();
   const k = branchScale(c), nb = c.branches || 0;
-  const base = c.products.reduce((t, p) => t + PRODUCT_TIERS[p.tier].rev * seg.k * freshness(p, now), 0);
+  const base = c.products.reduce((t, p) => t + productBase(c, p) * freshness(p, now), 0);
   const need = Math.ceil(c.products.reduce((t, p) => t + PRODUCT_TIERS[p.tier].need, 0) * k);
   const strike = (c.strikeUntil || 0) > now; // greve: produção parada (salários continuam)
   const cap = need && !strike ? Math.min(1, (st.prod || 0) / need) : 0;
@@ -1213,6 +1213,7 @@ export const findComp = (s, id) => (s.companies || []).find((c) => c.id === id);
 export function foundCompany(s, segId, name, ticker, taken = []) {
   const seg = SEGMENT[segId]; if (!seg) return 'Escolha um segmento';
   if (level(s) < COMP.minLevel) return `Precisa do nível ${COMP.minLevel}`;
+  if (!hasSegCourse(s, segId)) return `Para abrir no ramo de ${seg.name} você precisa do curso: ${segCourseNames(segId)}`;
   s.companies = s.companies || [];
   if (s.companies.length >= maxCompanies(s)) return `Seu limite é ${maxCompanies(s)} empresa(s). Cargos de gestão (Gerente, Diretor, CEO) e o status Lenda liberam mais.`;
   name = (name || '').trim().slice(0, 22);
@@ -1243,26 +1244,28 @@ export function canDev(c, tier) {
   if ((c.staff.pd || 0) < PRODUCT_TIERS[tier].pd) return `Precisa de ${PRODUCT_TIERS[tier].pd} pesquisador(es) de P&D`;
   return null;
 }
-export function startDev(s, id, tier, model) {
+export function startDev(s, id, tier, model, build) {
   const c = findComp(s, id); if (!c) return 'Empresa não encontrada';
   const why = canDev(c, tier); if (why) return why;
+  if (BUILDERS[c.seg]) { const e = checkBuild(c.seg, build); if (e) return e; }
   model = (model || '').trim().slice(0, 18);
   if (model.length < 2) return 'Dê um nome ao produto';
   const cost = devCost(SEGMENT[c.seg], tier);
   const e = spend(s, cost); if (e) return e;
   c.invested += cost;
-  c.dev = { tier, model, start: Date.now(), end: Date.now() + devMins(c, tier) * 60_000 };
+  c.dev = { tier, model, start: Date.now(), end: Date.now() + devMins(c, tier) * 60_000, build: BUILDERS[c.seg] ? { cfg: { ...build.cfg }, price: Math.round(build.price) } : null };
   addXP(s, 20 + tier * 15);
   return null;
 }
-export function newVersion(s, id, tier) {
+export function newVersion(s, id, tier, build) {
   const c = findComp(s, id); if (!c) return 'Empresa não encontrada';
   if (c.dev) return 'Já tem um projeto em desenvolvimento';
   const p = c.products.find((x) => x.tier === tier); if (!p) return 'Produto não encontrado';
+  if (build) { const e = checkBuild(c.seg, build); if (e) return e; }
   const cost = devCost(SEGMENT[c.seg], tier, true);
   const e = spend(s, cost); if (e) return e;
   c.invested += cost * 0.5;
-  c.dev = { tier, model: p.model, version: true, start: Date.now(), end: Date.now() + devMins(c, tier, true) * 60_000 };
+  c.dev = { tier, model: p.model, version: true, start: Date.now(), end: Date.now() + devMins(c, tier, true) * 60_000, build: build ? { cfg: { ...build.cfg }, price: Math.round(build.price) } : null };
   return null;
 }
 // Termina desenvolvimentos prontos. Retorna a lista do que foi lançado.
@@ -1272,8 +1275,8 @@ export function compTick(s) {
     if (!c.dev || Date.now() < c.dev.end) continue;
     const d = c.dev; c.dev = null;
     const kind = SEGMENT[c.seg].products[d.tier];
-    if (d.version) { const p = c.products.find((x) => x.tier === d.tier); if (p) { p.v = (p.v || 1) + 1; p.launched = Date.now(); out.push({ c, p, kind, version: true }); } }
-    else { const p = { tier: d.tier, model: d.model, launched: Date.now(), v: 1 }; c.products.push(p); c.products.sort((a, b) => a.tier - b.tier); addXP(s, 40 + d.tier * 30); out.push({ c, p, kind }); }
+    if (d.version) { const p = c.products.find((x) => x.tier === d.tier); if (p) { p.v = (p.v || 1) + 1; p.launched = Date.now(); if (d.build) { p.build = d.build; p.review = reviewProduct(c.seg, d.tier, d.build); } out.push({ c, p, kind, version: true }); } }
+    else { const p = { tier: d.tier, model: d.model, launched: Date.now(), v: 1 }; if (d.build) { p.build = d.build; p.review = reviewProduct(c.seg, d.tier, d.build); } c.products.push(p); c.products.sort((a, b) => a.tier - b.tier); addXP(s, 40 + d.tier * 30); out.push({ c, p, kind }); }
   }
   return out;
 }
@@ -1600,4 +1603,84 @@ export function buyExclusive(s, id) {
   addXP(s, x.xp);
   statusRefresh();
   return null;
+}
+
+// ---------- 🎓 Curso exigido por ramo ----------
+export const hasSegCourse = (s, segId) => !SEG_COURSES[segId] || SEG_COURSES[segId].some((c) => s.edu.includes(c));
+export const segCourseNames = (segId) => (SEG_COURSES[segId] || []).map((id) => (COURSES.find((c) => c.id === id) || { name: id }).name).join(' ou ');
+
+// ---------- 🔧 Montagem de produtos e 🕵️ avaliadores (regras escondidas) ----------
+const COST_LV = [0.12, 0.25, 0.4, 0.6, 0.9, 1.35]; // custo relativo de cada nível de peça
+export const refPrice = (segId, tier) => { const seg = SEGMENT[segId]; const k = seg.products[tier]; return k.price || PRODUCT_TIERS[tier].rev * seg.k * 6; };
+// Custo de fabricar 1 unidade com essa configuração
+export function unitCost(segId, tier, cfg) {
+  const B = BUILDERS[segId]; const E = B.E[tier];
+  return refPrice(segId, tier) * 0.55 * B.slots.reduce((t, sl) => t + sl.share * COST_LV[(cfg[sl.id] || 1) - 1] / COST_LV[E - 1], 0);
+}
+export const slotCost = (segId, tier, slotId, lv) => { const B = BUILDERS[segId]; const sl = B.slots.find((x) => x.id === slotId); return refPrice(segId, tier) * 0.55 * sl.share * COST_LV[lv - 1] / COST_LV[B.E[tier] - 1]; };
+export function checkBuild(segId, build) {
+  const B = BUILDERS[segId];
+  if (!build || !build.cfg) return 'Monte o produto escolhendo as peças';
+  for (const sl of B.slots) { const v = build.cfg[sl.id]; if (!(v >= 1 && v <= 6)) return `Escolha: ${sl.name}`; }
+  if (!(build.price > 0)) return 'Defina o preço de venda';
+  return null;
+}
+// Os avaliadores: nota de 0 a 100 + frases de crítica
+export function reviewProduct(segId, tier, build) {
+  const B = BUILDERS[segId], E = B.E[tier], imp = B.imp[tier], q = build.cfg;
+  const kind = SEGMENT[segId].products[tier].name.toLowerCase();
+  let wsum = 0, acc = 0;
+  const notes = [];
+  for (const sl of B.slots) {
+    const w = imp[sl.id] || 0.5, d = q[sl.id] - E;
+    const sc = d < 0 ? Math.max(0, 70 + 25 * d) : Math.min(100, 70 + 17 * d - 2 * d * d);
+    acc += sc * w; wsum += w;
+    if (d <= -2 && w >= 2) notes.push({ n: -2, m: `${sl.name} fraco demais para um ${kind}` });
+    else if (d <= -1 && w >= 2.5) notes.push({ n: -1, m: `${sl.name} abaixo do esperado` });
+    else if (d >= 2 && w <= 1) notes.push({ n: -1, m: `${sl.name} exagerado: encarece sem agregar` });
+    else if (d >= 1 && w >= 3) notes.push({ n: 1, m: `${sl.name} de destaque` });
+  }
+  let score = acc / wsum;
+  const avg = B.slots.reduce((t, sl) => t + q[sl.id], 0) / B.slots.length;
+  for (const r of B.rules) if (r.t(q, avg)) { score -= r.pen; notes.push({ n: -2, m: r.msg }); }
+  score = Math.max(0, Math.min(100, score));
+  const cost = unitCost(segId, tier, q);
+  const value = refPrice(segId, tier) * (0.3 + score / 100); // quanto o público acha que vale
+  const ratio = build.price / value;
+  if (build.price < cost) notes.push({ n: -2, m: 'Vendido abaixo do custo: cada venda dá prejuízo' });
+  else if (build.price < cost * 1.1) notes.push({ n: -2, m: 'Margem quase zero: o preço mal cobre o custo das peças' });
+  else if (ratio > 1.35) notes.push({ n: -2, m: 'Caro demais para o que entrega' });
+  else if (ratio > 1.12) notes.push({ n: -1, m: 'Um pouco caro para o que oferece' });
+  else if (ratio < 0.75) notes.push({ n: 0, m: 'Preço baixíssimo: vende muito, mas a margem é pequena' });
+  else if (score >= 80) notes.push({ n: 2, m: 'Excelente custo-benefício!' });
+  if (score >= 90) notes.push({ n: 2, m: 'Produto do ano segundo a crítica' });
+  else if (score < 35) notes.push({ n: -2, m: 'O público rejeitou o produto' });
+  notes.sort((a, b) => Math.abs(b.n) - Math.abs(a.n));
+  const stars = Math.round((score / 20) * 2) / 2;
+  return { score: Math.round(score), stars, cost, value, notes: notes.slice(0, 3).map((x) => x.m) };
+}
+// Vendas por dia: nota boa e preço justo vendem mais; quem vende acima do valor percebido vende pouco
+export function demand(score, price, value) {
+  const r = price / value;
+  const g = r <= 1 ? 1 + 0.8 * (1 - r) : Math.max(0, 1 - 1.6 * (r - 1));
+  return Math.pow(score / 70, 3) * g;
+}
+// Lucro bruto por dia de um produto (antes de equipe, filiais e clima). Produto antigo (sem montagem) rende como antes.
+export function productBase(c, p) {
+  const seg = SEGMENT[c.seg], tierRev = PRODUCT_TIERS[p.tier].rev * seg.k;
+  if (!p.build || !BUILDERS[c.seg]) return tierRev;
+  const rv = p.review || reviewProduct(c.seg, p.tier, p.build);
+  const V = refPrice(c.seg, p.tier);
+  const units = tierRev / (0.45 * V); // vendas/dia de um produto "padrão" (nota 70 no preço justo)
+  return units * demand(rv.score, p.build.price, rv.value) * (p.build.price - rv.cost);
+}
+export const productUnits = (c, p) => { const rv = p.review; const V = refPrice(c.seg, p.tier); return (PRODUCT_TIERS[p.tier].rev * SEGMENT[c.seg].k) / (0.45 * V) * demand(rv.score, p.build.price, rv.value); };
+// Mudar o preço depois de lançado: os avaliadores reavaliam na hora
+export function setProductPrice(s, id, tier, price) {
+  const c = findComp(s, id); const p = c && c.products.find((x) => x.tier === tier);
+  if (!p || !p.build) return 'Produto não encontrado';
+  if (!(price > 0)) return 'Preço inválido';
+  p.build.price = Math.round(price);
+  p.review = reviewProduct(c.seg, tier, p.build);
+  return p.review;
 }

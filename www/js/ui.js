@@ -1,7 +1,7 @@
 // ===== Interface (visual de jogo) =====
 import {
   COURSE_GROUPS, JOB_AREAS, BRANDS, TIERS, OWN_TIERS, TRIP_CATS, TRIPS, LOVE_STAGES, DATES, GIFTS, RING_COST, WEDDINGS,
-  SEGMENTS, SEGMENT, STAFF, PRODUCT_TIERS,
+  SEGMENTS, SEGMENT, STAFF, PRODUCT_TIERS, BUILDERS,
   EXCLUSIVES, EXCL,
   DAY_MS, SECTORS, SECTOR, STOCKS, CRYPTOS, ASSETS, BUSINESSES, COURSES, JOBS, PROPERTIES, GOODS, CARDS, UNLOCKS, TRADE_FEE, LOAN_RATE, LEVEL_BONUS, RENT_NO_HOME,
 } from './data.js';
@@ -310,10 +310,20 @@ const handlers = {
     if (r) { closeModal(); confetti(); toast('🏢 Empresa criada! Contrate funcionários e desenvolva seu primeiro produto.', 'gold'); ui.comp = r.id; C.pushCompanies && C.pushCompanies(); render(true); }
   },
   hire: (d) => { if (act(() => G.hire(C.s, d.id, d.r, +d.n))) keepScroll(render); },
-  devprod: (d) => devModal(d.id, +d.t),
+  devprod: (d) => { const c = G.findComp(C.s, d.id); if (BUILDERS[c.seg]) { const B = BUILDERS[c.seg]; ui.bld = { id: d.id, tier: +d.t, cfg: Object.fromEntries(B.slots.map((sl) => [sl.id, 3])), price: G.refPrice(c.seg, +d.t), model: '' }; builderModal(); } else devModal(d.id, +d.t); },
+  bslot: (d) => { const n = $('#pmodel'); if (n) ui.bld.model = n.value; const pr = $('#bprice'); if (pr) ui.bld.price = parseFloat(pr.value) || 0; ui.bld.cfg[d.s] = +d.v; const sc = $('.sheet') ? $('.sheet').scrollTop : 0; builderModal(); if ($('.sheet')) $('.sheet').scrollTop = sc; },
+  bgo: (d, el) => {
+    const b = ui.bld; updMargin();
+    const build = { cfg: b.cfg, price: b.price };
+    const ok = b.version ? act(() => G.newVersion(C.s, b.id, b.tier, build), null, el) : act(() => G.startDev(C.s, b.id, b.tier, ($('#pmodel') || {}).value, build), null, el);
+    if (ok) { closeModal(); toast(b.version ? '🧪 Nova versão em desenvolvimento!' : '🧪 Desenvolvimento iniciado! A crítica avalia no lançamento.', 'ok'); ui.bld = null; render(); }
+  },
+  setprice: (d) => { const c = G.findComp(C.s, d.id); const p = c.products.find((x) => x.tier === +d.t); ui.pp = { id: d.id, t: +d.t }; modal(`<h3>💲 Preço do ${esc(p.model)}</h3><p class="muted small">Custo por unidade: <b>${money(p.review.cost)}</b> · concorrentes: ~${money(G.refPrice(c.seg, p.tier))}. A crítica reavalia o custo-benefício na hora.</p><input id="newprice" type="number" inputmode="numeric" value="${p.build.price}"><button class="btn full" data-act="setpricego">Aplicar novo preço</button>`); },
+  setpricego: () => { const r = act(() => G.setProductPrice(C.s, ui.pp.id, ui.pp.t, parseFloat(($('#newprice') || {}).value))); if (r) { closeModal(); toast(`🏷️ Preço atualizado · nota ${r.score} ${starsHTML(r.stars)}`, 'ok'); keepScroll(render); } },
+  csub: (d) => { ui.csub = d.t; keepScroll(render); },
   devsug: (d) => { const i = $('#pmodel'); if (i) i.value = d.v; },
   devgo: (d, el) => { if (act(() => G.startDev(C.s, d.id, +d.t, ($('#pmodel') || {}).value), null, el)) { closeModal(); toast('🧪 Desenvolvimento iniciado!', 'ok'); render(); } },
-  newver: (d, el) => { const c = G.findComp(C.s, d.id); const p = c.products.find((x) => x.tier === +d.t); confirmBox(`Lançar uma nova versão de <b>${esc(p.model)}</b>? Custa ${money(G.devCost(SEGMENT[c.seg], p.tier, true))} e as vendas voltam ao pico de lançamento.`, () => { if (act(() => G.newVersion(C.s, d.id, +d.t))) { toast('🧪 Nova versão em desenvolvimento!', 'ok'); render(); } }); },
+  newver: (d, el) => { const c = G.findComp(C.s, d.id); const p = c.products.find((x) => x.tier === +d.t); if (p.build && BUILDERS[c.seg]) { ui.bld = { id: d.id, tier: +d.t, version: true, cfg: { ...p.build.cfg }, price: p.build.price, model: p.model }; return builderModal(); } confirmBox(`Lançar uma nova versão de <b>${esc(p.model)}</b>? Custa ${money(G.devCost(SEGMENT[c.seg], p.tier, true))} e as vendas voltam ao pico de lançamento.`, () => { if (act(() => G.newVersion(C.s, d.id, +d.t))) { toast('🧪 Nova versão em desenvolvimento!', 'ok'); render(); } }); },
   cipo: (d) => { const c = G.findComp(C.s, d.id); confirmBox(`Vender ${Math.round(+d.p * 100)}% da <b>${esc(c.name)}</b> na bolsa? Você recebe o dinheiro agora e essa fatia do lucro passa a ir para quem comprar as ações.`, () => { const r = act(() => G.compIpo(C.s, C.mk, d.id, +d.p)); if (r) { A.sfx('cash'); toast(`🔔 Ações na bolsa! Você recebeu ${money(r.got)}`, 'gold', false); confetti(); C.pushCompanies && C.pushCompanies(); render(); } }); },
   cbuyback: (d, el) => { const c = G.findComp(C.s, d.id); const r = act(() => C.compBuyback(c, +d.p), null, el); if (r) { toast(`🔁 Recomprou ${Math.round(r.pct * 1000) / 10}% por ${money(r.cost)}`, 'ok'); C.pushCompanies && C.pushCompanies(); render(); } },
   copa: (d) => { const c = G.findComp(C.s, d.id); confirmBox(`Fazer uma <b>OPA</b> na <b>${esc(c.name)}</b>? Você paga ${money(G.opaCost(C.s, C.mk, c))} e recompra <b>todas</b> as ações da bolsa (quem tinha recebe o valor + 5%). A empresa volta a ser 100% sua.`, async () => { const r = await C.compOpa(c); if (typeof r === 'string') return toast('⚠️ ' + r, 'err'); A.sfx('cash'); toast(`📣 OPA concluída! Você controla 100% da ${esc(c.name)}${r.n ? ` · ${r.n} jogador(es) pagos` : ''}`, 'gold', false); render(); }); },
@@ -399,6 +409,8 @@ const INFO = {
   companies: `<h3>🏢 Como funcionam suas empresas</h3>
     <p><b>1. Crie</b> uma empresa num segmento (nível ${8}+). O segmento define os produtos e o setor da bolsa: quando o setor está 🔥 em alta a empresa vende +30%; em ❄️ queda, −25%.</p>
     <p><b>2. Desenvolva produtos</b> (5 por segmento, do mais simples ao mais avançado). Cada um custa e leva alguns minutos. Produto novo vende +50% no lançamento; depois de ~4h vai envelhecendo — lance uma <b>nova versão</b> para voltar ao pico.</p>
+    <p><b>🎓 Formação:</b> cada ramo exige o curso da área (ex.: Tecnologia pede Ciência da Computação; Montadora pede Engenharia).</p>
+    <p><b>🔧 Montagem (Tecnologia e Montadora):</b> você escolhe cada peça e o preço de venda. A crítica dá uma nota de 1 a 5 estrelas e comentários: peças certas para o tipo de produto, sem gargalos e com preço justo vendem muito; exageros encarecem e preço alto espanta clientes. Dá para mudar o preço depois ou lançar nova versão com outra montagem.</p>
     <p><b>3. Contrate</b>: 🏭 Produção é obrigatória (sem gente suficiente você vende menos); 🤝 Vendas (+5% cada) e 📣 Marketing (+4% cada) aumentam a receita; 🧪 P&D acelera o desenvolvimento e é exigido nos produtos avançados. Salário cresce com o porte da empresa.</p>
     <p><b>Lucro = receita − salários</b>, e cai direto no seu dinheiro todo dia.</p>
     <h3>📈 Ações da sua empresa</h3>
@@ -866,13 +878,17 @@ function newCompModal() {
     <div class="seggrid">${SEGMENTS.map((g) => `<button class="segcard" data-act="newcomp2" data-seg="${g.id}" data-cost="${G.foundCost(g)}" style="--sc:${g.color}">
       <span class="segi">${g.icon}</span><b>${g.name}</b><small>${SECTOR[g.sector].icon} ${SECTOR[g.sector].name}</small>
       <small>${g.products.map((p) => p.icon).join('')}</small>
-      ${g.cat ? `<em class="segbens">💎 Vende em Bens</em>` : ''}<span class="segcost">${money(G.foundCost(g))}</span></button>`).join('')}</div>`);
+      ${g.cat ? `<em class="segbens">💎 Vende em Bens</em>` : ''}${BUILDERS[g.id] ? '<em class="segbens">🔧 Monte peça por peça</em>' : ''}
+      <small class="segcourse ${G.hasSegCourse(s, g.id) ? 'ok' : ''}">${G.hasSegCourse(s, g.id) ? '✅' : '🎓'} ${esc(G.segCourseNames(g.id))}</small><span class="segcost">${money(G.foundCost(g))}</span></button>`).join('')}</div>
+    <p class="hint small">🎓 Cada ramo exige a formação da área. Faça o curso em 👤 Vida → Carreira.</p>`);
 }
 function newCompForm(segId) {
   const g = SEGMENT[segId], s = C.s;
   const sug = `${s.name.split(' ')[0]} ${{ alimentos: 'Foods', moda: 'Fashion', tech: 'Tech', joias: 'Joias', farma: 'Pharma', auto: 'Motors', construtora: 'Construções', fintech: 'Bank', energia: 'Energia', nautica: 'Aero & Náutica' }[segId]}`.slice(0, 22);
   modal(`<div class="segform">${segLogo(g)}<div><h3>${g.name}</h3><small class="muted">${g.products.map((p) => `${p.icon} ${p.name}`).join(' · ')}</small></div></div>
     ${g.cat ? `<p class="hint small">💎 Os produtos dessa empresa aparecem em <b>Bens → Marcas</b> para todos os jogadores comprarem. Cada venda manda ${Math.round(G.COMP.margin * 100)}% do preço para você.</p>` : '<p class="hint small">📦 Os produtos são vendidos para o mercado (não aparecem em Bens).</p>'}
+    ${G.hasSegCourse(s, segId) ? '' : `<p class="warnbox">🎓 Para abrir uma empresa de ${g.name} você precisa do curso <b>${esc(G.segCourseNames(segId))}</b>. Faça em 👤 Vida → Carreira.</p>`}
+    ${BUILDERS[segId] ? '<p class="hint small">🔧 Neste ramo você <b>monta cada produto peça por peça</b> e define o preço. A crítica avalia: produto bem montado e com preço justo vende muito; mal montado dá prejuízo.</p>' : ''}
     <input id="cname" maxlength="22" placeholder="Nome da empresa" value="${esc(sug)}">
     <input id="cticker" maxlength="4" placeholder="Código na bolsa (4 letras)" value="${G.tickerFrom(sug).slice(0, 4)}" autocapitalize="characters">
     <button class="btn gold full" data-act="foundcomp" data-seg="${g.id}" data-cost="${G.foundCost(g)}"><em>Criar empresa</em><span>${money(G.foundCost(g))}</span></button>
@@ -900,8 +916,13 @@ function vCompany(id) {
     const sale = seg.cat ? `<small>💎 Em Bens por ${money(k.price)}${k.bonus ? ` · +${Math.round(k.bonus * 100)}% salário` : k.hours ? ` · ${k.hours}h offline` : ''}</small>` : '';
     if (p) {
       const f = G.freshness(p);
-      return `<div class="prodrow on"><span class="bi">${k.icon}</span><div class="grow"><b>${esc(p.model)} <small class="muted">${k.name} · v${p.v || 1}</small></b><small>${money(tierInfo.rev * seg.k * f)}/dia de vendas base · ${freshLabel(f)}</small><div class="bar thin fresh"><i style="width:${Math.round((f / 1.5) * 100)}%"></i></div>${sale}</div>
-        ${c.dev ? '' : `<button class="btn sm ghost" data-act="newver" data-id="${c.id}" data-t="${i}" data-cost="${G.devCost(seg, i, true)}">🆕 Nova versão<span>${money(G.devCost(seg, i, true))}</span></button>`}</div>`;
+      const rv = p.build && p.review;
+      return `<div class="prodrow on ${rv ? 'built' : ''}"><span class="bi">${k.icon}</span><div class="grow"><b>${esc(p.model)} <small class="muted">${k.name} · v${p.v || 1}</small></b>
+        ${rv ? `<div class="review"><span class="rstars">${starsHTML(rv.stars)}</span><small>nota ${rv.score}</small></div>${rv.notes.map((n) => `<small class="critic">“${esc(n)}”</small>`).join('')}
+          <small>🏷️ Preço ${money(p.build.price)} · custo ${money(rv.cost)} · ≈${fmtUnits(G.productUnits(c, p))} vendas/dia · <b class="${G.productBase(c, p) >= 0 ? 'up' : 'down'}">${money(G.productBase(c, p) * f)}/dia</b></small>`
+          : `<small>${money(tierInfo.rev * seg.k * f)}/dia de vendas base · ${freshLabel(f)}</small>`}
+        <div class="bar thin fresh"><i style="width:${Math.round((f / 1.5) * 100)}%"></i></div><small>${freshLabel(f)}</small>${sale}</div>
+        <div class="col">${c.dev ? '' : `<button class="btn sm ghost" data-act="newver" data-id="${c.id}" data-t="${i}" data-cost="${G.devCost(seg, i, true)}">🆕 Nova versão<span>${money(G.devCost(seg, i, true))}</span></button>`}${rv ? `<button class="btn sm ghost" data-act="setprice" data-id="${c.id}" data-t="${i}">💲 Preço</button>` : ''}</div></div>`;
     }
     if (c.dev && c.dev.tier === i) return `<div class="prodrow dev"><span class="bi">${k.icon}</span><div class="grow"><b>🧪 ${esc(c.dev.model)} <small class="muted">${k.name}</small></b><div class="bar"><i data-live-w="cdev:${c.id}"></i></div><small>Fica pronto em <span data-live="cdevt:${c.id}"></span></small></div></div>`;
     if (i === next) {
@@ -911,6 +932,11 @@ function vCompany(id) {
     }
     return `<div class="prodrow plock ${k.premium ? 'premium' : ''}"><span class="bi">${k.premium ? '💎' : '🔒'}</span><div class="grow"><b>${k.premium ? '✨ ' : ''}${k.name}</b><small>${k.premium ? `Linha premium · precisa de ${tierInfo.branches} filiais e do produto anterior` : 'Lance o produto anterior primeiro'}</small></div></div>`;
   }).join('');
+  const cs = ui.csub || 'geral';
+  const tabsBar = `<div class="subtabs ctabs">${[['geral', '📊', 'Visão geral'], ['produtos', '📦', 'Produtos'], ['equipe', '👥', 'Equipe'], ['filiais', '🏬', 'Filiais'], ['bolsa', '🔔', 'Bolsa'], ['relatorio', '📑', 'Relatório']].map(([id, ic, n]) => `<button class="${cs === id ? 'on' : ''}" data-act="csub" data-t="${id}"><span>${ic}</span>${n}</button>`).join('')}</div>`;
+  const report = `<div class="corpcard"><b>📑 Relatório de produtos</b>${c.products.length ? `<div class="rtable">${c.products.map((p) => { const k = seg.products[p.tier]; const rv = p.build && p.review; const lucro = G.productBase(c, p) * G.freshness(p); return `<div class="rrow"><span>${k.icon} <b>${esc(p.model)}</b><small>${k.name}</small></span><span>${rv ? `${starsHTML(rv.stars)}<small>nota ${rv.score}</small>` : '<small class="muted">antigo</small>'}</span><span class="${lucro >= 0 ? 'up' : 'down'}">${money(lucro)}<small>/dia</small></span></div>`; }).join('')}</div>` : '<p class="muted">Nenhum produto lançado.</p>'}
+    <div class="lrow"><span>Receita total/dia</span><b class="up">${money(st.rev)}</b></div><div class="lrow"><span>Salários + aluguéis/dia</span><b class="down">${money(st.cost)}</b></div><div class="lrow"><span>Lucro/dia</span><b class="${st.profit < 0 ? 'down' : 'up'}">${money(st.profit)}</b></div>
+    <small class="muted">${BUILDERS[c.seg] ? '🕵️ A crítica avalia cada produto pelas peças escolhidas e pelo preço. Ajuste o preço ou lance uma nova versão para melhorar a nota.' : 'Os produtos deste ramo ainda usam o modelo simples (montagem peça por peça chega em breve).'}</small></div>`;
   return `<button class="backbtn" data-act="compback">‹ Minhas empresas</button>
   <div class="corpcard">
     <div class="crow">${segLogo(seg)}<div class="grow"><b>${esc(c.name)}</b><small>${esc(c.ticker)} · ${seg.name} · fundada ${ago(c.founded)}</small></div><span class="wxpill ${wxCls(reg)}">${SECTOR[seg.sector].icon} ${WX[reg]} ${WXN[reg]}</span></div>
@@ -921,8 +947,10 @@ function vCompany(id) {
     ${!c.products.length ? '<p class="hint small">👉 Comece pelo 1º produto lá embaixo. Depois contrate 🏭 Produção para fabricar e 🤝 Vendas / 📣 Marketing para vender mais.</p>' : ''}
     <small class="muted">Clima do setor ${WXN[reg].toLowerCase()} (${st.clima > 1 ? '+30%' : st.clima < 1 ? '−25%' : 'normal'}) · Gestão ${st.mg > 1 ? '+' + Math.round((st.mg - 1) * 100) + '%' : 'sem bônus'} · Vendas e marketing +${Math.round((st.boost - 1) * 100)}%</small>
   </div>
-  <h4 class="sec">📦 Produtos</h4><div class="prodlist">${prodRows}</div>
-  <h4 class="sec">🏬 Filiais</h4>
+  ${tabsBar}
+  ${cs === 'relatorio' ? report : ''}
+  ${cs === 'geral' || cs === 'produtos' ? `<h4 class="sec">📦 Produtos</h4><div class="prodlist">${prodRows}</div>` : ''}
+  ${cs === 'filiais' || cs === 'geral' ? `<h4 class="sec">🏬 Filiais</h4>
   <div class="corpcard branchbox">
     <div class="lrow"><span>Filiais abertas</span><b>${c.branches || 0} / ${G.BRANCH_MAX}</b></div>
     <div class="brs">${Array.from({ length: G.BRANCH_MAX }, (_, i) => `<span class="${i < (c.branches || 0) ? 'on' : ''}">🏬</span>`).join('')}</div>
@@ -930,8 +958,9 @@ function vCompany(id) {
     ${st.branches ? `<div class="lrow"><span>Aluguel das filiais</span><b class="down">${money(st.upkeep)}/dia</b></div>` : ''}
     <div class="btns">${(c.branches || 0) < G.BRANCH_MAX ? `<button class="btn gold sm" data-act="branch" data-id="${c.id}" data-cost="${G.branchCost(c)}" ${c.products.length ? '' : 'disabled'}><em>Abrir filial</em><span>${money(G.branchCost(c))}</span></button>` : ''}${c.branches ? `<button class="btn ghost sm" data-act="unbranch" data-id="${c.id}">Fechar 1 filial</button>` : ''}</div>
   </div>
-  <h4 class="sec">👥 Funcionários</h4><div class="stafflist">${staffRows}</div>
-  <h4 class="sec">🔔 Ações na bolsa</h4>
+  ` : ''}
+  ${cs === 'equipe' || cs === 'geral' ? `<h4 class="sec">👥 Funcionários</h4><div class="stafflist">${staffRows}</div>` : ''}
+  ${cs === 'bolsa' || cs === 'geral' ? `<h4 class="sec">🔔 Ações na bolsa</h4>
   <div class="corpcard">
     <div class="lrow"><span>Você controla</span><b>${Math.round((1 - c.float) * 100)}%</b></div><div class="bar"><i style="width:${(1 - c.float) * 100}%"></i></div>
     <small class="muted">${c.float > 0 ? `${Math.round(c.float * 100)}% estão na bolsa${others ? ` · ${fmt(others)} ações (${(others / G.COMP.shares * 100).toFixed(1)}%) com outros jogadores` : ' · nenhum jogador comprou ainda'}. Essa fatia do lucro vai para os acionistas.` : 'Empresa fechada: 100% do lucro é seu.'}</small>
@@ -939,8 +968,35 @@ function vCompany(id) {
     ${c.float > 1e-6 ? `<h4>📣 Recomprar tudo (OPA)</h4><p class="muted small">${others ? `${fmt(others)} ações estão com outros jogadores. ` : ''}Recompra <b>todas</b> as ${fmt(Math.round(c.float * G.COMP.shares))} ações da bolsa${others ? ', pagando os jogadores' : ''} com 5% a mais. Depois disso a empresa volta a ser 100% sua e pode ser fechada.</p><button class="btn gold sm" data-act="copa" data-id="${c.id}" data-cost="${G.opaCost(C.s, C.mk, c)}"><em>Fazer OPA</em><span>${money(G.opaCost(C.s, C.mk, c))}</span></button>` : ''}
     ${free > 1e-6 ? `<h4>Recomprar ações</h4><div class="quick">${[0.05, 0.1, free].filter((x, i, a) => x <= free + 1e-9 && a.indexOf(x) === i).map((x) => `<button class="chipbtn" data-act="cbuyback" data-id="${c.id}" data-p="${x}" data-cost="${x * val * 1.02}">${x === free ? 'Tudo que está livre' : Math.round(x * 100) + '%'} <small>${money(x * val * 1.02)}</small></button>`).join('')}</div>` : ''}
   </div>
-  <div class="center"><button class="btn ghost sm" data-act="closecomp" data-id="${c.id}">🏚️ Fechar empresa</button>${c.float > 1e-6 ? '<small class="muted"><br>Para fechar, primeiro recompre todas as ações (OPA).</small>' : ''}</div>`;
+  <div class="center"><button class="btn ghost sm" data-act="closecomp" data-id="${c.id}">🏚️ Fechar empresa</button>${c.float > 1e-6 ? '<small class="muted"><br>Para fechar, primeiro recompre todas as ações (OPA).</small>' : ''}</div>` : ''}`;
 }
+const starsHTML = (n) => '★'.repeat(Math.floor(n)) + (n % 1 ? '⯪' : '') + '☆'.repeat(5 - Math.ceil(n));
+const fmtUnits = (u) => (u >= 10 ? fmt(u) : u >= 1 ? u.toFixed(1) : u > 0 ? u.toFixed(2) : '0');
+// ---------- 🔧 Montagem do produto ----------
+function builderModal() {
+  const b = ui.bld, c = G.findComp(C.s, b.id); if (!c) return;
+  const seg = SEGMENT[c.seg], k = seg.products[b.tier], B = BUILDERS[c.seg];
+  const cost = G.unitCost(c.seg, b.tier, b.cfg), ref = G.refPrice(c.seg, b.tier);
+  const dev = G.devCost(seg, b.tier, b.version);
+  modal(`<div class="builder"><h3>${k.icon} ${b.version ? 'Nova versão' : 'Montar'}: ${k.name}</h3>
+    <p class="muted small">Escolha cada peça. Peças melhores custam mais por unidade. A crítica vai avaliar se a combinação faz sentido para um ${k.name.toLowerCase()} e se o preço vale a pena.</p>
+    ${b.version ? '' : `<input id="pmodel" maxlength="18" placeholder="Nome do produto" value="${esc(b.model || '')}">`}
+    ${B.slots.map((sl) => `<div class="bslot"><b>${sl.icon} ${sl.name}</b><div class="bopts">${sl.opts.map((o, i) => `<button class="bopt ${b.cfg[sl.id] === i + 1 ? 'on' : ''}" data-act="bslot" data-s="${sl.id}" data-v="${i + 1}"><span>${'▮'.repeat(i + 1)}</span>${esc(o)}<small>${money(G.slotCost(c.seg, b.tier, sl.id, i + 1))}</small></button>`).join('')}</div></div>`).join('')}
+    <div class="bsum"><div class="lrow"><span>🔩 Custo por unidade</span><b>${money(cost)}</b></div>
+      <div class="lrow"><span>📊 Concorrentes vendem por volta de</span><b>${money(ref)}</b></div>
+      <label class="lrow"><span>🏷️ Seu preço de venda</span><input id="bprice" type="number" inputmode="numeric" value="${Math.round(b.price || ref)}"></label>
+      <small class="muted">Margem por unidade: <b id="bmargin"></b></small></div>
+    <button class="btn gold full" data-act="bgo" data-cost="${dev}"><em>${b.version ? 'Desenvolver nova versão' : 'Começar desenvolvimento'}</em><span>${money(dev)}</span></button>
+    <small class="muted center">⏱️ ${Math.ceil(G.devMins(c, b.tier, b.version))} min de desenvolvimento · a nota da crítica sai no lançamento</small></div>`);
+  updMargin();
+}
+function updMargin() {
+  const b = ui.bld; const el = $('#bmargin'); const inp = $('#bprice'); if (!b || !el || !inp) return;
+  b.price = parseFloat(inp.value) || 0;
+  const m = b.price - G.unitCost(G.findComp(C.s, b.id).seg, b.tier, b.cfg);
+  el.textContent = money(m); el.className = m >= 0 ? 'up' : 'down';
+}
+document.addEventListener('input', (e) => { if (e.target.id === 'bprice') updMargin(); if (e.target.id === 'pmodel' && ui.bld) ui.bld.model = e.target.value; });
 function devModal(id, tier) {
   const c = G.findComp(C.s, id), seg = SEGMENT[c.seg], k = seg.products[tier];
   const SUG = ['Turbo', 'Prime', 'Max', 'Ultra', 'Nova', 'Fênix', 'Titan', 'Aurora', 'Vortex', 'Zen', 'Supreme', 'Neo'];
