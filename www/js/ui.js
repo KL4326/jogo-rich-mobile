@@ -439,16 +439,39 @@ const INFO = {
 const infoBtn = (k) => `<button class="qbtn" data-act="info" data-k="${k}">?</button>`;
 
 // ---------- abas ----------
+// ícones desenhados (SVG) para a barra de abas
+const TAB_ICONS = {
+  inicio: `<svg viewBox="0 0 32 32"><path d="M4 15 16 4l12 11" fill="#ff6b6b" stroke="#c93a4f" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/><path d="M7 14h18v13a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 7 27Z" fill="#fff3d6" stroke="#d9a65a" stroke-width="1.6"/><rect x="13" y="19" width="6" height="9.5" rx="1.5" fill="#a8683a"/><rect x="9.5" y="17" width="3.2" height="3.2" rx=".6" fill="#7fd0ff"/><rect x="19.3" y="17" width="3.2" height="3.2" rx=".6" fill="#7fd0ff"/><circle cx="17.6" cy="24" r=".8" fill="#ffd23c"/></svg>`,
+  vida: `<svg viewBox="0 0 32 32"><path d="M5 29c0-6.5 5-10.5 11-10.5S27 22.5 27 29Z" fill="#4da3ff" stroke="#2a74d1" stroke-width="1.6" stroke-linejoin="round"/><path d="M13 19.5 16 24l3-4.5" fill="#fff" /><circle cx="16" cy="11.5" r="6.8" fill="#ffd2a8" stroke="#e0a374" stroke-width="1.4"/><path d="M9.3 10.5C9.5 5.5 13 4 16 4s6.6 1.6 6.7 6.5c-2-2-4.5-2.6-6.7-2.6s-4.7.6-6.7 2.6Z" fill="#6b3f22"/><circle cx="13.6" cy="12" r=".95" fill="#2e2453"/><circle cx="18.4" cy="12" r=".95" fill="#2e2453"/><path d="M14 14.8q2 1.5 4 0" stroke="#c9564f" stroke-width="1.1" fill="none" stroke-linecap="round"/></svg>`,
+  empresas: `<svg viewBox="0 0 32 32"><path d="M12 9V6.5A1.5 1.5 0 0 1 13.5 5h5A1.5 1.5 0 0 1 20 6.5V9" fill="none" stroke="#7a4a1f" stroke-width="2.2"/><rect x="3.5" y="9" width="25" height="18" rx="3.5" fill="#c9824a" stroke="#8a5428" stroke-width="1.6"/><path d="M3.5 16.5q12.5 4 25 0" stroke="#8a5428" stroke-width="1.6" fill="none"/><rect x="13.5" y="15.5" width="5" height="4.5" rx="1" fill="#ffd23c" stroke="#b5800f" stroke-width="1"/></svg>`,
+  investir: `<svg viewBox="0 0 32 32"><rect x="4" y="19" width="5.5" height="9" rx="1.4" fill="#8fe3a8"/><rect x="11.5" y="14" width="5.5" height="14" rx="1.4" fill="#4fd17f"/><rect x="19" y="9" width="5.5" height="19" rx="1.4" fill="#2bc46f"/><path d="M4 15.5 11 9.5l4.5 3.5L25.5 4" fill="none" stroke="#1a944f" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M20.5 3.6h5.4V9" fill="none" stroke="#1a944f" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 28.5h26" stroke="#7a6fa3" stroke-width="1.6" stroke-linecap="round"/></svg>`,
+  bens: `<svg viewBox="0 0 32 32"><path d="M9 5h14l6 7.5L16 28 3 12.5Z" fill="#7fe0ff" stroke="#2a8fc4" stroke-width="1.6" stroke-linejoin="round"/><path d="M3 12.5h26M12.5 5 16 12.5 19.5 5M9 5l3.5 7.5L16 28l3.5-15.5L23 5" fill="none" stroke="#2a8fc4" stroke-width="1.2" stroke-linejoin="round"/><path d="M5.5 12.5h7L16 28Z" fill="#b8f0ff"/><path d="M10 7.5l1.5 3" stroke="#fff" stroke-width="1.4" stroke-linecap="round"/></svg>`,
+  perfil: `<svg viewBox="0 0 32 32"><path d="M9 5h14v7a7 7 0 0 1-14 0Z" fill="#ffd23c" stroke="#d18a0a" stroke-width="1.6"/><path d="M9 7.5H5.5q-.5 6 4.5 7M23 7.5h3.5q.5 6-4.5 7" fill="none" stroke="#d18a0a" stroke-width="2"/><path d="M14 18.5h4v4h-4Z" fill="#f0b21b"/><rect x="10" y="22.5" width="12" height="5" rx="1.5" fill="#a8683a" stroke="#7a4a1f" stroke-width="1.2"/><path d="m16 7.4 1.1 2.2 2.4.3-1.8 1.6.5 2.4-2.2-1.2-2.2 1.2.5-2.4-1.8-1.6 2.4-.3Z" fill="#fff6c9"/></svg>`,
+};
 const TABS = [
-  { id: 'inicio', icon: '🏙️', name: 'Início' },
-  { id: 'vida', icon: '👤', name: 'Vida' },
-  { id: 'empresas', icon: '🏭', name: 'Negócios' },
-  { id: 'investir', icon: '📈', name: 'Investir' },
-  { id: 'bens', icon: '💎', name: 'Bens' },
-  { id: 'perfil', icon: '🏆', name: 'Ranking' },
+  { id: 'inicio', icon: '🏙️', name: 'Início', c: '#ff6b6b' },
+  { id: 'vida', icon: '👤', name: 'Vida', c: '#4da3ff' },
+  { id: 'empresas', icon: '🏭', name: 'Negócios', c: '#d18a4a' },
+  { id: 'investir', icon: '📈', name: 'Investir', c: '#2bc46f' },
+  { id: 'bens', icon: '💎', name: 'Bens', c: '#36b3e6' },
+  { id: 'perfil', icon: '🏆', name: 'Ranking', c: '#f0b21b' },
 ];
+// a barra é montada uma vez; depois só troca a aba ativa (assim o destaque desliza com animação)
 function renderTabs() {
-  $('#tabs').innerHTML = TABS.map((t) => `<button class="${ui.tab === t.id ? 'on' : ''}" data-act="tab" data-tab="${t.id}"><span>${t.icon}</span><small>${t.name}</small>${t.id === 'inicio' && (C.s.event || (C.s.inbox || []).length) && ui.tab !== 'inicio' ? '<i class="dot"></i>' : ''}</button>`).join('');
+  const nav = $('#tabs');
+  const idx = Math.max(0, TABS.findIndex((t) => t.id === ui.tab));
+  if (!nav.querySelector('.tabind')) {
+    nav.innerHTML = `<i class="tabind"></i>` + TABS.map((t) => `<button data-act="tab" data-tab="${t.id}" style="--tc:${t.c}"><span class="tico">${TAB_ICONS[t.id]}</span><small>${t.name}</small><i class="dot"></i></button>`).join('');
+  }
+  nav.style.setProperty('--n', TABS.length);
+  nav.style.setProperty('--i', idx);
+  nav.style.setProperty('--tc', TABS[idx].c);
+  nav.querySelectorAll('button').forEach((b) => {
+    const on = b.dataset.tab === ui.tab;
+    if (on && !b.classList.contains('on')) { b.classList.remove('bump'); void b.offsetWidth; b.classList.add('bump'); }
+    b.classList.toggle('on', on);
+    b.querySelector('.dot').hidden = !(b.dataset.tab === 'inicio' && (C.s.event || (C.s.inbox || []).length) && ui.tab !== 'inicio');
+  });
 }
 
 export function render(anim = false) {

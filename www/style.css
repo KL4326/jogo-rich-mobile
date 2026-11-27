@@ -1213,3 +1213,33 @@ s.old { opacity: .6; font-size: 12px; margin-left: 4px; }
 .scene.big .plaque { z-index: 4; background: linear-gradient(180deg, #fff1a8, #ffd23c 55%, #f2b21b); border: 2px solid #fff7d1; box-shadow: 0 4px 0 var(--gold-d), 0 8px 18px #0003; }
 .scene.big .plaque b { text-shadow: 0 1px 0 #fff8; }
 .scene.big .tripbanner { z-index: 4; backdrop-filter: blur(4px); }
+
+/* ===== Melhoria gráfica 2: barra de abas com ícones desenhados e animação ===== */
+#tabs { position: relative; isolation: isolate; padding: 7px 6px; border-radius: 26px; background: linear-gradient(180deg, #fffdf8, #f6efff); border: 2px solid #fff; box-shadow: 0 5px 0 var(--edge), 0 12px 28px #0006; }
+#tabs .tabind { position: absolute; z-index: -1; top: 6px; bottom: 6px; left: 6px; width: calc((100% - 12px) / var(--n, 6)); transform: translateX(calc(var(--i, 0) * 100%)); transition: transform .38s cubic-bezier(.34, 1.45, .55, 1); pointer-events: none; }
+#tabs .tabind::before { content: ''; position: absolute; inset: 0 3px; border-radius: 19px; background: #f1ecff; box-shadow: inset 0 -3px 0 #0001; background: color-mix(in srgb, var(--tc, #8f6bff) 16%, #fff); box-shadow: inset 0 -3px 0 color-mix(in srgb, var(--tc, #8f6bff) 30%, transparent), 0 0 0 2px color-mix(in srgb, var(--tc, #8f6bff) 35%, transparent); transition: background .3s, box-shadow .3s; }
+#tabs button { padding: 5px 0 3px; background: none !important; color: var(--ink2); transition: color .25s; }
+#tabs button .tico { display: block; width: 30px; height: 30px; transition: transform .25s cubic-bezier(.34, 1.6, .55, 1), filter .25s; filter: grayscale(.35) opacity(.85); font-size: 0; }
+#tabs button .tico svg { width: 100%; height: 100%; display: block; overflow: visible; }
+#tabs button small { font-size: 10.5px; font-weight: 700; transition: color .25s, transform .25s; }
+#tabs button.on { color: var(--tc); }
+#tabs button.on .tico { filter: drop-shadow(0 3px 0 #0002); }
+#tabs button.on .tico { transform: translateY(-5px) scale(1.2); filter: drop-shadow(0 3px 0 #0002) drop-shadow(0 0 6px color-mix(in srgb, var(--tc) 45%, transparent)); }
+#tabs button.on small { color: var(--ink); color: color-mix(in srgb, var(--tc) 75%, #2e2453); }
+#tabs button.bump .tico { animation: tabbump .55s cubic-bezier(.34, 1.6, .55, 1); }
+@keyframes tabbump { 0% { transform: translateY(0) scale(.8) rotate(0); } 35% { transform: translateY(-10px) scale(1.32) rotate(-10deg); } 65% { transform: translateY(-3px) scale(1.12) rotate(6deg); } 100% { transform: translateY(-5px) scale(1.2) rotate(0); } }
+#tabs button:active .tico { transform: translateY(-2px) scale(.88); }
+#tabs button.on .tico svg { animation: tabfloat 2.8s ease-in-out infinite .6s; }
+@keyframes tabfloat { 50% { transform: translateY(-1.5px) rotate(-3deg); } }
+#tabs .dot[hidden] { display: none; }
+@media (hover: hover) { #tabs button:not(.on):hover .tico { transform: translateY(-2px) scale(1.08); filter: none; } }
+/* sub-abas: destaque com "pulo" ao escolher */
+.subtabs button { transition: transform .15s, background .2s; }
+.subtabs button:active { transform: scale(.94); }
+.subtabs button.on { animation: subpop .35s cubic-bezier(.34, 1.6, .55, 1); }
+.subtabs button.on span { display: inline-block; animation: subicon .5s cubic-bezier(.34, 1.6, .55, 1); }
+@keyframes subpop { 0% { transform: scale(.9); } 60% { transform: scale(1.06); } 100% { transform: scale(1); } }
+@keyframes subicon { 0% { transform: scale(.6) rotate(-15deg); } 60% { transform: scale(1.3) rotate(8deg); } 100% { transform: none; } }
+/* troca de página mais suave */
+.page.anim { animation: pagein2 .32s cubic-bezier(.2, .9, .3, 1.15); }
+@keyframes pagein2 { from { opacity: 0; transform: translateY(14px) scale(.985); } to { opacity: 1; transform: none; } }
