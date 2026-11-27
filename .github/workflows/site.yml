@@ -20,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+      url: ${{ steps.deploy1.outputs.page_url || steps.deploy2.outputs.page_url || steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v5
       - name: Marcar versão
@@ -31,5 +31,22 @@ jobs:
       - uses: actions/upload-pages-artifact@v3
         with:
           path: www
+      # O GitHub às vezes demora para "enxergar" o pacote recém-enviado: espera e tenta até 3 vezes
+      - name: Aguardar o pacote ficar disponível
+        run: sleep 15
+      - id: deploy1
+        continue-on-error: true
+        uses: actions/deploy-pages@v4
+      - name: Aguardar antes de tentar de novo
+        if: steps.deploy1.outcome == 'failure'
+        run: sleep 45
+      - id: deploy2
+        if: steps.deploy1.outcome == 'failure'
+        continue-on-error: true
+        uses: actions/deploy-pages@v4
+      - name: Aguardar antes da última tentativa
+        if: steps.deploy1.outcome == 'failure' && steps.deploy2.outcome == 'failure'
+        run: sleep 90
       - id: deployment
+        if: steps.deploy1.outcome == 'failure' && steps.deploy2.outcome == 'failure'
         uses: actions/deploy-pages@v4
