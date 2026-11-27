@@ -1200,7 +1200,7 @@ s.old { opacity: .6; font-size: 12px; margin-left: 4px; }
 .scene.big .ground { height: 96px; border-top: 0; background: repeating-linear-gradient(100deg, #ffffff0a 0 14px, transparent 14px 28px), linear-gradient(180deg, #5cc65c 0%, #43ad4c 55%, #36953f 100%); box-shadow: inset 0 3px 0 #8be38a; }
 .scene.big.night .ground { background: repeating-linear-gradient(100deg, #ffffff06 0 14px, transparent 14px 28px), linear-gradient(180deg, #2c7440 0%, #205a31 100%); box-shadow: inset 0 3px 0 #3f9455; }
 .scene.big.p-dusk .ground { background: repeating-linear-gradient(100deg, #ffffff08 0 14px, transparent 14px 28px), linear-gradient(180deg, #5aa64f 0%, #3f8640 100%); }
-.gpath { position: absolute; left: 34px; top: 0; width: 70px; height: 100%; background: linear-gradient(180deg, #e9d3a3, #d7b97c); clip-path: polygon(38% 0, 62% 0, 100% 100%, 0 100%); opacity: .85; }
+.gpath { position: absolute; left: 51px; top: 0; width: 70px; height: 100%; background: linear-gradient(180deg, #e9d3a3, #d7b97c); clip-path: polygon(38% 0, 62% 0, 100% 100%, 0 100%); opacity: .85; }
 .night .gpath { background: linear-gradient(180deg, #8a7a5a, #6e5f43); }
 .gflow { position: absolute; width: 7px; height: 7px; border-radius: 50%; background: #ff6fa8; box-shadow: 9px 3px 0 -1px #ffe066, -8px 5px 0 -1px #fff, 4px -6px 0 -2px #ff9ad0; }
 .gflow.f1 { right: 22px; top: 22px; } .gflow.f2 { right: 64px; top: 58px; } .gflow.f3 { left: 120px; top: 70px; }
@@ -1312,3 +1312,28 @@ s.old { opacity: .6; font-size: 12px; margin-left: 4px; }
 @keyframes cardin { from { opacity: 0; transform: translateY(16px) scale(.97); } to { opacity: 1; transform: none; } }
 .page.anim { animation: none; }
 @media (prefers-reduced-motion: reduce) { .page.anim > *, .btn.gold::after, .bar i::after { animation: none !important; } }
+
+/* ===== Melhoria gráfica 5: casa desenhada que evolui ===== */
+.homeart { position: absolute; left: 2px; bottom: 66px; width: 168px; height: 147px; z-index: 2; transform-origin: 50% 100%; filter: drop-shadow(0 5px 0 #0000001f); }
+.homesvg { width: 100%; height: 100%; display: block; overflow: visible; }
+.homesvg .w { fill: #9fdcff; transition: fill .6s; }
+.scene.night .homesvg .w { fill: #ffd86b; filter: drop-shadow(0 0 4px #ffcf4d); }
+.scene.p-dusk .homesvg .w { fill: #ffe7a3; }
+.homesvg .smoke circle { fill: #ffffffb0; animation: smoke 3.2s ease-out infinite; transform-box: fill-box; transform-origin: center; }
+.homesvg .smoke circle:nth-child(2) { animation-delay: -1.1s; } .homesvg .smoke circle:nth-child(3) { animation-delay: -2.2s; }
+@keyframes smoke { 0% { opacity: 0; transform: translateY(10px) scale(.5); } 30% { opacity: .9; } 100% { opacity: 0; transform: translateY(-14px) scale(1.4); } }
+.homesvg .flag { animation: flagwave 1.4s ease-in-out infinite; transform-box: fill-box; transform-origin: 0 50%; }
+@keyframes flagwave { 50% { transform: scaleX(.75) skewY(6deg); } }
+.homesvg .wave { animation: wave 2.4s ease-in-out infinite; }
+@keyframes wave { 50% { transform: translateX(4px); } }
+.homesvg .blink { animation: blink 1.2s steps(1) infinite; }
+@keyframes blink { 50% { opacity: .2; } }
+.scene.night .homeart { filter: drop-shadow(0 5px 0 #0003) drop-shadow(0 0 18px #ffcf4d33); }
+.scene.big .homeshadow { left: 18px; bottom: 60px; width: 140px; }
+/* animação de construção ao trocar de moradia */
+.homeart.build svg { animation: build 1s cubic-bezier(.34, 1.5, .55, 1) both; transform-origin: 50% 100%; }
+@keyframes build { 0% { transform: scale(.2, 0); opacity: 0; } 40% { opacity: 1; } 70% { transform: scale(1.08, 1.1); } 100% { transform: none; } }
+.homeart .dust { position: absolute; bottom: -6px; width: 46px; height: 26px; border-radius: 50%; background: radial-gradient(circle, #fff, #e9dcc5 60%, transparent 70%); opacity: 0; animation: dust 1s ease-out forwards; }
+.homeart .dust.d1 { left: 0; } .homeart .dust.d2 { left: 60px; animation-delay: .1s; } .homeart .dust.d3 { left: 118px; animation-delay: .2s; }
+@keyframes dust { 0% { opacity: .95; transform: scale(.4); } 100% { opacity: 0; transform: scale(2) translateY(-14px); } }
+@media (prefers-reduced-motion: reduce) { .homesvg *, .homeart.build svg { animation: none !important; } }

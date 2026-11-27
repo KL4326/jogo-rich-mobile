@@ -8,6 +8,7 @@ import {
 import * as G from './game.js';
 import { avatarSVG, HAND_ITEMS, defaultLook, LEGENDS, LEGEND, LEGEND_COST, SKINS, HAIR_COLORS, EYE_COLORS, HAIRS, BEARDS, CLOTHES, SLOTS, SETS, CLOTH } from './avatar.js';
 import { townSVG } from './town.js';
+import { homeSVG, homeKey } from './homes.js';
 import * as A from './audio.js';
 import { tickToMs } from './market.js';
 
@@ -751,6 +752,15 @@ function hillsArt(per) {
     <path fill="${near}" d="M0 96 Q90 78 200 92 T400 88 V110 H0Z"/>
   </svg>`;
 }
+// casa desenhada; quando muda de moradia, toca a animação de "construção"
+let lastHomeKey = null;
+function homeArt(home) {
+  const k = homeKey(home);
+  const isNew = lastHomeKey !== null && lastHomeKey !== k;
+  lastHomeKey = k;
+  if (isNew) setTimeout(() => { if (document.querySelector('.homeart.build')) confetti(false); }, 650);
+  return `<div class="homeart${isNew ? ' build' : ''}">${isNew ? '<i class="dust d1"></i><i class="dust d2"></i><i class="dust d3"></i>' : ''}${homeSVG(k)}</div>`;
+}
 function scene() {
   const s = C.s;
   const h = new Date().getHours();
@@ -768,7 +778,7 @@ function scene() {
     ${night ? '' : '<i class="cld k1"></i><i class="cld k2"></i><i class="cld k3"></i>'}
     ${hillsArt(per)}
     <i class="homeshadow"></i>
-    <div class="homebig">${trip ? trip.icon : home ? home.icon : '🏚️'}</div>
+    ${trip ? `<div class="homebig">${trip.icon}</div>` : homeArt(home)}
     <div class="ground"><i class="gpath"></i><i class="gflow f1"></i><i class="gflow f2"></i><i class="gflow f3"></i></div>
     <div class="cast ${showPartner ? 'duo' : ''}">
       ${veh && !trip ? `<span class="vehbig" style="filter:hue-rotate(${veh.hue || 0}deg) drop-shadow(0 4px 0 #0002)">${veh.icon}</span>` : ''}
