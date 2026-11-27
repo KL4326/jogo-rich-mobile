@@ -105,18 +105,96 @@ function burst(el, glyph = '🪙', n = 7) {
     setTimeout(() => p.remove(), 1100);
   }
 }
-export function confetti() {
+export function confetti(big = true) {
   A.sfx('fanfare');
-  const colors = ['#ffc93c', '#ff6b9a', '#4dabff', '#3ddc84', '#b07bff'];
-  for (let i = 0; i < 60; i++) {
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const colors = ['#ffc93c', '#ff6b9a', '#4dabff', '#3ddc84', '#b07bff', '#ff8a3d', '#fff'];
+  const shapes = ['rect', 'rect', 'circ', 'strip', 'star'];
+  const W = innerWidth, H = innerHeight, n = big ? 90 : 45;
+  for (let i = 0; i < n; i++) {
     const p = document.createElement('i');
-    p.className = 'confetti';
-    p.style.left = Math.random() * 100 + 'vw';
-    p.style.background = colors[i % colors.length];
-    p.style.animationDelay = Math.random() * 0.5 + 's';
-    p.style.setProperty('--rot', Math.random() * 720 + 'deg');
+    const sh = shapes[i % shapes.length];
+    p.className = 'conf ' + sh;
+    p.style.setProperty('--c', colors[i % colors.length]);
     document.body.appendChild(p);
-    setTimeout(() => p.remove(), 2600);
+    // dois canhões nos cantos de baixo + chuva do topo
+    const side = i % 3, x0 = side === 0 ? -10 : side === 1 ? W + 10 : Math.random() * W;
+    const y0 = side === 2 ? -20 : H * 0.85;
+    const vx = side === 0 ? 0.25 + Math.random() * 0.45 : side === 1 ? -(0.25 + Math.random() * 0.45) : (Math.random() - 0.5) * 0.2;
+    const peak = side === 2 ? y0 + 40 : H * (0.08 + Math.random() * 0.35);
+    const x1 = x0 + vx * W, x2 = x1 + (Math.random() - 0.5) * 120, sway = (Math.random() - 0.5) * 60;
+    const r = Math.random() * 360, spin = (Math.random() > 0.5 ? 1 : -1) * (540 + Math.random() * 720);
+    const dur = 2200 + Math.random() * 1400, delay = side === 2 ? 250 + Math.random() * 600 : Math.random() * 180;
+    const an = p.animate([
+      { transform: `translate(${x0}px,${y0}px) rotate(${r}deg) rotateX(0deg)`, opacity: 1 },
+      { transform: `translate(${x1}px,${peak}px) rotate(${r + spin * 0.3}deg) rotateX(360deg)`, opacity: 1, offset: side === 2 ? 0.1 : 0.28, easing: 'ease-in' },
+      { transform: `translate(${x2 + sway}px,${H * 0.6}px) rotate(${r + spin * 0.7}deg) rotateX(900deg)`, opacity: 1, offset: 0.75 },
+      { transform: `translate(${x2 - sway}px,${H + 30}px) rotate(${r + spin}deg) rotateX(1260deg)`, opacity: 0.8 },
+    ], { duration: dur, delay, easing: 'cubic-bezier(.2,.6,.4,1)', fill: 'both' });
+    an.onfinish = () => p.remove();
+    setTimeout(() => p.remove(), dur + delay + 500);
+  }
+}
+// ---------- moedas voando até o saldo + contador animado ----------
+let tapX = innerWidth / 2, tapY = innerHeight / 2, tapT = 0;
+document.addEventListener('pointerdown', (e) => { tapX = e.clientX; tapY = e.clientY; tapT = Date.now(); }, true);
+const cashFx = { prev: null, avg: 0, from: 0, to: 0, t0: 0, dur: 0, raf: 0 };
+function cashShown() {
+  const f = cashFx; if (!f.dur) return C.s.cash;
+  const k = Math.min(1, (performance.now() - f.t0) / f.dur);
+  if (k >= 1) { f.dur = 0; return C.s.cash; }
+  const e = 1 - Math.pow(1 - k, 3);
+  return f.from + (C.s.cash - f.from) * e;
+}
+function cashLoop() {
+  const v = cashShown();
+  document.querySelectorAll('[data-live="cash"]').forEach((el) => { el.textContent = money(v); });
+  cashFx.raf = cashFx.dur ? requestAnimationFrame(cashLoop) : 0;
+}
+function cashWatch() {
+  const f = cashFx, now = C.s.cash;
+  if (f.prev === null || !isFinite(now)) { f.prev = now; return; }
+  const d = now - f.prev; f.prev = now;
+  if (!d) return;
+  const small = Math.abs(d) <= Math.max(1, f.avg * 25);
+  if (small) { f.avg = f.avg ? f.avg * 0.9 + Math.abs(d) * 0.1 : Math.abs(d); return; }
+  if (document.hidden) return;
+  f.from = cashShown() - d; f.t0 = performance.now(); f.dur = 700;
+  if (!f.raf) f.raf = requestAnimationFrame(cashLoop);
+  const pill = document.querySelector('.cashpill');
+  if (!pill) return;
+  pill.classList.remove('gain', 'spend'); void pill.offsetWidth; pill.classList.add(d > 0 ? 'gain' : 'spend');
+  floatAmount(pill, d);
+  if (d > 0 && !matchMedia('(prefers-reduced-motion: reduce)').matches) flyCoins(pill, Math.min(12, 4 + Math.floor(Math.log10(Math.max(10, d)))));
+}
+function floatAmount(pill, d) {
+  const r = pill.getBoundingClientRect();
+  const el = document.createElement('div');
+  el.className = 'cashfloat ' + (d > 0 ? 'up' : 'down');
+  el.textContent = (d > 0 ? '+' : '−') + money(Math.abs(d));
+  el.style.left = Math.min(r.right - 70, innerWidth - 90) + 'px'; el.style.top = r.bottom - 4 + 'px';
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 1500);
+}
+function flyCoins(pill, n) {
+  const icon = pill.querySelector('.cicon') || pill;
+  const t = icon.getBoundingClientRect(), tx = t.left + t.width / 2, ty = t.top + t.height / 2;
+  const recent = Date.now() - tapT < 1500;
+  const sx = recent ? tapX : innerWidth / 2, sy = recent ? tapY : innerHeight * 0.55;
+  for (let i = 0; i < n; i++) {
+    const c = document.createElement('i');
+    c.className = 'flycoin';
+    document.body.appendChild(c);
+    const ox = sx + (Math.random() - 0.5) * 70, oy = sy + (Math.random() - 0.5) * 40;
+    const mx = (ox + tx) / 2 + (Math.random() - 0.5) * 160, my = Math.min(oy, ty) - 40 - Math.random() * 80;
+    const an = c.animate([
+      { transform: `translate(${sx}px,${sy}px) scale(.3)`, opacity: 0 },
+      { transform: `translate(${ox}px,${oy}px) scale(1.15) rotateY(180deg)`, opacity: 1, offset: 0.18 },
+      { transform: `translate(${mx}px,${my}px) scale(1) rotateY(540deg)`, offset: 0.6 },
+      { transform: `translate(${tx}px,${ty}px) scale(.55) rotateY(900deg)`, opacity: 0.9 },
+    ], { duration: 750 + Math.random() * 250, delay: i * 55, easing: 'cubic-bezier(.45,.05,.55,.95)', fill: 'both' });
+    an.onfinish = () => { c.remove(); if (i % 3 === 0) A.sfx('coin'); icon.classList.remove('hit'); void icon.offsetWidth; icon.classList.add('hit'); clearTimeout(icon._ht); icon._ht = setTimeout(() => icon.classList.remove('hit'), 320); };
+    setTimeout(() => c.remove(), 2500);
   }
 }
 export function modal(html, cls = '') {
@@ -1984,7 +2062,9 @@ function liveWidth(key) {
 
 export function refresh(heavy = false) {
   if (!C) return;
+  cashWatch();
   document.querySelectorAll('[data-live]').forEach((el) => {
+    if (el.dataset.live === 'cash' && cashFx.dur) return;
     const v = liveValue(el.dataset.live);
     if (typeof v === 'object') { if (el.textContent !== v.t) el.textContent = v.t; el.classList.toggle('up', v.c === 'up'); el.classList.toggle('down', v.c === 'down'); }
     else if (el.textContent !== String(v)) el.textContent = v;
