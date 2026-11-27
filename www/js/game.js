@@ -769,6 +769,19 @@ export function ensureLife(s) {
   s.trips = s.trips || {};
   s.companies = s.companies || [];
   for (const c of s.companies) if (c.float > 0 && c.float < 1e-6) c.float = 0; // restinho de arredondamento
+  // Produtos 6 e 7 novos entraram antes da linha premium: premium já lançado (antigos 6º/7º/8º) vira 8º/9º/10º
+  if (!s.prodShift) {
+    s.prodShift = true;
+    for (const c of s.companies) {
+      for (const p of c.products) if (p.tier >= 5) p.tier += 2;
+      if (c.dev && c.dev.tier >= 5) c.dev.tier += 2;
+      c.products.sort((a, b) => a.tier - b.tier);
+    }
+    for (const [k, g] of Object.entries(s.pgoods || {})) {
+      const m = k.match(/^(.*):(\d+)$/);
+      if (m && +m[2] >= 5) { const nk = `${m[1]}:${+m[2] + 2}`; delete s.pgoods[k]; s.pgoods[nk] = { ...g, id: nk }; }
+    }
+  }
   s.pgoods = s.pgoods || {};
   // Legado da fórmula antiga (quebrada): quem passou do teto fica com 50 pontos (+118%)
   // Anistia (uma vez): o imposto sobre fortuna antigo (1% a cada 6h) gerou dívidas impagáveis. Perdoa dívida e saldo negativo até o total de impostos já pagos.

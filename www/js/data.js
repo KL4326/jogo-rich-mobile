@@ -538,10 +538,27 @@ export const EXCL = Object.fromEntries(EXCLUSIVES.map((x) => [x.id, x]));
 
 // ===== Linha premium: 3 produtos extras por segmento, liberados com filiais =====
 PRODUCT_TIERS.push(
-  { rev: 2e6, mins: 2160, need: 22, pd: 8, branches: 2 },
-  { rev: 1e7, mins: 2520, need: 30, pd: 9, branches: 4 },
+  // 6º e 7º: produtos comuns avançados
+  { rev: 1e6, mins: 720, need: 18, pd: 7 },
+  { rev: 2.5e6, mins: 1080, need: 20, pd: 7 },
+  // 8º, 9º e 10º: linha premium (precisam de filiais)
+  { rev: 6e6, mins: 2160, need: 24, pd: 8, branches: 2 },
+  { rev: 1.5e7, mins: 2520, need: 30, pd: 9, branches: 4 },
   { rev: 5e7, mins: 2880, need: 40, pd: 10, branches: 6 },
 );
+// 2 produtos comuns extras por segmento (entram antes da linha premium)
+const EXTRA2 = {
+  alimentos: [{ name: 'Linha Orgânica Premium', icon: '🥗' }, { name: 'Delivery Próprio', icon: '🛵' }],
+  moda: [{ name: 'Perfumes de Grife', icon: '🧴' }, { name: 'Relógios de Moda', icon: '⌚' }],
+  tech: [{ name: 'Drone Profissional', icon: '🚁', price: 1.8e6, prestige: 38 }, { name: 'Holograma Doméstico', icon: '📽️', price: 2.8e6, prestige: 48 }],
+  joias: [{ name: 'Cetro de Ouro', icon: '🔱', price: 5e7, prestige: 240 }, { name: 'Trono Cravejado', icon: '🪑', price: 1e8, prestige: 380 }],
+  farma: [{ name: 'Kit de Diagnóstico Rápido', icon: '🧫' }, { name: 'Remédio para o Alzheimer', icon: '🧠' }],
+  auto: [{ name: 'Picape de Luxo', icon: '🛻', price: 5e7, prestige: 250, bonus: 0.395 }, { name: 'Carro de Corrida', icon: '🏎️', price: 8e7, prestige: 330, bonus: 0.41 }],
+  construtora: [{ name: 'Resort', icon: '🏨', price: 3e8, prestige: 520, hours: 5 }, { name: 'Castelo Moderno', icon: '🏯', price: 5e8, prestige: 700, hours: 6 }],
+  fintech: [{ name: 'Corretora de Câmbio', icon: '💱' }, { name: 'Banco de Investimentos', icon: '🏛️' }],
+  energia: [{ name: 'Usina Geotérmica', icon: '🌋' }, { name: 'Baterias Gigantes', icon: '🔋' }],
+  nautica: [{ name: 'Hidroavião', icon: '🛬', price: 1e9, prestige: 1300, bonus: 0.57 }, { name: 'Submarino de Luxo', icon: '🤿', price: 1.6e9, prestige: 1650, bonus: 0.58 }],
+};
 const PREMIUM = {
   alimentos: [{ name: 'Rede Mundial de Restaurantes', icon: '🍽️' }, { name: 'Fazendas Inteligentes', icon: '🌾' }, { name: 'Comida do Futuro', icon: '🧬' }],
   moda: [{ name: 'Grife Internacional', icon: '🛍️' }, { name: 'Desfile em Paris', icon: '🗼' }, { name: 'Império da Moda', icon: '👑' }],
@@ -554,7 +571,7 @@ const PREMIUM = {
   energia: [{ name: 'Usina Oceânica', icon: '🌊' }, { name: 'Anel Solar Orbital', icon: '🛰️' }, { name: 'Energia de Antimatéria', icon: '✴️' }],
   nautica: [{ name: 'Avião Executivo', icon: '✈️', price: 2.5e9, prestige: 2100, bonus: 0.6 }, { name: 'Megaiate', icon: '🚢', price: 1.2e10, prestige: 5200, bonus: 0.7 }, { name: 'Nave Suborbital', icon: '🚀', price: 6e10, prestige: 12500, bonus: 0.8 }],
 };
-for (const seg of SEGMENTS) seg.products.push(...PREMIUM[seg.id].map((p) => ({ ...p, premium: true })));
+for (const seg of SEGMENTS) seg.products.push(...EXTRA2[seg.id], ...PREMIUM[seg.id].map((p) => ({ ...p, premium: true })));
 // Filiais: cada uma aumenta o mercado da empresa em 50%, mas exige mais equipe, tem aluguel fixo e sente mais o clima do setor
 export const BRANCH = { max: 10, market: 0.5, costMult: 250, costGrowth: 1.5, upkeep: 0.15, hot: 1.6, cold: 0.35 };
 
@@ -597,6 +614,8 @@ export const BUILDERS = {
       { E: 4, imp: { cpu: 3, ram: 2.5, ssd: 1.5, gpu: 3.5, screen: 1.5, cool: 2, bat: 0.8, body: 0.8 } }, // Notebook Gamer
       { E: 4, imp: { gpu: 3.5, cpu: 2, screen: 3, sens: 2.5, audio: 1, bat: 1.5, body: 1.5 } }, // Óculos VR
       { E: 4, imp: { cpu: 2.5, sens: 3, move: 3, bat: 3, conn: 1, body: 1.5 } }, // Robô Doméstico
+      { E: 4, imp: { cam: 3, bat: 3, sens: 2.5, conn: 2, cpu: 1.5, body: 1 } }, // Drone Profissional
+      { E: 5, imp: { screen: 3.5, gpu: 3, cpu: 2, audio: 1.5, conn: 1.5, body: 1.5 } }, // Holograma Doméstico
       { E: 5, imp: { cpu: 3.5, ram: 3, ssd: 2, gpu: 2.5, cool: 3, body: 0.5 } }, // Supercomputador
       { E: 5, imp: { antena: 3.5, bat: 3.5, shield: 3, cpu: 2, cam: 1.5, ssd: 1 } }, // Satélite Pessoal
       { E: 5, imp: { qubit: 4, cool: 3.5, cpu: 2.5, ram: 2.5, gpu: 2, ssd: 1.5 } }, // IA Quântica
@@ -637,6 +656,8 @@ export const BUILDERS = {
       { E: 3, imp: { motor: 2, cambio: 1.5, susp: 3, freio: 1.5, seg: 3, inter: 2 } }, // SUV
       { E: 4, imp: { motor: 3.5, cambio: 3, susp: 2.5, freio: 3, seg: 1, inter: 1 } }, // Esportivo
       { E: 5, imp: { motor: 3.5, cambio: 3, susp: 3, freio: 3.5, seg: 1.5, inter: 1.5 } }, // Hipercarro
+      { E: 5, imp: { motor: 2.5, cambio: 1.5, susp: 3, freio: 1.5, seg: 2.5, inter: 3 } }, // Picape de Luxo
+      { E: 5, imp: { motor: 4, cambio: 3.5, susp: 3, freio: 3.5, seg: 1.5, inter: 0.5 } }, // Carro de Corrida
       { E: 5, imp: { seg: 4, inter: 3.5, susp: 2, motor: 1.5, freio: 1.5, cambio: 1 } }, // Limusine Blindada
       { E: 5, imp: { emotor: 3.5, batt: 3, freio: 3, susp: 2.5, seg: 2, inter: 1.5 } }, // Hipercarro Elétrico
       { E: 5, imp: { rotor: 3.5, batt: 3, nav: 3, seg: 3.5, inter: 1.5 } }, // Carro Voador
