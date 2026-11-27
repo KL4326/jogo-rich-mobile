@@ -137,7 +137,17 @@ export function confetti(big = true) {
 }
 // ---------- moedas voando até o saldo + contador animado ----------
 let tapX = innerWidth / 2, tapY = innerHeight / 2, tapT = 0;
-document.addEventListener('pointerdown', (e) => { tapX = e.clientX; tapY = e.clientY; tapT = Date.now(); }, true);
+document.addEventListener('pointerdown', (e) => {
+  tapX = e.clientX; tapY = e.clientY; tapT = Date.now();
+  // ondinha no botão tocado; tremidinha se não tiver dinheiro
+  const b = e.target.closest && e.target.closest('.btn, .chipbtn');
+  if (!b || b.disabled) return;
+  if (b.classList.contains('cant')) { b.classList.remove('nope'); void b.offsetWidth; b.classList.add('nope'); return; }
+  const r = b.getBoundingClientRect(), w = document.createElement('i');
+  w.className = 'rip'; w.style.left = e.clientX - r.left + 'px'; w.style.top = e.clientY - r.top + 'px';
+  w.style.setProperty('--rs', Math.ceil(Math.max(r.width, r.height) / 4));
+  b.appendChild(w); setTimeout(() => w.remove(), 600);
+}, true);
 const cashFx = { prev: null, avg: 0, from: 0, to: 0, t0: 0, dur: 0, raf: 0 };
 function cashShown() {
   const f = cashFx; if (!f.dur) return C.s.cash;

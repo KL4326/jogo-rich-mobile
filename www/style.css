@@ -1266,3 +1266,49 @@ s.old { opacity: .6; font-size: 12px; margin-left: 4px; }
 .cashfloat.up { color: #fff; background: linear-gradient(180deg, #4fe08f, var(--green)); box-shadow: 0 3px 0 var(--green-d); }
 .cashfloat.down { color: #fff; background: linear-gradient(180deg, #ff8a9a, var(--red)); box-shadow: 0 3px 0 var(--red-d); }
 @keyframes cashfloat { 0% { opacity: 0; transform: translate(-50%, -6px) scale(.6); } 15% { opacity: 1; transform: translate(-50%, 6px) scale(1.08); } 30% { transform: translate(-50%, 4px) scale(1); } 80% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, 26px); } }
+
+/* ===== Melhoria gráfica 4: cartões e botões ===== */
+/* botões: brilho em cima, aperto com mola, ondinha no toque */
+.btn, .chipbtn { position: relative; overflow: hidden; isolation: isolate; transition: transform .18s cubic-bezier(.34, 1.8, .55, 1), box-shadow .12s, filter .15s; }
+.btn::before { content: ''; position: absolute; left: 6px; right: 6px; top: 3px; height: 42%; border-radius: 12px 12px 40% 40% / 12px 12px 10px 10px; background: linear-gradient(180deg, #ffffff66, #ffffff00); pointer-events: none; z-index: -1; }
+.btn.ghost::before, .btn.cant::before { opacity: .5; }
+.btn:active, .chipbtn:active { transform: translateY(3px) scale(.97); transition-duration: .06s; }
+@media (hover: hover) { .btn:not(.cant):hover { filter: brightness(1.06) saturate(1.05); } }
+.btn .rip, .chipbtn .rip { position: absolute; z-index: -1; width: 10px; height: 10px; margin: -5px 0 0 -5px; border-radius: 50%; background: #ffffff88; pointer-events: none; animation: ripple .55s ease-out forwards; }
+.btn.ghost .rip, .chipbtn .rip { background: #8f6bff33; }
+@keyframes ripple { to { transform: scale(var(--rs, 30)); opacity: 0; } }
+/* botão de compra dourado: reflexo que passa de vez em quando */
+.btn.gold:not(.cant)::after { content: ''; position: absolute; top: -20%; bottom: -20%; width: 34%; left: -50%; background: linear-gradient(100deg, transparent, #ffffffa8, transparent); transform: skewX(-18deg); animation: shine 4.5s ease-in-out infinite; pointer-events: none; }
+@keyframes shine { 0%, 70% { left: -50%; } 100% { left: 130%; } }
+/* sem dinheiro: cadeado leve e tremidinha ao tocar */
+.btn.cant, .btn.gold.cant { background: repeating-linear-gradient(135deg, #e4dcf0 0 8px, #dcd2ec 8px 16px); }
+.btn.nope { animation: nope .35s ease; }
+@keyframes nope { 20% { transform: translateX(-5px) rotate(-1deg); } 40% { transform: translateX(5px) rotate(1deg); } 60% { transform: translateX(-3px); } 80% { transform: translateX(2px); } }
+
+/* cartões: fundo com leve degradê, borda clara em cima e sombra suave */
+.box, .item, .biz, .asset, .citem, .compcard, .gcard, .wxc, .vault, .inscard, .panelbox, .betbox, .paybar, .comphead {
+  background-image: linear-gradient(180deg, #ffffff 0%, #fffaf2 55%, #fbf3ea 100%);
+}
+.box, .item, .biz, .asset, .compcard, .wxc, .vault, .inscard, .panelbox { box-shadow: inset 0 1.5px 0 #fff, 0 5px 0 var(--edge), 0 10px 20px #1d145233; }
+.citem, .gcard { box-shadow: 0 5px 0 var(--edge), 0 10px 20px #1d145233; }
+[data-act].item, [data-act].biz, [data-act].asset, [data-act].compcard, [data-act].box, [data-act].citem { transition: transform .18s cubic-bezier(.34, 1.8, .55, 1), box-shadow .12s; cursor: pointer; }
+[data-act].item:active, [data-act].biz:active, [data-act].asset:active, [data-act].compcard:active, [data-act].box:active, [data-act].citem:active { transform: translateY(3px) scale(.985); box-shadow: inset 0 1.5px 0 #fff, 0 2px 0 var(--edge), 0 4px 10px #1d145222; }
+/* ícone dos cartões com volume */
+.bi { background: radial-gradient(circle at 35% 25%, #ffffff, #efe6ff 55%, #e2d4ff); box-shadow: inset 0 -3px 0 #d3c2f7, 0 2px 0 #0000000d; }
+/* barras de progresso com brilho correndo */
+.bar i { position: relative; overflow: hidden; }
+.bar i::after { content: ''; position: absolute; inset: 0; background: linear-gradient(100deg, transparent 30%, #ffffff70 50%, transparent 70%); background-size: 220% 100%; animation: barshine 2.6s linear infinite; }
+.bar i::before { content: ''; position: absolute; left: 4px; right: 4px; top: 2px; height: 30%; border-radius: 6px; background: #ffffff55; }
+@keyframes barshine { from { background-position: 120% 0; } to { background-position: -120% 0; } }
+/* títulos de seção com marcador */
+.sec { display: flex; align-items: center; gap: 8px; }
+.sec::before { content: ''; width: 6px; height: 18px; border-radius: 4px; background: linear-gradient(180deg, #ffe27a, var(--gold)); box-shadow: 0 2px 0 var(--gold-d); flex: none; }
+/* cartões entram em cascata ao abrir uma tela */
+.page.anim > * { animation: cardin .42s cubic-bezier(.2, .9, .3, 1.2) both; }
+.page.anim > :nth-child(2) { animation-delay: .04s; } .page.anim > :nth-child(3) { animation-delay: .08s; }
+.page.anim > :nth-child(4) { animation-delay: .12s; } .page.anim > :nth-child(5) { animation-delay: .16s; }
+.page.anim > :nth-child(6) { animation-delay: .2s; } .page.anim > :nth-child(7) { animation-delay: .24s; }
+.page.anim > :nth-child(n+8) { animation-delay: .28s; }
+@keyframes cardin { from { opacity: 0; transform: translateY(16px) scale(.97); } to { opacity: 1; transform: none; } }
+.page.anim { animation: none; }
+@media (prefers-reduced-motion: reduce) { .page.anim > *, .btn.gold::after, .bar i::after { animation: none !important; } }
