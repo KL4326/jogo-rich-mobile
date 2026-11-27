@@ -1417,3 +1417,35 @@ s.old { opacity: .6; font-size: 12px; margin-left: 4px; }
 .rate { box-shadow: 0 2px 0 #0003; }
 @media (prefers-reduced-motion: reduce) { .lvwrap *, .minicard, .minicard::after, .xpbar i::after { animation: none !important; } }
 .pname .pnm { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+
+/* ===== Melhoria gráfica 8: janelas ===== */
+.backdrop { background: #140c3a99; -webkit-backdrop-filter: blur(5px) saturate(1.2); backdrop-filter: blur(5px) saturate(1.2); animation: bdin .28s ease-out; }
+.backdrop.still { animation: none; }
+@keyframes bdin { from { opacity: 0; -webkit-backdrop-filter: blur(0); backdrop-filter: blur(0); } }
+.sheet:not(.welcome) { animation: sheetin .5s cubic-bezier(.22, 1.35, .4, 1) both; background: linear-gradient(180deg, #f3ecff 0, var(--card) 90px); box-shadow: 0 -6px 0 var(--edge), 0 -14px 40px #0005, inset 0 2px 0 #fff; padding-top: 26px; }
+.sheet.swap:not(.welcome) { animation: sheetswap .32s cubic-bezier(.22, 1.35, .4, 1) both; }
+@keyframes sheetin { 0% { transform: translateY(100%) scale(.96); } 70% { transform: translateY(-6px) scale(1.005); } 100% { transform: none; } }
+@keyframes sheetswap { from { opacity: .3; transform: scale(.97); } }
+.welcome { animation: welcomein .55s cubic-bezier(.22, 1.4, .4, 1) both; }
+@keyframes welcomein { from { opacity: 0; transform: translateY(-40%) scale(.8); } }
+.sheet:not(.welcome) > :not(.x):not(.grab) { animation: sheetitem .4s ease-out both; }
+.sheet:not(.welcome) > :nth-child(4) { animation-delay: .06s; } .sheet:not(.welcome) > :nth-child(5) { animation-delay: .1s; } .sheet:not(.welcome) > :nth-child(6) { animation-delay: .14s; } .sheet:not(.welcome) > :nth-child(n+7) { animation-delay: .18s; }
+.sheet.swap:not(.welcome) > * { animation: none; }
+@keyframes sheetitem { from { opacity: 0; transform: translateY(10px); } }
+.sheet .grab { position: absolute; top: 8px; left: 50%; width: 44px; height: 5px; margin-left: -22px; border-radius: 4px; background: #d6c9f0; }
+.welcome .grab { display: none; }
+.sheet .x { transition: transform .25s cubic-bezier(.34, 1.8, .55, 1), background .2s; background: #fff; box-shadow: 0 3px 0 var(--edge), 0 4px 10px #0001; }
+.sheet .x:active { transform: rotate(90deg) scale(.85); background: #ffe3e8; }
+@media (hover: hover) { .sheet .x:hover { transform: rotate(90deg); background: #ffe3e8; } }
+.sheet h3 { position: relative; }
+.sheet > h3:first-of-type::after { content: ''; display: block; width: 46px; height: 5px; margin-top: 6px; border-radius: 4px; background: linear-gradient(90deg, var(--gold), #ff8fbf, var(--purple)); }
+.modalghost { position: fixed; inset: 0; z-index: 49; pointer-events: none; }
+.modalghost .backdrop { animation: bdout .24s ease-in forwards; }
+.modalghost .sheet:not(.welcome) { animation: sheetout .24s ease-in forwards; }
+.modalghost .welcome { animation: fadeout .2s ease-in forwards; }
+.modalghost .sheet > * { animation: none; }
+@keyframes bdout { to { opacity: 0; } }
+@keyframes sheetout { to { transform: translateY(105%); } }
+@keyframes fadeout { to { opacity: 0; } }
+@media (min-width: 820px) and (min-height: 560px) { @keyframes sheetout { to { transform: translateY(30px) scale(.95); opacity: 0; } } }
+@media (prefers-reduced-motion: reduce) { .sheet, .sheet > *, .backdrop { animation: none !important; } }

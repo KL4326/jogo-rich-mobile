@@ -213,14 +213,36 @@ function flyCoins(pill, n) {
 }
 export function modal(html, cls = '') {
   const root = $('#modal-root');
-  root.innerHTML = `<div class="backdrop" data-act="close"></div><div class="sheet ${cls}"><button class="x" data-act="close">✕</button>${html}</div>`;
+  const swap = root.classList.contains('open');
+  root.innerHTML = `<div class="backdrop${swap ? ' still' : ''}" data-act="close"></div><div class="sheet ${cls}${swap ? ' swap' : ''}"><i class="grab"></i><button class="x" data-act="close">✕</button>${html}</div>`;
   root.classList.add('open');
+  dragToClose(root.querySelector('.sheet'));
   refresh(true);
 }
 export function closeModal() {
   const root = $('#modal-root');
+  // a janela que fecha vira uma "cópia" animada descendo; a raiz fica livre na hora para abrir outra
+  if (root.classList.contains('open') && root.firstChild && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    const ghost = document.createElement('div');
+    ghost.className = 'modalghost';
+    ghost.append(...root.childNodes);
+    document.body.appendChild(ghost);
+    setTimeout(() => ghost.remove(), 260);
+  }
   root.classList.remove('open');
   root.innerHTML = '';
+}
+// arrastar a janela para baixo fecha
+function dragToClose(sh) {
+  if (!sh || sh.classList.contains('welcome')) return;
+  let y0 = null, dy = 0;
+  sh.addEventListener('touchstart', (e) => { const t = e.touches[0]; const top = sh.getBoundingClientRect().top; y0 = sh.scrollTop <= 0 && t.clientY - top < 90 ? t.clientY : null; dy = 0; }, { passive: true });
+  sh.addEventListener('touchmove', (e) => { if (y0 === null) return; dy = Math.max(0, e.touches[0].clientY - y0); sh.style.transition = 'none'; sh.style.transform = `translateY(${dy}px)`; }, { passive: true });
+  sh.addEventListener('touchend', () => {
+    if (y0 === null) return; y0 = null;
+    sh.style.transition = 'transform .25s cubic-bezier(.2, .9, .3, 1.2)';
+    if (dy > 110) { closeModal(); } else sh.style.transform = '';
+  });
 }
 const modalOpen = () => $('#modal-root').classList.contains('open');
 
