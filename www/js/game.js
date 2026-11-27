@@ -4,7 +4,7 @@ import { CLOTH, CLOTHES, defaultLook, randomLook, LEGEND, LEGEND_COST } from './
 import {
   DAY_MS, BUSINESSES, BIZ_GROWTH, BIZ_MILESTONES, COURSES, JOBS, PROPERTIES, GOODS, GOOD, ALL_GOODS,
   CARDS, LEVEL_BONUS, TRADE_FEE, LOAN_RATE, RENT_NO_HOME, ASSETS, CRYPTOS, UNLOCKS, SECTORS,
-  SEGMENTS, SEGMENT, STAFF, PRODUCT_TIERS, EXCLUSIVES, EXCL,
+  SEGMENTS, SEGMENT, STAFF, PRODUCT_TIERS, BRANCH, EXCLUSIVES, EXCL,
   OWN_TIERS, TRIPS, REST_BONUS, REST_HOURS, LOVE_STAGES, DATES, GIFTS, REPEAT_PENALTY, RING_COST, WEDDINGS, NAMES_F, NAMES_M,
 } from './data.js';
 
@@ -1159,23 +1159,50 @@ const topTier = (c) => c.products.reduce((m, p) => Math.max(m, p.tier), 0);
 export const wageOf = (c, role) => STAFF_MAP[role].pct * PRODUCT_TIERS[topTier(c)].rev * SEGMENT[c.seg].k;
 // Salário real: base × aumento dado na greve × reajuste anual
 export const wageFull = (s, c, role) => wageOf(c, role) * (1 + (c.raise || 0)) * adj(s, 'wage');
+// Cada filial amplia o mercado: precisa de mais produção e mais vendas/marketing para render o mesmo
+export const BRANCH_MAX = BRANCH.max;
+export const branchScale = (c) => 1 + BRANCH.market * (c.branches || 0);
 export function staffCap(c, role) {
-  const n = c.products.length;
-  return role === 'prod' ? 300 : role === 'pd' ? 10 : role === 'vendas' ? Math.max(2, 4 * n) : Math.max(1, 3 * n);
+  const n = c.products.length, k = branchScale(c);
+  return role === 'prod' ? Math.round(300 * k) : role === 'pd' ? 10 : role === 'vendas' ? Math.max(2, Math.round(4 * n * k)) : Math.max(1, Math.round(3 * n * k));
+}
+export const branchCost = (c) => PRODUCT_TIERS[topTier(c)].rev * SEGMENT[c.seg].k * BRANCH.costMult * Math.pow(BRANCH.costGrowth, c.branches || 0);
+export const branchUpkeep = (s, c) => PRODUCT_TIERS[topTier(c)].rev * SEGMENT[c.seg].k * BRANCH.upkeep * adj(s, 'manut');
+export function buildBranch(s, id) {
+  const c = findComp(s, id); if (!c) return 'Empresa não encontrada';
+  if (!c.products.length) return 'Lance um produto antes de abrir filiais';
+  if ((c.branches || 0) >= BRANCH.max) return `Máximo de ${BRANCH.max} filiais`;
+  const cost = branchCost(c);
+  const e = spend(s, cost); if (e) return e;
+  c.branches = (c.branches || 0) + 1;
+  c.invested += cost * 0.6;
+  addXP(s, 60 + c.branches * 10);
+  return { cost, n: c.branches };
+}
+export function closeBranch(s, id) {
+  const c = findComp(s, id); if (!c || !(c.branches > 0)) return 'Nenhuma filial para fechar';
+  c.branches -= 1;
+  return null;
 }
 export function compStats(s, c, mk) {
   const seg = SEGMENT[c.seg], st = c.staff;
   const now = Date.now();
+  const k = branchScale(c), nb = c.branches || 0;
   const base = c.products.reduce((t, p) => t + PRODUCT_TIERS[p.tier].rev * seg.k * freshness(p, now), 0);
-  const need = c.products.reduce((t, p) => t + PRODUCT_TIERS[p.tier].need, 0);
+  const need = Math.ceil(c.products.reduce((t, p) => t + PRODUCT_TIERS[p.tier].need, 0) * k);
   const strike = (c.strikeUntil || 0) > now; // greve: produção parada (salários continuam)
   const cap = need && !strike ? Math.min(1, (st.prod || 0) / need) : 0;
-  const boost = (1 + 0.05 * (st.vendas || 0)) * (1 + 0.04 * (st.mkt || 0));
-  const clima = COMP_CLIMA[mk.sectorNow(seg.sector)]; // empresas sentem mais a crise do setor
+  // vendas/marketing valem "por loja": com mais filiais é preciso mais gente para manter o mesmo bônus
+  const boost = (1 + (0.05 * (st.vendas || 0)) / k) * (1 + (0.04 * (st.mkt || 0)) / k);
+  const reg = mk.sectorNow(seg.sector);
+  const clima = COMP_CLIMA[reg]; // empresas sentem mais a crise do setor
+  const climaB = reg === 1 ? BRANCH.hot : reg === -1 ? BRANCH.cold : 1; // filiais sentem ainda mais (ganha mais, perde mais)
   const mg = mgmtMult(s);
-  const rev = base * cap * boost * clima * mg * legacyMult(s) * bankruptMult(s) * (1 + exclBonus(s, 'all')) * wearMult(s);
-  const cost = STAFF.reduce((t, r) => t + (st[r.id] || 0) * wageFull(s, c, r.id), 0);
-  return { rev, cost, profit: rev - cost, base, need, cap, boost, clima, mg, strike };
+  const market = base * clima + base * BRANCH.market * nb * climaB;
+  const rev = market * cap * boost * mg * legacyMult(s) * bankruptMult(s) * (1 + exclBonus(s, 'all')) * wearMult(s);
+  const upkeep = nb * branchUpkeep(s, c);
+  const cost = STAFF.reduce((t, r) => t + (st[r.id] || 0) * wageFull(s, c, r.id), 0) + upkeep;
+  return { rev, cost, profit: rev - cost, base, need, cap, boost, clima, climaB, mg, strike, upkeep, branches: nb };
 }
 // O que vai para o dono: lucro × parte que ele controla (prejuízo fica todo com o dono)
 export const compOwnerIncome = (s, c, mk) => { const p = compStats(s, c, mk).profit; return p > 0 ? p * (1 - c.float) : p; };
@@ -1212,6 +1239,7 @@ export function canDev(c, tier) {
   if (c.dev) return 'Já tem um projeto em desenvolvimento';
   if (c.products.some((p) => p.tier === tier)) return 'Produto já lançado';
   if (tier > 0 && !c.products.some((p) => p.tier === tier - 1)) return 'Lance o produto anterior primeiro';
+  if ((c.branches || 0) < (PRODUCT_TIERS[tier].branches || 0)) return `Linha premium: precisa de ${PRODUCT_TIERS[tier].branches} filiais`;
   if ((c.staff.pd || 0) < PRODUCT_TIERS[tier].pd) return `Precisa de ${PRODUCT_TIERS[tier].pd} pesquisador(es) de P&D`;
   return null;
 }

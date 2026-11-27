@@ -533,3 +533,25 @@ export const EXCLUSIVES = [
     start: 1795639838733, end: 1795896600000, bonus: { all: 0.2 }, prestige: 25000, xp: 60000, desc: '+20% em toda a sua renda, para sempre' },
 ];
 export const EXCL = Object.fromEntries(EXCLUSIVES.map((x) => [x.id, x]));
+
+// ===== Linha premium: 3 produtos extras por segmento, liberados com filiais =====
+PRODUCT_TIERS.push(
+  { rev: 2e6, mins: 80, need: 22, pd: 8, branches: 2 },
+  { rev: 1e7, mins: 100, need: 30, pd: 9, branches: 4 },
+  { rev: 5e7, mins: 120, need: 40, pd: 10, branches: 6 },
+);
+const PREMIUM = {
+  alimentos: [{ name: 'Rede Mundial de Restaurantes', icon: '🍽️' }, { name: 'Fazendas Inteligentes', icon: '🌾' }, { name: 'Comida do Futuro', icon: '🧬' }],
+  moda: [{ name: 'Grife Internacional', icon: '🛍️' }, { name: 'Desfile em Paris', icon: '🗼' }, { name: 'Império da Moda', icon: '👑' }],
+  tech: [{ name: 'Supercomputador Pessoal', icon: '🖥️', price: 4e6, prestige: 58 }, { name: 'Satélite Pessoal', icon: '🛰️', price: 2.5e7, prestige: 170 }, { name: 'IA Quântica Pessoal', icon: '⚛️', price: 1.8e8, prestige: 520 }],
+  joias: [{ name: 'Ovo Imperial Cravejado', icon: '🥚', price: 1.8e8, prestige: 520 }, { name: 'Diamante Lendário', icon: '💠', price: 1e9, prestige: 1100 }, { name: 'Coleção Real', icon: '🏺', price: 6e9, prestige: 2600 }],
+  farma: [{ name: 'Rede de Hospitais', icon: '🏥' }, { name: 'Nanorrobôs Médicos', icon: '🦠' }, { name: 'Elixir da Longevidade', icon: '⚗️' }],
+  auto: [{ name: 'Limusine Blindada', icon: '🚘', price: 1.2e8, prestige: 420, bonus: 0.42 }, { name: 'Hipercarro Elétrico', icon: '⚡', price: 8e8, prestige: 900, bonus: 0.46 }, { name: 'Carro Voador', icon: '🛸', price: 5e9, prestige: 2200, bonus: 0.5 }],
+  construtora: [{ name: 'Arranha-céu Residencial', icon: '🏙️', price: 9e8, prestige: 900, hours: 6 }, { name: 'Ilha Particular', icon: '🏝️', price: 8e9, prestige: 2500, hours: 8 }, { name: 'Cidade Planejada', icon: '🌇', price: 6e10, prestige: 7000, hours: 9 }],
+  fintech: [{ name: 'Banco Internacional', icon: '🌐' }, { name: 'Bolsa de Valores Própria', icon: '📊' }, { name: 'Moeda Digital Global', icon: '🪙' }],
+  energia: [{ name: 'Usina Oceânica', icon: '🌊' }, { name: 'Anel Solar Orbital', icon: '🛰️' }, { name: 'Energia de Antimatéria', icon: '✴️' }],
+  nautica: [{ name: 'Avião Executivo', icon: '✈️', price: 2.5e9, prestige: 2100, bonus: 0.6 }, { name: 'Megaiate', icon: '🚢', price: 1.2e10, prestige: 5200, bonus: 0.7 }, { name: 'Nave Suborbital', icon: '🚀', price: 6e10, prestige: 12500, bonus: 0.8 }],
+};
+for (const seg of SEGMENTS) seg.products.push(...PREMIUM[seg.id].map((p) => ({ ...p, premium: true })));
+// Filiais: cada uma aumenta o mercado da empresa em 50%, mas exige mais equipe, tem aluguel fixo e sente mais o clima do setor
+export const BRANCH = { max: 10, market: 0.5, costMult: 250, costGrowth: 1.5, upkeep: 0.15, hot: 1.6, cold: 0.35 };

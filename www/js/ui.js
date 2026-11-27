@@ -325,6 +325,8 @@ const handlers = {
   sellpgood: (d) => { if (act(() => G.sellPlayerGood(C.s, d.id))) { closeModal(); toast('💰 Vendido!', 'ok'); render(); } },
   pgoodold: (d) => confirmBox('Vender este bem? A marca saiu do mercado.', () => { if (act(() => G.sellPlayerGood(C.s, d.id))) { toast('💰 Vendido!', 'ok'); render(); } }),
   season: () => seasonModal(),
+  branch: (d, el) => { const r = act(() => G.buildBranch(C.s, d.id), null, el); if (r) { confetti(); toast(`🏬 Filial nº ${r.n} inaugurada! Contrate mais gente para atender o novo mercado.`, 'gold'); C.pushCompanies && C.pushCompanies(); keepScroll(render); } },
+  unbranch: (d) => confirmBox('Fechar uma filial? Você perde o investimento dela, mas para de pagar o aluguel. Útil em crise do setor.', () => { if (act(() => G.closeBranch(C.s, d.id))) { toast('🏚️ Filial fechada', 'ok'); keepScroll(render); } }),
   hand: (d) => { const on = !(C.s.look && C.s.look.hand === d.id); if (act(() => G.toggleHand(C.s, d.id))) { toast(on ? `${EXCL[d.id].icon} Agora seu personagem está segurando o <b>${esc(EXCL[d.id].name)}</b>!` : '🎒 Item guardado', on ? 'gold' : 'ok'); render(); } },
   buyexcl: (d, el) => { const x = EXCL[d.id]; confirmBox(`Comprar <b>${x.icon} ${esc(x.name)}</b> por <b>${money(x.cost)}</b>?<br>${esc(x.desc)} · +${fmt(x.prestige)} de prestígio · +${fmt(x.xp)} XP.<br><small>Pago só com dinheiro. Depois que o tempo acabar, ninguém mais consegue comprar.</small>`, () => { if (act(() => G.buyExclusive(C.s, d.id))) { closeModal(); confetti(); setTimeout(confetti, 500); toast(`${x.icon} <b>${esc(x.name)}</b> é seu! Item exclusivo!`, 'gold'); render(); } }); },
   crcash: (d, el) => {
@@ -850,7 +852,7 @@ function vCompanies() {
   <p class="hint small">💼 Como <b>${job.name}</b> você pode ter <b>${max}</b> empresa(s)${mg > 1 ? ` e ganha <b>+${Math.round((mg - 1) * 100)}%</b> de lucro nelas` : ''}. Gerente: 2 empresas (+8%) · Diretor(a): 3 (+15%) · CEO: 5 (+30%) · MBA: +5% · Status 👑 Lenda: +1 empresa.</p>
   ${list.map((c) => {
     const seg = SEGMENT[c.seg], st = G.compStats(s, c, mk);
-    return `<div class="compcard" data-act="comp" data-id="${c.id}">${segLogo(seg)}<div class="grow"><b>${esc(c.name)}</b><small>${esc(c.ticker)} · ${seg.name} · ${c.products.length}/5 produtos${c.float > 0 ? ` · ${Math.round(c.float * 100)}% na bolsa` : ''}</small>
+    return `<div class="compcard" data-act="comp" data-id="${c.id}">${segLogo(seg)}<div class="grow"><b>${esc(c.name)}</b><small>${esc(c.ticker)} · ${seg.name} · ${c.products.length}/${seg.products.length} produtos${c.branches ? ` · 🏬 ${c.branches} filial(is)` : ''}${c.float > 0 ? ` · ${Math.round(c.float * 100)}% na bolsa` : ''}</small>
       ${c.dev ? `<div class="bar thin"><i data-live-w="cdev:${c.id}"></i></div><small>🧪 ${esc(c.dev.model)}${c.dev.version ? ' (nova versão)' : ''} · <span data-live="cdevt:${c.id}"></span></small>` : !c.products.length ? '<small class="warn">👉 Toque para contratar e criar seu 1º produto</small>' : st.strike ? '<small class="warn">🪧 Em greve!</small>' : st.cap < 1 ? '<small class="warn">⚠️ Falta gente na produção</small>' : ''}</div>
       <div class="right"><small>Lucro/dia</small><b class="${st.profit < 0 ? 'down' : 'up'}">${money(st.profit)}</b></div></div>`;
   }).join('')}
@@ -907,7 +909,7 @@ function vCompany(id) {
       return `<div class="prodrow next"><span class="bi">${k.icon}</span><div class="grow"><b>${k.name}</b><small>Vende ${money(tierInfo.rev * seg.k)}/dia base · precisa de ${tierInfo.need} na produção${tierInfo.pd ? ` · ${tierInfo.pd} em P&D` : ''} · ⏱️ ${Math.ceil(G.devMins(c, i))} min</small>${sale}${why && !c.dev ? `<small class="warn">${why}</small>` : ''}</div>
         ${c.dev ? '' : `<button class="btn gold sm" data-act="devprod" data-id="${c.id}" data-t="${i}" data-cost="${G.devCost(seg, i)}" ${why ? 'disabled' : ''}>Desenvolver<span>${money(G.devCost(seg, i))}</span></button>`}</div>`;
     }
-    return `<div class="prodrow plock"><span class="bi">🔒</span><div class="grow"><b>${k.name}</b><small>Lance o produto anterior primeiro</small></div></div>`;
+    return `<div class="prodrow plock ${k.premium ? 'premium' : ''}"><span class="bi">${k.premium ? '💎' : '🔒'}</span><div class="grow"><b>${k.premium ? '✨ ' : ''}${k.name}</b><small>${k.premium ? `Linha premium · precisa de ${tierInfo.branches} filiais e do produto anterior` : 'Lance o produto anterior primeiro'}</small></div></div>`;
   }).join('');
   return `<button class="backbtn" data-act="compback">‹ Minhas empresas</button>
   <div class="corpcard">
@@ -920,6 +922,14 @@ function vCompany(id) {
     <small class="muted">Clima do setor ${WXN[reg].toLowerCase()} (${st.clima > 1 ? '+30%' : st.clima < 1 ? '−25%' : 'normal'}) · Gestão ${st.mg > 1 ? '+' + Math.round((st.mg - 1) * 100) + '%' : 'sem bônus'} · Vendas e marketing +${Math.round((st.boost - 1) * 100)}%</small>
   </div>
   <h4 class="sec">📦 Produtos</h4><div class="prodlist">${prodRows}</div>
+  <h4 class="sec">🏬 Filiais</h4>
+  <div class="corpcard branchbox">
+    <div class="lrow"><span>Filiais abertas</span><b>${c.branches || 0} / ${G.BRANCH_MAX}</b></div>
+    <div class="brs">${Array.from({ length: G.BRANCH_MAX }, (_, i) => `<span class="${i < (c.branches || 0) ? 'on' : ''}">🏬</span>`).join('')}</div>
+    <small class="muted">Cada filial aumenta o mercado da empresa em <b>+50%</b>, mas: precisa de <b>mais produção</b> (agora: ${st.need} pessoas em 🏭 Produção), dilui o efeito de 🤝 Vendas e 📣 Marketing (precisa contratar mais), tem <b>aluguel fixo</b> de ${money(G.branchUpkeep(C.s, c))}/dia cada e sente o clima do setor <b>em dobro</b> (🔥 +60% · ❄️ −65%). Filiais também liberam a <b>linha premium</b> de produtos (2, 4 e 6 filiais).</small>
+    ${st.branches ? `<div class="lrow"><span>Aluguel das filiais</span><b class="down">${money(st.upkeep)}/dia</b></div>` : ''}
+    <div class="btns">${(c.branches || 0) < G.BRANCH_MAX ? `<button class="btn gold sm" data-act="branch" data-id="${c.id}" data-cost="${G.branchCost(c)}" ${c.products.length ? '' : 'disabled'}><em>Abrir filial</em><span>${money(G.branchCost(c))}</span></button>` : ''}${c.branches ? `<button class="btn ghost sm" data-act="unbranch" data-id="${c.id}">Fechar 1 filial</button>` : ''}</div>
+  </div>
   <h4 class="sec">👥 Funcionários</h4><div class="stafflist">${staffRows}</div>
   <h4 class="sec">🔔 Ações na bolsa</h4>
   <div class="corpcard">

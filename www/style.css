@@ -1145,3 +1145,7 @@ s.old { opacity: .6; font-size: 12px; margin-left: 4px; }
 .sbhead b { font-family: var(--display); font-weight: 400; font-size: 18px; }
 .sbhead small { opacity: .8; font-size: 12px; }
 .modal .sbhead, #modal-root .sbhead { color: var(--ink); }
+.brs { display: flex; gap: 2px; margin: 4px 0; font-size: 18px; }
+.brs span { opacity: .2; filter: grayscale(1); } .brs span.on { opacity: 1; filter: none; }
+.branchbox .btns { margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap; }
+.prodrow.premium { border: 2px dashed #c08bff; }
