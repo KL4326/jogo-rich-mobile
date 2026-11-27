@@ -373,13 +373,14 @@ export function avatarSVG(look, opts = {}) {
   const hand = (x, d) => `<path d="M${x - 8},208 Q${x - 9},222 ${x},225 Q${x + 9},222 ${x + 8},208 Z" fill="${skin}"/><ellipse cx="${x - 7 * d}" cy="214" rx="3.2" ry="5.5" transform="rotate(${-25 * d} ${x - 7 * d} 214)" fill="${shade(skin, 0.95)}"/><path d="M${x - 3},219 v4 M${x + 1},220 v4 M${x + 5 * d},218 v4" stroke="${shade(skin, 0.78)}" stroke-width="1" stroke-linecap="round"/>`;
   const armColor = top.sleeve === 'long' ? tc : skin;
   const sleeveCap = top.sleeve === 'short' ? `<rect x="46" y="150" width="22" height="24" rx="10" fill="${tc}"/><rect x="132" y="150" width="22" height="24" rx="10" fill="${tc}"/>` : '';
-  const arms = `<rect x="46" y="150" width="22" height="64" rx="11" fill="${armColor}"/><rect x="132" y="150" width="22" height="64" rx="11" fill="${armColor}"/>${sleeveCap}${hand(57, -1)}${hand(143, 1)}`;
+  const armL = 'M47,158 Q46,148 58,147 Q68,148 68,158 L64,212 Q57,216 50,212 Z', armR = 'M153,158 Q154,148 142,147 Q132,148 132,158 L136,212 Q143,216 150,212 Z';
+  const arms = `<path d="${armL}" fill="${armColor}"/><path d="${armR}" fill="${armColor}"/>${sleeveCap}${hand(57, -1)}${hand(143, 1)}`;
 
   // tronco
   let torso;
   if (top.kind === 'mago') torso = `<path d="M66,146 C66,140 134,140 134,146 L150,268 C120,276 80,276 50,268 Z" fill="${tc}"/>${[[80, 190], [118, 214], [92, 244], [124, 254], [76, 226]].map(([x, y]) => `<path d="M${x},${y - 6} l2,4 l5,1 l-4,3 l1,5 l-4,-3 l-4,3 l1,-5 l-4,-3 l5,-1 Z" fill="${top.c2}"/>`).join('')}`;
   else if (dress) torso = `<path d="M66,146 C66,140 134,140 134,146 L136,196 L156,252 C130,262 70,262 44,252 L64,196 Z" fill="${tc}"/><path d="M64,196 h72" stroke="${td}" stroke-width="5"/>${top.kind === 'princesa' ? `<path d="M46,250 C70,262 130,262 154,250" stroke="${top.c2}" stroke-width="6" fill="none"/><circle cx="58" cy="152" r="15" fill="${tc}"/><circle cx="142" cy="152" r="15" fill="${tc}"/><path d="M84,150 Q100,164 116,150" stroke="${top.c2}" stroke-width="4" fill="none"/>` : ''}`;
-  else torso = `<rect x="64" y="142" width="72" height="72" rx="20" fill="${tc}"/>`;
+  else torso = `<path d="M62,150 Q62,142 72,141 L128,141 Q138,142 138,150 L133,192 Q131,200 132,206 Q132,214 122,214 L78,214 Q68,214 68,206 Q69,200 67,192 Z" fill="${tc}"/>`;
   let detail = '';
   if (top.stripes) detail += `<g clip-path="url(#${id}t)">${[156, 172, 188, 204].map((y) => `<rect x="60" y="${y}" width="80" height="7" fill="${top.c2}" opacity=".9"/>`).join('')}</g>`;
   if (top.kind === 'camisa') detail += `<path d="M86,142 L100,160 L114,142" fill="${shade(tc, 0.9)}" stroke="${td}" stroke-width="2"/>${[168, 182, 196].map((y) => `<circle cx="100" cy="${y}" r="2.5" fill="${td}"/>`).join('')}`;
@@ -424,10 +425,10 @@ export function avatarSVG(look, opts = {}) {
   const mouth = `<path d="M87,124.5 Q93,121 100,123 Q107,121 113,124.5 Q100,127.5 87,124.5 Z" fill="${shade(lipC, 0.9)}"/>
     <path d="M88,125 Q100,137 112,125 Q100,128 88,125 Z" fill="${lipC}"/><path d="M95,130 q5,2 10,0" stroke="#ffffff66" stroke-width="1.6" fill="none" stroke-linecap="round"/>
     <path d="M86.5,124.5 Q100,129 113.5,124.5" stroke="${shade(lipC, 0.55)}" stroke-width="1.6" fill="none" stroke-linecap="round"/>`;
-  const blush = `<ellipse cx="66" cy="116" rx="11" ry="6.5" fill="url(#${id}bl)"/><ellipse cx="134" cy="116" rx="11" ry="6.5" fill="url(#${id}bl)"/>`;
-  const ears = `<circle cx="50" cy="104" r="10" fill="${shade(skin, 0.96)}"/><circle cx="150" cy="104" r="10" fill="${shade(skin, 0.96)}"/><path d="M46,98 q-3,6 1,12 M154,98 q3,6 -1,12" stroke="${shade(skin, 0.75)}" stroke-width="2" fill="none" stroke-linecap="round"/>`;
+  const blush = `<ellipse cx="69" cy="117" rx="8" ry="5" fill="url(#${id}bl)" opacity=".7"/><ellipse cx="131" cy="117" rx="8" ry="5" fill="url(#${id}bl)" opacity=".7"/><path d="M62,112 Q66,128 76,136 M138,112 Q134,128 124,136" stroke="${shade(skin, 0.8)}" stroke-width="2.4" fill="none" opacity=".35" stroke-linecap="round"/>`;
+  const ears = `<ellipse cx="56" cy="104" rx="7" ry="10" fill="${shade(skin, 0.96)}"/><ellipse cx="144" cy="104" rx="7" ry="10" fill="${shade(skin, 0.96)}"/><path d="M54,98 q-3,6 1,12 M146,98 q3,6 -1,12" stroke="${shade(skin, 0.75)}" stroke-width="2" fill="none" stroke-linecap="round"/>`;
   const earrings = '';
-  const faceShape = 'M48,98 C48,60 72,46 100,46 C128,46 152,60 152,98 C152,126 134,150 100,151 C66,150 48,126 48,98 Z';
+  const faceShape = 'M55,96 C55,60 74,46 100,46 C126,46 145,60 145,96 C145,116 141,130 132,141 C123,151 112,157 100,157 C88,157 77,151 68,141 C59,130 55,116 55,96 Z';
 
   const headIt = piece(L.head);
   const beard = beardSVG(L.beard, hair);
@@ -439,8 +440,8 @@ export function avatarSVG(look, opts = {}) {
   const hb = hideBackHair ? '' : hairBack(L.hair, hair);
   const hf = hideFrontHair ? '' : hairFront(L.hair, hair);
   const strands = hf && L.hair !== 'careca' ? `<g clip-path="url(#${id}hf)" fill="none" stroke="${shade(hair, 1.35)}" stroke-width="1.6" stroke-linecap="round" opacity=".55"><path d="M62,70 Q80,52 104,50"/><path d="M78,74 Q96,58 122,56"/><path d="M110,58 Q132,62 146,80"/></g><g clip-path="url(#${id}hf)" fill="none" stroke="${shade(hair, 0.7)}" stroke-width="1.2" opacity=".5"><path d="M56,84 Q70,66 92,62"/><path d="M120,64 Q138,70 148,90"/></g>` : '';
-  return `<svg class="avatar" viewBox="0 -10 200 295" width="${size * 200 / 295}" height="${size}" xmlns="http://www.w3.org/2000/svg">
-    <defs><clipPath id="${id}t"><rect x="64" y="142" width="72" height="72" rx="20"/></clipPath>
+  return `<svg class="avatar" viewBox="0 2 200 280" width="${size * 200 / 280}" height="${size}" xmlns="http://www.w3.org/2000/svg">
+    <defs><clipPath id="${id}t"><path d="M62,150 Q62,142 72,141 L128,141 Q138,142 138,150 L133,192 Q131,200 132,206 Q132,214 122,214 L78,214 Q68,214 68,206 Q69,200 67,192 Z"/></clipPath>
       <linearGradient id="${id}v" x1="0" x2="1"><stop offset="0" stop-color="#fff" stop-opacity=".22"/><stop offset=".38" stop-color="#fff" stop-opacity="0"/><stop offset=".68" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".26"/></linearGradient>
       <linearGradient id="${id}vv" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".16"/><stop offset=".45" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".22"/></linearGradient>
       <linearGradient id="${id}hs" x1="0" x2=".4" y1="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".3"/><stop offset=".45" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".3"/></linearGradient>
@@ -449,16 +450,18 @@ export function avatarSVG(look, opts = {}) {
       <radialGradient id="${id}bl"><stop offset="0" stop-color="#ff7a7a" stop-opacity=".38"/><stop offset="1" stop-color="#ff7a7a" stop-opacity="0"/></radialGradient>
     </defs>
     ${L.aura ? auraSVG(L.aura, id) : ''}
-    <ellipse cx="100" cy="276" rx="56" ry="9" fill="#0003"/>
+    <ellipse cx="100" cy="273" rx="50" ry="7" fill="#0003"/>
+    <g transform="${['longo', 'franja', 'anime', 'tranca', 'ondulado', 'rasta', 'rabo'].includes(L.hair) ? 'translate(100 31) scale(.6 .82) translate(-100 -46)' : 'translate(100 98) scale(.6) translate(-100 -157)'}">${hb}${vol(hb, 'hb', 'hs', 20, 20, 160, 210)}</g>
+    <g transform="translate(0 106) scale(1 1.23) translate(0 -140)">
     ${backAcc(piece(L.back))}
-    <g transform="translate(100 148) scale(.87) translate(-100 -148)">${hb}${vol(hb, 'hb', 'hs', 20, 20, 160, 210)}</g>
     ${legs}${vol(legs, 'lg', 'v', 60, 200, 80, 72)}<path d="M86,226 q-2,14 1,30 M114,226 q2,14 -1,30" stroke="#0000001a" stroke-width="2" fill="none" stroke-linecap="round"/>
     ${shoes}${arms}${vol(arms.replace(/<path[^>]*stroke-linecap[^>]*\/>/g, ''), 'ar', 'v', 40, 146, 120, 84)}
     ${torso}${detail}${vol(torso, 'to', 'v', 40, 136, 120, 140)}${vol(torso, 'tv', 'vv', 40, 136, 120, 140)}
     <path d="M78,176 q8,6 6,18 M122,172 q-6,8 -3,20" stroke="#0000001c" stroke-width="2" fill="none" stroke-linecap="round"/>
     ${shine}${neckAcc(piece(L.neck))}
-    <rect x="88" y="130" width="24" height="18" fill="${shade(skin, 0.9)}"/><path d="M88,138 Q100,146 112,138 V130 H88Z" fill="#0000002a"/>
-    <g transform="translate(100 148) scale(.87) translate(-100 -148)">
+    </g>
+    <path d="M92,86 L108,86 L109,104 Q100,110 91,104 Z" fill="${shade(skin, 0.9)}"/><path d="M92,88 Q100,99 108,88 V86 H92Z" fill="#0000002e"/>
+    <g transform="translate(100 98) scale(.6) translate(-100 -157)">
     ${ears}<path d="${faceShape}" fill="url(#${id}sk)"/>
     <path d="M60,130 Q100,160 140,130 Q124,152 100,152 Q76,152 60,130Z" fill="#00000012"/>
     ${blush}${brows}${eyes}${lashes}${nose}${beard.under}${mouth}${beard.over}${earrings}
@@ -471,24 +474,24 @@ export function avatarSVG(look, opts = {}) {
 }
 
 // ===== Itens exclusivos que o personagem segura na mão =====
-// Mão direita do boneco (lado direito de quem olha) fica em (143, 216).
+// Mão direita do boneco (lado direito de quem olha) fica em (143, ~199) no desenho final.
 export const HAND_ITEMS = {
   // Martelo do deus do trovão: cabo de couro, cabeça de metal com runas e faíscas
   mjolnir: (skin, id) => `<g class="handitem">
     <defs><linearGradient id="${id}mj" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e9edf3"/><stop offset=".5" stop-color="#9aa3b2"/><stop offset="1" stop-color="#5d6472"/></linearGradient>
-      <radialGradient id="${id}mz"><stop offset="0" stop-color="#bfe9ff" stop-opacity=".9"/><stop offset="1" stop-color="#4da3ff" stop-opacity="0"/></radialGradient></defs>
-    <circle cx="150" cy="168" r="40" fill="url(#${id}mz)"/>
-    <rect x="145" y="176" width="10" height="66" rx="4" fill="#6b3f1d"/>
-    ${[184, 194, 204, 214, 224, 234].map((y) => `<path d="M145,${y} l10,5" stroke="#3d2210" stroke-width="2.5"/>`).join('')}
-    <circle cx="150" cy="246" r="6" fill="#8a929f" stroke="#4a505c" stroke-width="2"/>
-    <path d="M150,252 v8" stroke="#3d2210" stroke-width="3" stroke-linecap="round"/>
-    <rect x="122" y="150" width="56" height="32" rx="5" fill="url(#${id}mj)" stroke="#4a505c" stroke-width="2.5"/>
-    <rect x="118" y="148" width="8" height="36" rx="3" fill="#7c8492" stroke="#4a505c" stroke-width="2"/>
-    <rect x="174" y="148" width="8" height="36" rx="3" fill="#7c8492" stroke="#4a505c" stroke-width="2"/>
-    <path d="M138,158 l4,8 l-4,8 M150,157 v18 M146,161 l8,0 M162,158 l-4,8 l4,8" stroke="#3a7bd5" stroke-width="2" fill="none" stroke-linecap="round"/>
-    <path d="M130,142 l6,-10 l-2,8 l7,-2 l-8,12" fill="#ffe27a" stroke="#ffb300" stroke-width="1"/>
-    <path d="M174,140 l-3,-11 l4,6 l3,-7 l1,12" fill="#ffe27a" stroke="#ffb300" stroke-width="1"/>
-    <circle cx="143" cy="216" r="10" fill="${skin}"/><path d="M136,212 h14 M136,218 h14" stroke="${shade(skin, 0.8)}" stroke-width="1.5"/>
+      <radialGradient id="${id}mz"><stop offset="0" stop-color="#bfe9ff" stop-opacity=".85"/><stop offset="1" stop-color="#4da3ff" stop-opacity="0"/></radialGradient></defs>
+    <circle cx="146" cy="236" r="34" fill="url(#${id}mz)"/>
+    <path d="M141,186 q5,-8 10,0" stroke="#3d2210" stroke-width="2.5" fill="none"/>
+    <rect x="142" y="188" width="8" height="46" rx="3" fill="#6b3f1d"/>
+    ${[212, 220, 228].map((y) => `<path d="M142,${y} l8,4" stroke="#3d2210" stroke-width="2"/>`).join('')}
+    <rect x="124" y="232" width="44" height="26" rx="4" fill="url(#${id}mj)" stroke="#4a505c" stroke-width="2"/>
+    <rect x="120" y="230" width="7" height="30" rx="2.5" fill="#7c8492" stroke="#4a505c" stroke-width="1.6"/><rect x="165" y="230" width="7" height="30" rx="2.5" fill="#7c8492" stroke="#4a505c" stroke-width="1.6"/>
+    <path d="M136,238 l3,6 l-3,6 M146,237 v15 M142,241 h8 M156,238 l-3,6 l3,6" stroke="#3a7bd5" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+    <path d="M128,226 l5,-8 l-1.5,6 l6,-1.5 l-7,9" fill="#ffe27a" stroke="#ffb300" stroke-width=".8"/><path d="M166,224 l-2,-9 l3,5 l3,-6 l1,10" fill="#ffe27a" stroke="#ffb300" stroke-width=".8"/>
+    <path d="M137,191 Q137,186 142,186 L151,186 Q155,187 155,192 L155,204 Q155,209 150,209 L142,209 Q137,209 137,204 Z" fill="${skin}"/>
+    <path d="M139,193 h14 M139,198 h14 M139,203 h14" stroke="${shade(skin, 0.72)}" stroke-width="1.3" stroke-linecap="round"/>
+    <path d="M152,188 Q158,194 153,203" stroke="${shade(skin, 0.88)}" stroke-width="5" fill="none" stroke-linecap="round"/>
+    <path d="M152,188 Q158,194 153,203" stroke="${shade(skin, 0.7)}" stroke-width="1" fill="none" opacity=".6"/>
   </g>`,
 };
 
