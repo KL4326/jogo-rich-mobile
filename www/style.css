@@ -1169,3 +1169,5 @@ s.old { opacity: .6; font-size: 12px; margin-left: 4px; }
 .rrow small { display: block; font-size: 11px; color: var(--ink2); }
 .segcourse { font-size: 10px !important; color: var(--red-d) !important; font-weight: 700; }
 .segcourse.ok { color: var(--green-d) !important; }
+.corpcard .hint { color: var(--ink); background: #f3ecff; border-color: #d6c9f0; }
+.prodrow .btn.rm { color: var(--red-d); }

@@ -1271,6 +1271,14 @@ export function startDev(s, id, tier, model, build) {
   addXP(s, 20 + tier * 15);
   return null;
 }
+// Tirar um produto de produção (para de vender; pode ser desenvolvido de novo depois)
+export function removeProduct(s, id, tier) {
+  const c = findComp(s, id); if (!c) return 'Empresa não encontrada';
+  if (c.dev && c.dev.tier === tier) return 'Esse produto está em desenvolvimento';
+  const n = c.products.length;
+  c.products = c.products.filter((p) => p.tier !== tier);
+  return c.products.length < n ? null : 'Produto não encontrado';
+}
 export function newVersion(s, id, tier, build) {
   const c = findComp(s, id); if (!c) return 'Empresa não encontrada';
   if (c.dev) return 'Já tem um projeto em desenvolvimento';
