@@ -573,6 +573,8 @@ const PREMIUM = {
 };
 for (const seg of SEGMENTS) seg.products.push(...EXTRA2[seg.id], ...PREMIUM[seg.id].map((p) => ({ ...p, premium: true })));
 // Filiais: cada uma aumenta o mercado da empresa em 50%, mas exige mais equipe, tem aluguel fixo e sente mais o clima do setor
+// Linhas de produção: cada linha desenvolve um produto ao mesmo tempo
+export const LINES = { max: 4, costMult: 200, costGrowth: 2.2, upkeep: 0.05 };
 export const BRANCH = { max: 10, market: 0.5, costMult: 250, costGrowth: 1.5, upkeep: 0.15, hot: 1.6, cold: 0.35 };
 
 

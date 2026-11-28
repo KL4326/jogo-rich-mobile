@@ -4,7 +4,7 @@ import { CLOTH, CLOTHES, defaultLook, randomLook, LEGEND, LEGEND_COST } from './
 import {
   DAY_MS, BUSINESSES, BIZ_GROWTH, BIZ_MILESTONES, COURSES, JOBS, PROPERTIES, GOODS, GOOD, ALL_GOODS,
   CARDS, LEVEL_BONUS, TRADE_FEE, LOAN_RATE, RENT_NO_HOME, ASSETS, CRYPTOS, UNLOCKS, SECTORS,
-  SEGMENTS, SEGMENT, STAFF, PRODUCT_TIERS, BRANCH, BUILDERS, SEG_COURSES, EXCLUSIVES, EXCL,
+  SEGMENTS, SEGMENT, STAFF, PRODUCT_TIERS, BRANCH, LINES, BUILDERS, SEG_COURSES, EXCLUSIVES, EXCL,
   OWN_TIERS, TRIPS, REST_BONUS, REST_HOURS, LOVE_STAGES, DATES, GIFTS, REPEAT_PENALTY, RING_COST, WEDDINGS, NAMES_F, NAMES_M,
 } from './data.js';
 
@@ -774,7 +774,7 @@ export function ensureLife(s) {
     s.prodShift = true;
     for (const c of s.companies) {
       for (const p of c.products) if (p.tier >= 5) p.tier += 2;
-      if (c.dev && c.dev.tier >= 5) c.dev.tier += 2;
+      for (const d of devsOf(c)) if (d.tier >= 5) d.tier += 2;
       c.products.sort((a, b) => a.tier - b.tier);
     }
     for (const [k, g] of Object.entries(s.pgoods || {})) {
@@ -1163,12 +1163,26 @@ export const devCost = (seg, tier, version) => PRODUCT_TIERS[tier].rev * seg.k *
 // P&D acelera até ~33% (com 10 pesquisadores). Tempos em minutos reais: 30 min, 1h, 2h, 4h, 8h e a linha premium 36h, 42h, 48h (base)
 export const devMins = (c, tier, version) => Math.max(version ? 15 : 30, (PRODUCT_TIERS[tier].mins * (version ? COMP.versionTime : 1)) / (1 + 0.05 * (c.staff.pd || 0)));
 // Novidade do produto: lançamento dá +50% (some em 60 dias); depois de 240 dias vai envelhecendo até a metade
-export function freshness(p, now = Date.now()) {
-  const d = (now - p.launched) / DAY_MS;
-  if (d < 60) return 1.5 - (0.5 * d) / 60;
-  if (d < 240) return 1;
-  return Math.max(0.5, 1 - (0.5 * (d - 240)) / 1200);
+// Ciclo de vida do produto (em tempo real): lançamento em alta → estável → envelhece.
+// Dura mais quem tem nota boa, linha mais avançada e marketing; nota ruim envelhece rápido.
+const HOUR = 3_600_000;
+export function lifeOf(p, c) {
+  const score = p.review ? p.review.score : 70;
+  const q = Math.max(0.5, Math.min(1.6, score / 70)); // qualidade
+  const mkt = c ? Math.min(0.5, 0.06 * ((c.staff && c.staff.mkt) || 0)) : 0; // marketing segura o produto em alta
+  const hype = 24 * HOUR * q;
+  const stable = (48 + 12 * p.tier) * HOUR * q * (1 + mkt);
+  const decline = 7 * 24 * HOUR;
+  return { hype, stable, decline };
 }
+export function freshness(p, now = Date.now(), c = null) {
+  const t = now - p.launched, L = lifeOf(p, c);
+  if (t < L.hype) return 1.5 - (0.5 * t) / L.hype;
+  if (t < L.hype + L.stable) return 1;
+  return Math.max(0.5, 1 - (0.5 * (t - L.hype - L.stable)) / L.decline);
+}
+// quanto tempo até começar a envelhecer
+export const freshLeft = (p, c, now = Date.now()) => { const L = lifeOf(p, c); return Math.max(0, p.launched + L.hype + L.stable - now); };
 const topTier = (c) => c.products.reduce((m, p) => Math.max(m, p.tier), 0);
 export const wageOf = (c, role) => STAFF_MAP[role].pct * PRODUCT_TIERS[topTier(c)].rev * SEGMENT[c.seg].k;
 // Salário real: base × aumento dado na greve × reajuste anual
@@ -1198,11 +1212,27 @@ export function closeBranch(s, id) {
   c.branches -= 1;
   return null;
 }
+export const devsOf = (c) => { if (c.dev) { c.devs = [...(c.devs || []), c.dev]; c.dev = null; } return c.devs || (c.devs = []); };
+export const linesOf = (c) => c.lines || 1;
+export const freeLines = (c) => linesOf(c) - devsOf(c).length;
+export const lineCost = (c) => PRODUCT_TIERS[topTier(c)].rev * SEGMENT[c.seg].k * LINES.costMult * Math.pow(LINES.costGrowth, linesOf(c) - 1);
+export const lineUpkeep = (s, c) => PRODUCT_TIERS[topTier(c)].rev * SEGMENT[c.seg].k * LINES.upkeep * adj(s, 'manut');
+export function buyLine(s, id) {
+  const c = findComp(s, id); if (!c) return 'Empresa não encontrada';
+  if (!c.products.length) return 'Lance o primeiro produto antes de abrir outra linha';
+  if (linesOf(c) >= LINES.max) return `Máximo de ${LINES.max} linhas de produção`;
+  const cost = lineCost(c);
+  const e = spend(s, cost); if (e) return e;
+  c.lines = linesOf(c) + 1;
+  c.invested += cost * 0.6;
+  addXP(s, 50);
+  return { cost, n: c.lines };
+}
 export function compStats(s, c, mk) {
   const seg = SEGMENT[c.seg], st = c.staff;
   const now = Date.now();
   const k = branchScale(c), nb = c.branches || 0;
-  const base = c.products.reduce((t, p) => t + productBase(c, p) * freshness(p, now), 0);
+  const base = c.products.reduce((t, p) => t + productBase(c, p) * freshness(p, now, c), 0);
   const need = Math.ceil(c.products.reduce((t, p) => t + PRODUCT_TIERS[p.tier].need, 0) * k);
   const strike = (c.strikeUntil || 0) > now; // greve: produção parada (salários continuam)
   const cap = need && !strike ? Math.min(1, (st.prod || 0) / need) : 0;
@@ -1214,7 +1244,7 @@ export function compStats(s, c, mk) {
   const mg = mgmtMult(s);
   const market = base * clima + base * BRANCH.market * nb * climaB;
   const rev = market * cap * boost * mg * legacyMult(s) * bankruptMult(s) * (1 + exclBonus(s, 'all')) * wearMult(s);
-  const upkeep = nb * branchUpkeep(s, c);
+  const upkeep = nb * branchUpkeep(s, c) + (linesOf(c) - 1) * lineUpkeep(s, c);
   const cost = STAFF.reduce((t, r) => t + (st[r.id] || 0) * wageFull(s, c, r.id), 0) + upkeep;
   return { rev, cost, profit: rev - cost, base, need, cap, boost, clima, climaB, mg, strike, upkeep, branches: nb };
 }
@@ -1251,9 +1281,11 @@ export function hire(s, id, role, n) {
   return null;
 }
 export function canDev(c, tier) {
-  if (c.dev) return 'Já tem um projeto em desenvolvimento';
+  const devs = devsOf(c);
   if (c.products.some((p) => p.tier === tier)) return 'Produto já lançado';
-  if (tier > 0 && !c.products.some((p) => p.tier === tier - 1)) return 'Lance o produto anterior primeiro';
+  if (devs.some((d) => d.tier === tier)) return 'Esse produto já está em desenvolvimento';
+  if (tier > 0 && !c.products.some((p) => p.tier === tier - 1) && !devs.some((d) => d.tier === tier - 1 && !d.version)) return 'Lance (ou comece a desenvolver) o produto anterior primeiro';
+  if (devs.length >= linesOf(c)) return linesOf(c) > 1 ? 'Todas as linhas de produção estão ocupadas' : 'A linha de produção está ocupada: abra mais uma linha para desenvolver ao mesmo tempo';
   if ((c.branches || 0) < (PRODUCT_TIERS[tier].branches || 0)) return `Linha premium: precisa de ${PRODUCT_TIERS[tier].branches} filiais`;
   if ((c.staff.pd || 0) < PRODUCT_TIERS[tier].pd) return `Precisa de ${PRODUCT_TIERS[tier].pd} pesquisador(es) de P&D`;
   return null;
@@ -1267,38 +1299,44 @@ export function startDev(s, id, tier, model, build) {
   const cost = devCost(SEGMENT[c.seg], tier);
   const e = spend(s, cost); if (e) return e;
   c.invested += cost;
-  c.dev = { tier, model, start: Date.now(), end: Date.now() + devMins(c, tier) * 60_000, build: BUILDERS[c.seg] ? { cfg: { ...build.cfg }, price: Math.round(build.price) } : null };
+  devsOf(c).push({ tier, model, start: Date.now(), end: Date.now() + devMins(c, tier) * 60_000, build: BUILDERS[c.seg] ? { cfg: { ...build.cfg }, price: Math.round(build.price) } : null });
   addXP(s, 20 + tier * 15);
   return null;
 }
 // Tirar um produto de produção (para de vender; pode ser desenvolvido de novo depois)
 export function removeProduct(s, id, tier) {
   const c = findComp(s, id); if (!c) return 'Empresa não encontrada';
-  if (c.dev && c.dev.tier === tier) return 'Esse produto está em desenvolvimento';
+  if (devsOf(c).some((d) => d.tier === tier)) return 'Esse produto está em desenvolvimento';
   const n = c.products.length;
   c.products = c.products.filter((p) => p.tier !== tier);
   return c.products.length < n ? null : 'Produto não encontrado';
 }
 export function newVersion(s, id, tier, build) {
   const c = findComp(s, id); if (!c) return 'Empresa não encontrada';
-  if (c.dev) return 'Já tem um projeto em desenvolvimento';
   const p = c.products.find((x) => x.tier === tier); if (!p) return 'Produto não encontrado';
+  if (devsOf(c).some((d) => d.tier === tier)) return 'Esse produto já está em desenvolvimento';
+  if (freeLines(c) <= 0) return 'Todas as linhas de produção estão ocupadas';
   if (build) { const e = checkBuild(c.seg, build, tier); if (e) return e; }
   const cost = devCost(SEGMENT[c.seg], tier, true);
   const e = spend(s, cost); if (e) return e;
   c.invested += cost * 0.5;
-  c.dev = { tier, model: p.model, version: true, start: Date.now(), end: Date.now() + devMins(c, tier, true) * 60_000, build: build ? { cfg: { ...build.cfg }, price: Math.round(build.price) } : null };
+  devsOf(c).push({ tier, model: p.model, version: true, start: Date.now(), end: Date.now() + devMins(c, tier, true) * 60_000, build: build ? { cfg: { ...build.cfg }, price: Math.round(build.price) } : null });
   return null;
 }
 // Termina desenvolvimentos prontos. Retorna a lista do que foi lançado.
 export function compTick(s) {
   const out = [];
   for (const c of s.companies || []) {
-    if (!c.dev || Date.now() < c.dev.end) continue;
-    const d = c.dev; c.dev = null;
+    const devs = devsOf(c);
+    if (!devs.length) continue;
+    const done = devs.filter((d) => Date.now() >= d.end).sort((a, b) => a.tier - b.tier);
+    if (!done.length) continue;
+    c.devs = devs.filter((d) => !done.includes(d));
+    for (const d of done) {
     const kind = SEGMENT[c.seg].products[d.tier];
     if (d.version) { const p = c.products.find((x) => x.tier === d.tier); if (p) { p.v = (p.v || 1) + 1; p.launched = Date.now(); if (d.build) { p.build = d.build; p.review = reviewProduct(c.seg, d.tier, d.build); } out.push({ c, p, kind, version: true }); } }
     else { const p = { tier: d.tier, model: d.model, launched: Date.now(), v: 1 }; if (d.build) { p.build = d.build; p.review = reviewProduct(c.seg, d.tier, d.build); } c.products.push(p); c.products.sort((a, b) => a.tier - b.tier); addXP(s, 40 + d.tier * 30); out.push({ c, p, kind }); }
+    }
   }
   return out;
 }

@@ -2,7 +2,7 @@
 import {
   COURSE_GROUPS, JOB_AREAS, BRANDS, TIERS, OWN_TIERS, TRIP_CATS, TRIPS, LOVE_STAGES, DATES, GIFTS, RING_COST, WEDDINGS,
   SEGMENTS, SEGMENT, STAFF, PRODUCT_TIERS, BUILDERS, builderSlots,
-  EXCLUSIVES, EXCL,
+  EXCLUSIVES, EXCL, LINES,
   DAY_MS, SECTORS, SECTOR, STOCKS, CRYPTOS, ASSETS, BUSINESSES, COURSES, JOBS, PROPERTIES, GOODS, CARDS, UNLOCKS, TRADE_FEE, LOAN_RATE, LEVEL_BONUS, RENT_NO_HOME,
 } from './data.js';
 import * as G from './game.js';
@@ -171,9 +171,13 @@ function cashWatch() {
   if (!d) return;
   const small = Math.abs(d) <= Math.max(1, f.avg * 25);
   if (small) { f.avg = f.avg ? f.avg * 0.9 + Math.abs(d) * 0.1 : Math.abs(d); return; }
-  // mudanças grandes sem ação do jogador (lucros, Pix, eventos): só atualiza o número, sem efeito
-  if (document.hidden || Date.now() - lastAct.t > 1500) return;
-  lastAct.t = 0;
+  // mudanças sem ação do jogador (lucros, Pix, eventos, trocar de aba): só atualiza o número, sem efeito
+}
+function cashFxNow(d, x, y) {
+  const f = cashFx;
+  f.prev = C.s.cash;
+  if (document.hidden) return;
+  Object.assign(lastAct, { x, y });
   f.from = cashShown() - d; f.t0 = performance.now(); f.dur = 700;
   if (!f.raf) f.raf = requestAnimationFrame(cashLoop);
   const pill = document.querySelector('.cashpill');
@@ -436,6 +440,7 @@ const handlers = {
   },
   setprice: (d) => { const c = G.findComp(C.s, d.id); const p = c.products.find((x) => x.tier === +d.t); ui.pp = { id: d.id, t: +d.t }; modal(`<h3>💲 Preço do ${esc(p.model)}</h3><p class="muted small">Custo por unidade: <b>${money(p.review.cost)}</b> · produtos parecidos: ~${money(G.marketRef(c.seg, p.tier, p.build.cfg))}. A crítica reavalia o custo-benefício na hora.</p><input id="newprice" type="number" inputmode="numeric" value="${p.build.price}"><button class="btn full" data-act="setpricego">Aplicar novo preço</button>`); },
   setpricego: () => { const r = act(() => G.setProductPrice(C.s, ui.pp.id, ui.pp.t, parseFloat(($('#newprice') || {}).value))); if (r) { closeModal(); toast(`🏷️ Preço atualizado · nota ${r.score} ${starsHTML(r.stars)}`, 'ok'); keepScroll(render); } },
+  buyline: (d) => { const c = G.findComp(C.s, d.id); confirmBox(`Abrir mais uma <b>linha de produção</b> na ${esc(c.name)} por <b>${money(G.lineCost(c))}</b>?<br><small>Com ela você desenvolve mais um produto ao mesmo tempo. Cada linha extra tem manutenção de ${money(G.lineUpkeep(C.s, c))}/dia.</small>`, () => { const r = act(() => G.buyLine(C.s, d.id)); if (r) { closeModal(); toast(`🏭 Nova linha de produção! Agora são ${r.n}.`, 'gold'); keepScroll(render); } }); },
   rmprod: (d) => { const c = G.findComp(C.s, d.id); const p = c.products.find((x) => x.tier === +d.t); confirmBox(`Tirar <b>${esc(p.model)}</b> de produção? Ele para de vender e sai da loja. O dinheiro investido nele não volta, mas você pode desenvolver esse tipo de produto de novo depois (com outra montagem).`, () => { if (act(() => G.removeProduct(C.s, d.id, +d.t))) { toast('🗑️ Produto tirado de produção', 'ok'); C.pushCompanies && C.pushCompanies(); keepScroll(render); } }); },
   csub: (d) => { ui.csub = d.t; keepScroll(render); },
   devsug: (d) => { const i = $('#pmodel'); if (i) i.value = d.v; },
@@ -491,12 +496,16 @@ const G_NAME = (id) => Object.values(GOODS).flat().find((g) => g.id === id).name
 function onClick(e) {
   const el = e.target.closest('[data-act]');
   if (!el) return;
-  if (NAV_ACTS.has(el.dataset.act)) { clearCashFx(); lastAct.t = 0; }
-  else { const r = el.getBoundingClientRect(); Object.assign(lastAct, { t: Date.now(), x: r.left + r.width / 2, y: r.top + r.height / 2 }); }
+  const nav = NAV_ACTS.has(el.dataset.act);
+  if (nav) clearCashFx();
+  const r = el.getBoundingClientRect(), before = C.s.cash;
   const h = handlers[el.dataset.act];
   A.unlock();
   if (!QUIET.has(el.dataset.act)) A.sfx('click');
   if (h) { e.preventDefault(); h(el.dataset, el); }
+  // efeito do dinheiro só quando a própria ação mudou o saldo (trocar de aba/sub-aba nunca dispara)
+  const d = C.s.cash - before;
+  if (!nav && d && Math.abs(d) >= 1) cashFxNow(d, r.left + r.width / 2, r.top + r.height / 2);
 }
 
 const QUIET = new Set(['buybiz', 'buygood', 'buyprop', 'buycloth', 'buyset', 'trade', 'spin', 'roulette', 'scratch', 'gift', 'event']);
@@ -1053,7 +1062,7 @@ function vCompanies() {
   ${list.map((c) => {
     const seg = SEGMENT[c.seg], st = G.compStats(s, c, mk);
     return `<div class="compcard" data-act="comp" data-id="${c.id}">${segLogo(seg)}<div class="grow"><b>${esc(c.name)}</b><small>${esc(c.ticker)} · ${seg.name} · ${c.products.length}/${seg.products.length} produtos${c.branches ? ` · 🏬 ${c.branches} filial(is)` : ''}${c.float > 0 ? ` · ${Math.round(c.float * 100)}% na bolsa` : ''}</small>
-      ${c.dev ? `<div class="bar thin"><i data-live-w="cdev:${c.id}"></i></div><small>🧪 ${esc(c.dev.model)}${c.dev.version ? ' (nova versão)' : ''} · <span data-live="cdevt:${c.id}"></span></small>` : !c.products.length ? '<small class="warn">👉 Toque para contratar e criar seu 1º produto</small>' : st.strike ? '<small class="warn">🪧 Em greve!</small>' : st.cap < 1 ? '<small class="warn">⚠️ Falta gente na produção</small>' : ''}</div>
+      ${G.devsOf(c).length ? (() => { const d = devPick(c); const n = G.devsOf(c).length; return `<div class="bar thin"><i data-live-w="cdev:${c.id}"></i></div><small>🧪 ${esc(d.model)}${d.version ? ' (nova versão)' : ''}${n > 1 ? ` + ${n - 1} na fila` : ''} · <span data-live="cdevt:${c.id}"></span></small>`; })() : !c.products.length ? '<small class="warn">👉 Toque para contratar e criar seu 1º produto</small>' : st.strike ? '<small class="warn">🪧 Em greve!</small>' : st.cap < 1 ? '<small class="warn">⚠️ Falta gente na produção</small>' : ''}</div>
       <div class="right"><small>Lucro/dia</small><b class="${st.profit < 0 ? 'down' : 'up'}">${money(st.profit)}</b></div></div>`;
   }).join('')}
   ${lvl < G.COMP.minLevel ? lockBox(G.COMP.minLevel, 'Criar empresas') : list.length < max ? '<button class="btn gold full newcompbtn" data-act="newcomp">＋ Criar nova empresa</button>' : '<p class="muted center small">Você chegou ao limite de empresas do seu cargo.</p>'}
@@ -1082,7 +1091,15 @@ function newCompForm(segId) {
     <button class="btn gold full" data-act="foundcomp" data-seg="${g.id}" data-cost="${G.foundCost(g)}"><em>Criar empresa</em><span>${money(G.foundCost(g))}</span></button>
     <button class="btn ghost full sm" data-act="newcomp">‹ Outro segmento</button>`);
 }
+// desenvolvimento de um produto específico (tier) ou o que termina primeiro
+const devPick = (c, tt) => { const ds = G.devsOf(c); return tt !== undefined && tt !== '' ? ds.find((d) => d.tier === +tt) : ds.slice().sort((a, b) => a.end - b.end)[0]; };
 function freshLabel(f) { return f > 1.2 ? '🔥 Lançamento' : f >= 1 ? '✅ Em alta' : f > 0.75 ? '📉 Envelhecendo' : '🥀 Velho: lance nova versão'; }
+function linesBox(c) {
+  const n = G.linesOf(c), used = G.devsOf(c).length, max = LINES.max;
+  return `<div class="linesbox"><div class="lslots">${Array.from({ length: max }, (_, i) => `<i class="${i < used ? 'lbusy' : i < n ? 'lfree' : 'llock'}">${i < used ? '🧪' : i < n ? '🏭' : '🔒'}</i>`).join('')}</div>
+    <div class="grow"><b>Linhas de produção: ${used}/${n} em uso</b><small>Cada linha desenvolve um produto (ou nova versão) ao mesmo tempo.${n > 1 ? ` Manutenção: ${money((n - 1) * G.lineUpkeep(C.s, c))}/dia.` : ''}</small></div>
+    ${n < max ? `<button class="btn sm gold" data-act="buyline" data-id="${c.id}" data-cost="${G.lineCost(c)}" ${c.products.length ? '' : 'disabled'}><em>＋ Linha</em><span>${money(G.lineCost(c))}</span></button>` : '<small class="muted">máximo</small>'}</div>`;
+}
 function vCompany(id) {
   const s = C.s, mk = C.mk, c = G.findComp(s, id);
   const seg = SEGMENT[c.seg], st = G.compStats(s, c, mk), price = G.compPrice(s, c, mk);
@@ -1090,7 +1107,8 @@ function vCompany(id) {
   const others = C.heldByOthers ? C.heldByOthers(doc) : 0;
   const reg = mk.sectorNow(seg.sector);
   const val = price * G.COMP.shares;
-  const next = seg.products.findIndex((_, i) => !c.products.some((p) => p.tier === i));
+  const inDev = (t) => G.devsOf(c).find((d) => d.tier === t && !d.version) || G.devsOf(c).find((d) => d.tier === t);
+  const next = seg.products.findIndex((_, i) => !c.products.some((p) => p.tier === i) && !G.devsOf(c).some((d) => d.tier === i));
   const left = G.COMP.maxFloat - c.float;
   const free = c.float - others / G.COMP.shares;
   const staffRows = STAFF.map((r) => {
@@ -1103,26 +1121,28 @@ function vCompany(id) {
     const tierInfo = PRODUCT_TIERS[i];
     const sale = seg.cat ? `<small>💎 Em Bens por ${money(k.price)}${k.bonus ? ` · +${Math.round(k.bonus * 100)}% salário` : k.hours ? ` · ${k.hours}h offline` : ''}</small>` : '';
     if (p) {
-      const f = G.freshness(p);
+      const f = G.freshness(p, Date.now(), c);
+      const fl = G.freshLeft(p, c);
       const rv = p.build && p.review;
       return `<div class="prodrow on ${rv ? 'built' : ''}"><span class="bi">${k.icon}</span><div class="grow"><b>${esc(p.model)} <small class="muted">${k.name} · v${p.v || 1}</small></b>
         ${rv ? `<div class="review"><span class="rstars">${starsHTML(rv.stars)}</span><small>nota ${rv.score}</small></div>${rv.notes.map((n) => `<small class="critic">“${esc(n)}”</small>`).join('')}
           <small>🏷️ Preço ${money(p.build.price)} · custo ${money(rv.cost)} · ≈${fmtUnits(G.productUnits(c, p))} vendas/dia · <b class="${G.productBase(c, p) >= 0 ? 'up' : 'down'}">${money(G.productBase(c, p) * f)}/dia</b></small>`
           : `<small>${money(tierInfo.rev * seg.k * f)}/dia de vendas base · ${freshLabel(f)}</small>`}
-        <div class="bar thin fresh"><i style="width:${Math.round((f / 1.5) * 100)}%"></i></div><small>${freshLabel(f)}</small>${sale}</div>
-        <div class="col">${c.dev ? '' : `<button class="btn sm ghost" data-act="newver" data-id="${c.id}" data-t="${i}" data-cost="${G.devCost(seg, i, true)}">🆕 Nova versão<span>${money(G.devCost(seg, i, true))}</span></button>`}${rv ? `<button class="btn sm ghost" data-act="setprice" data-id="${c.id}" data-t="${i}">💲 Preço</button>` : ''}${c.dev && c.dev.tier === i ? '' : `<button class="btn sm ghost rm" data-act="rmprod" data-id="${c.id}" data-t="${i}">🗑️ Tirar</button>`}</div></div>`;
+        <div class="bar thin fresh"><i style="width:${Math.round((f / 1.5) * 100)}%"></i></div><small>${freshLabel(f)}${fl > 0 ? ` · em alta por mais ${durL(fl)}` : ''}</small>${sale}</div>
+        <div class="col">${G.freeLines(c) <= 0 || inDev(i) ? '' : `<button class="btn sm ghost" data-act="newver" data-id="${c.id}" data-t="${i}" data-cost="${G.devCost(seg, i, true)}">🆕 Nova versão<span>${money(G.devCost(seg, i, true))}</span></button>`}${rv ? `<button class="btn sm ghost" data-act="setprice" data-id="${c.id}" data-t="${i}">💲 Preço</button>` : ''}${inDev(i) ? '<small class="muted">🧪 nova versão em desenvolvimento</small>' : `<button class="btn sm ghost rm" data-act="rmprod" data-id="${c.id}" data-t="${i}">🗑️ Tirar</button>`}</div></div>`;
     }
-    if (c.dev && c.dev.tier === i) return `<div class="prodrow dev"><span class="bi">${k.icon}</span><div class="grow"><b>🧪 ${esc(c.dev.model)} <small class="muted">${k.name}</small></b><div class="bar"><i data-live-w="cdev:${c.id}"></i></div><small>Fica pronto em <span data-live="cdevt:${c.id}"></span></small></div></div>`;
+    const dv = inDev(i);
+    if (dv) return `<div class="prodrow dev"><span class="bi">${k.icon}</span><div class="grow"><b>🧪 ${esc(dv.model)} <small class="muted">${k.name}</small></b><div class="bar"><i data-live-w="cdev:${c.id}:${i}"></i></div><small>Fica pronto em <span data-live="cdevt:${c.id}:${i}"></span></small></div></div>`;
     if (i === next) {
       const why = G.canDev(c, i);
-      return `<div class="prodrow next"><span class="bi">${k.icon}</span><div class="grow"><b>${k.name}</b><small>Vende ${money(tierInfo.rev * seg.k)}/dia base · precisa de ${tierInfo.need} na produção${tierInfo.pd ? ` · ${tierInfo.pd} em P&D` : ''} · ⏱️ ${durL(G.devMins(c, i) * 60_000)}</small>${sale}${why && !c.dev ? `<small class="warn">${why}</small>` : ''}</div>
-        ${c.dev ? '' : `<button class="btn gold sm" data-act="devprod" data-id="${c.id}" data-t="${i}" data-cost="${G.devCost(seg, i)}" ${why ? 'disabled' : ''}>Desenvolver<span>${money(G.devCost(seg, i))}</span></button>`}</div>`;
+      return `<div class="prodrow next"><span class="bi">${k.icon}</span><div class="grow"><b>${k.name}</b><small>Vende ${money(tierInfo.rev * seg.k)}/dia base · precisa de ${tierInfo.need} na produção${tierInfo.pd ? ` · ${tierInfo.pd} em P&D` : ''} · ⏱️ ${durL(G.devMins(c, i) * 60_000)}</small>${sale}${why ? `<small class="warn">${why}</small>` : ''}</div>
+        ${`<button class="btn gold sm" data-act="devprod" data-id="${c.id}" data-t="${i}" data-cost="${G.devCost(seg, i)}" ${why ? 'disabled' : ''}>Desenvolver<span>${money(G.devCost(seg, i))}</span></button>`}</div>`;
     }
     return `<div class="prodrow plock ${k.premium ? 'premium' : ''}"><span class="bi">${k.premium ? '💎' : '🔒'}</span><div class="grow"><b>${k.premium ? '✨ ' : ''}${k.name}</b><small>${k.premium ? `Linha premium · precisa de ${tierInfo.branches} filiais e do produto anterior` : 'Lance o produto anterior primeiro'}</small></div></div>`;
   }).join('');
   const cs = ui.csub || 'geral';
   const tabsBar = `<div class="subtabs ctabs">${[['geral', '📊', 'Visão geral'], ['produtos', '📦', 'Produtos'], ['equipe', '👥', 'Equipe'], ['filiais', '🏬', 'Filiais'], ['bolsa', '🔔', 'Bolsa'], ['relatorio', '📑', 'Relatório']].map(([id, ic, n]) => `<button class="${cs === id ? 'on' : ''}" data-act="csub" data-t="${id}"><span>${ic}</span>${n}</button>`).join('')}</div>`;
-  const report = `<div class="corpcard"><b>📑 Relatório de produtos</b>${c.products.length ? `<div class="rtable">${c.products.map((p) => { const k = seg.products[p.tier]; const rv = p.build && p.review; const lucro = G.productBase(c, p) * G.freshness(p); return `<div class="rrow"><span>${k.icon} <b>${esc(p.model)}</b><small>${k.name}</small></span><span>${rv ? `${starsHTML(rv.stars)}<small>nota ${rv.score}</small>` : '<small class="muted">antigo</small>'}</span><span class="${lucro >= 0 ? 'up' : 'down'}">${money(lucro)}<small>/dia</small></span></div>`; }).join('')}</div>` : '<p class="muted">Nenhum produto lançado.</p>'}
+  const report = `<div class="corpcard"><b>📑 Relatório de produtos</b>${c.products.length ? `<div class="rtable">${c.products.map((p) => { const k = seg.products[p.tier]; const rv = p.build && p.review; const lucro = G.productBase(c, p) * G.freshness(p, Date.now(), c); return `<div class="rrow"><span>${k.icon} <b>${esc(p.model)}</b><small>${k.name}</small></span><span>${rv ? `${starsHTML(rv.stars)}<small>nota ${rv.score}</small>` : '<small class="muted">antigo</small>'}</span><span class="${lucro >= 0 ? 'up' : 'down'}">${money(lucro)}<small>/dia</small></span></div>`; }).join('')}</div>` : '<p class="muted">Nenhum produto lançado.</p>'}
     <div class="lrow"><span>Receita total/dia</span><b class="up">${money(st.rev)}</b></div><div class="lrow"><span>Salários + aluguéis/dia</span><b class="down">${money(st.cost)}</b></div><div class="lrow"><span>Lucro/dia</span><b class="${st.profit < 0 ? 'down' : 'up'}">${money(st.profit)}</b></div>
     <small class="muted">${BUILDERS[c.seg] ? '🕵️ A crítica avalia cada produto pelas peças escolhidas e pelo preço. Ajuste o preço ou lance uma nova versão para melhorar a nota.' : 'Os produtos deste ramo ainda usam o modelo simples (montagem peça por peça chega em breve).'}</small></div>`;
   return `<button class="backbtn" data-act="compback">‹ Minhas empresas</button>
@@ -1137,7 +1157,7 @@ function vCompany(id) {
   </div>
   ${tabsBar}
   ${cs === 'relatorio' ? report : ''}
-  ${cs === 'geral' || cs === 'produtos' ? `<h4 class="sec">📦 Produtos</h4><div class="prodlist">${prodRows}</div>` : ''}
+  ${cs === 'geral' || cs === 'produtos' ? `<h4 class="sec">📦 Produtos</h4>${linesBox(c)}<div class="prodlist">${prodRows}</div>` : ''}
   ${cs === 'filiais' || cs === 'geral' ? `<h4 class="sec">🏬 Filiais</h4>
   <div class="corpcard branchbox">
     <div class="lrow"><span>Filiais abertas</span><b>${c.branches || 0} / ${G.BRANCH_MAX}</b></div>
@@ -2044,7 +2064,7 @@ function liveValue(key) {
     case 'resttime': return s.rested ? dur(s.rested - Date.now()) : '';
     case 'lovetime': return s.love && s.love.act ? '⏱️ ' + dur(s.love.act.end - Date.now()) : '';
     case 'aff': return s.love ? Math.round(s.love.aff) + ' / 100' : '';
-    case 'cdevt': { const c = G.findComp(s, arg); return c && c.dev ? '⏳ ' + dur(c.dev.end - Date.now()) : '✅'; }
+    case 'cdevt': { const [cid, tt] = key.split(':').slice(1); const c = G.findComp(s, cid); const d = c && devPick(c, tt); return d ? '⏳ ' + dur(d.end - Date.now()) : '✅'; }
     case 'year': return G.calendar().year;
     case 'yday': return G.calendar().day;
     case 'yearleft': return dur(G.calendar().next - Date.now());
@@ -2115,7 +2135,7 @@ function liveWidth(key) {
   if (key === 'xp') { const L = G.level(s); const a = G.xpForLevel(L), b = G.xpForLevel(L + 1); return (s.xp - a) / (b - a); }
   if (key === 'aff') return s.love ? s.love.aff / 100 : 0;
   if (key === 'year') { const c = G.calendar(); return (Date.now() - c.start) / c.len; }
-  if (key.startsWith('cdev:')) { const c = G.findComp(s, key.slice(5)); return c && c.dev ? (Date.now() - c.dev.start) / (c.dev.end - c.dev.start) : 1; }
+  if (key.startsWith('cdev:')) { const [cid, tt] = key.slice(5).split(':'); const c = G.findComp(s, cid); const d = c && devPick(c, tt); return d ? (Date.now() - d.start) / (d.end - d.start) : 1; }
   if (key === 'trip') { if (!s.trip) return 0; return (Date.now() - s.trip.start) / (s.trip.end - s.trip.start); }
   if (key === 'course') { if (!s.course) return 0; return (Date.now() - s.course.start) / (s.course.end - s.course.start); }
   if (key === 'nextcard') { const n = CARDS[s.cardMax + 1]; if (!n) return 1; const p = CARDS[s.cardMax].min; return (G.netWorth(s, C.mk) - p) / (n.min - p); }

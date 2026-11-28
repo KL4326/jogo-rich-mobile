@@ -1530,3 +1530,14 @@ s.old { opacity: .6; font-size: 12px; margin-left: 4px; }
 .specrow .lvdots { font-style: normal; font-size: 8px; letter-spacing: 1px; color: var(--purple); }
 .gcard .gst { font-size: 12px; }
 .goodmodal > .rar { background: var(--purple); color: #fff; }
+
+/* linhas de produção */
+.linesbox { display: flex; align-items: center; gap: 10px; background: var(--card); border-radius: 18px; padding: 10px 12px; margin-bottom: 10px; box-shadow: inset 0 1.5px 0 #fff, 0 5px 0 var(--edge), 0 10px 20px #1d145233; color: var(--ink); }
+.linesbox .lslots { display: grid; grid-template-columns: repeat(2, 26px); gap: 4px; flex: none; }
+.linesbox .lslots i { width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center; font-style: normal; font-size: 14px; }
+.linesbox .lbusy { background: #dcecff; box-shadow: inset 0 0 0 2px #4da3ff; animation: pulse 1.6s infinite; }
+.linesbox .lfree { background: #dcf8e7; box-shadow: inset 0 0 0 2px var(--green); }
+.linesbox .llock { background: #eee8f7; opacity: .6; font-size: 11px; }
+.linesbox .grow b { font-size: 14px; } .linesbox .grow small { color: var(--ink2); font-size: 11.5px; }
+.linesbox .btn.gold { min-width: 0; padding: 6px 10px; }
+.btn:disabled { filter: grayscale(.75); opacity: .6; pointer-events: none; }
