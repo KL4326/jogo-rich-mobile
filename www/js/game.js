@@ -1381,6 +1381,12 @@ export function closeCompany(s, id) {
   s.companies = s.companies.filter((x) => x !== c);
   return { got: c.invested * 0.5 };
 }
+// Preço na vitrine: o que o dono definiu, mas nunca abaixo do custo de fabricação
+export function vitrinePrice(segId, p, k) {
+  if (!p.build || !(p.build.price > 0)) return k.price;
+  const rv = p.review || reviewProduct(segId, p.tier, p.build);
+  return Math.round(Math.max(p.build.price, rv.cost || 0));
+}
 // Ficha técnica + avaliação pública de um produto montado (vai para a vitrine de Bens)
 export function productSheet(segId, p) {
   if (!p.build || !BUILDERS[segId]) return {};
@@ -1397,7 +1403,7 @@ export function compPublic(s, c, mk) {
   const st = compStats(s, c, mk);
   return {
     name: c.name, ticker: c.ticker, seg: c.seg, float: c.float, shares: COMP.shares, price: compPrice(s, c, mk), profit: st.profit, founded: c.founded,
-    products: seg.cat ? c.products.map((p) => { const k = seg.products[p.tier]; return { tier: p.tier, model: p.model, kind: k.name, icon: k.icon, cat: seg.cat, price: k.price, prestige: k.prestige, bonus: k.bonus || 0, hours: k.hours || 0, v: p.v || 1, ...productSheet(c.seg, p) }; }) : [],
+    products: seg.cat ? c.products.map((p) => { const k = seg.products[p.tier]; return { tier: p.tier, model: p.model, kind: k.name, icon: k.icon, cat: seg.cat, price: vitrinePrice(c.seg, p, k), basePrice: k.price, prestige: k.prestige, bonus: k.bonus || 0, hours: k.hours || 0, v: p.v || 1, ...productSheet(c.seg, p) }; }) : [],
     nprod: c.products.length,
     plist: c.products.map((p) => ({ icon: seg.products[p.tier].icon, kind: seg.products[p.tier].name, model: p.model, v: p.v || 1 })),
   };
